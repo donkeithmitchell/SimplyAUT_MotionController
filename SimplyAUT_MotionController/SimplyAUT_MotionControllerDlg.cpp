@@ -53,10 +53,13 @@ END_MESSAGE_MAP()
 
 CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG, pParent)
+	, m_dlgGirthWeld(m_galil_state)
+	, m_dlgMotors(m_galil_state)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
+	m_galil_state = GALIL_IDLE;
 }
 
 void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
@@ -108,7 +111,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	// TODO: Add extra initialization here
 	m_tabControl.InsertItem(0, CString("Connect"));
 	m_tabControl.InsertItem(1, CString("Motors"));
-	m_tabControl.InsertItem(2, CString("Girth Weld"));
+	m_tabControl.InsertItem(2, CString("Scan"));
 	m_tabControl.InsertItem(3, CString("Status"));
 	m_tabControl.SetCurSel(0);
 

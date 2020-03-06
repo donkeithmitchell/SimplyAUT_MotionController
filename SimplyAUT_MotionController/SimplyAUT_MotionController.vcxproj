@@ -188,6 +188,11 @@
     <ClInclude Include="DialogMotors.h" />
     <ClInclude Include="DialogStatus.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Gclib2.h" />
+    <ClInclude Include="include\gclib.h" />
+    <ClInclude Include="include\gclibo.h" />
+    <ClInclude Include="include\gclib_errors.h" />
+    <ClInclude Include="include\gclib_record.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SimplyAUT_MotionController.h" />
@@ -200,6 +205,7 @@
     <ClCompile Include="DialogGirthWeld.cpp" />
     <ClCompile Include="DialogMotors.cpp" />
     <ClCompile Include="DialogStatus.cpp" />
+    <ClCompile Include="Gclib2.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -214,16 +220,27 @@
     <ResourceCompile Include="SimplyAUTMotionController.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="dll\x86\gclib.dll" />
+    <None Include="dll\x86\gclibo.dll" />
     <None Include="res\SimplyAUTMotionController.rc2" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\bitmap1.bmp" />
+    <Image Include="res\bitmap_b.bmp" />
     <Image Include="res\bitmap_c.bmp" />
     <Image Include="res\bitmap_d.bmp" />
     <Image Include="res\bitmap_g.bmp" />
+    <Image Include="res\bitmap_l.bmp" />
     <Image Include="res\bitmap_p.bmp" />
+    <Image Include="res\bitmap_s.bmp" />
     <Image Include="res\bmp00001.bmp" />
+    <Image Include="res\bmp00002.bmp" />
+    <Image Include="res\bmp00003.bmp" />
     <Image Include="res\SimplyAUT_MotionController.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\dynamic\x86\gclib.lib" />
+    <Library Include="lib\dynamic\x86\gclibo.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

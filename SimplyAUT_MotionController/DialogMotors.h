@@ -8,7 +8,7 @@ class CDialogMotors : public CDialogEx
 	DECLARE_DYNAMIC(CDialogMotors)
 
 public:
-	CDialogMotors(CWnd* pParent = nullptr);   // standard constructor
+	CDialogMotors(const GALIL_STATE&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogMotors();
 
 	virtual BOOL OnInitDialog();
@@ -25,6 +25,20 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
+	afx_msg void OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult);
+	void EbableControls();
+
+	const GALIL_STATE& m_nGalilState;
+
+	CSpinButtonCtrl m_spinScanSpeed;
+	CSpinButtonCtrl m_spinScanAccel;
+
+	CString m_szScanSpeed;
+	CString m_szScanAccel;
+
+	double m_fScanSpeed;
+	double m_fScanAccel;
 
 	CString m_szMotorA;
 	CString m_szMotorB;

@@ -17,6 +17,12 @@
 #define IDB_BITMAP_GO_HORZ              135
 #define IDB_BITMAP_GO_VERT              136
 #define IDB_BITMAP_STOP                 137
+#define IDB_BITMAP_LASER_OK             138
+#define IDB_BITMAP_LASER_BLUE           139
+#define IDB_BITMAP_LASER_LOADING        139
+#define IDB_BITMAP_LASER_HOT            140
+#define IDB_BITMAP_LASER_ERROR          141
+#define IDB_BITMAP_LASER_OFF            142
 #define IDC_BUTTON_CONNECT              1001
 #define IDC_IPADDRESS_LASER             1004
 #define IDC_IPADDRESS_GALIL             1005
@@ -43,21 +49,37 @@
 #define IDC_EDIT_SPEED                  1026
 #define IDC_SPIN_SPEED                  1027
 #define IDC_EDIT_LR_OFFSET              1028
+#define IDC_STATIC_SPEED2               1028
 #define IDC_SPIN_LR_OFFSET              1029
+#define IDC_EDIT_ACCEL                  1029
 #define IDC_BUTTON_PAUSE                1030
+#define IDC_SPIN_ACCEL                  1030
 #define IDC_BUTTON_CALIB                1031
 #define IDC_BUTTON_MANUAL               1032
 #define IDC_BUTTON_AUTO                 1033
 #define IDC_BUTTON_BACK                 1034
 #define IDC_BUTTON_FWD                  1035
-#define IDC_STATIC_LR_OFFSET2           1036
 #define IDC_EDIT_CIRC                   1037
 #define IDC_SPIN_CIRC                   1038
 #define IDC_BUTTON_SET_HOME             1039
 #define IDC_BUTTON_GO_HOME              1040
 #define IDC_STATIC_PAUSE                1041
-#define IDC_EDIT1                       1042
 #define IDC_EDIT_STATUS                 1042
+#define IDC_EDIT_DIST                   1042
+#define IDC_RADIO_CIRC                  1043
+#define IDC_RADIO_DIST                  1044
+#define IDC_SPIN_DIST                   1045
+#define IDC_CHECK_AUTOHOME              1046
+#define IDC_EDIT_OVERLAP                1047
+#define IDC_STATIC_HOMEDIST             1048
+#define IDC_SPIN_OVERLAP                1049
+#define IDC_STATIC_SCANNEDDIST          1050
+#define IDC_CHECK_RETURNTOSTART         1051
+#define IDC_STATIC_CAP_HEIGHT           1052
+#define IDC_STATIC_LASER_US             1053
+#define IDC_STATIC_LASER_DS             1054
+#define IDC_STATIC_LASER_DIFF           1055
+#define IDC_BUTTON_LASER_STATUS         1056
 
 // Next default values for new objects
 // 
@@ -65,7 +87,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        133
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1043
+#define _APS_NEXT_CONTROL_VALUE         1057
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -30,6 +30,8 @@ public:
 // Implementation
 protected:
 	HICON m_hIcon;
+	GALIL_STATE m_galil_state;
+
 	CDialogConnect m_dlgConnect;
 	CDialogMotors  m_dlgMotors;
 	CDialogGirthWeld  m_dlgGirthWeld;

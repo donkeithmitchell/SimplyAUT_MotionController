@@ -48,6 +48,21 @@
     <ClInclude Include="DialogStatus.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\gclib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gclib_errors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gclib_record.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gclibo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Gclib2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">
@@ -74,6 +89,9 @@
     <ClCompile Include="DialogStatus.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Gclib2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SimplyAUTMotionController.rc">
@@ -82,6 +100,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="res\SimplyAUTMotionController.rc2">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="dll\x86\gclib.dll">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="dll\x86\gclibo.dll">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
@@ -107,5 +131,28 @@
     <Image Include="res\bmp00001.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\bitmap_s.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\bmp00002.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\bitmap_b.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\bitmap_l.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\bmp00003.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\dynamic\x86\gclib.lib">
+      <Filter>Resource Files</Filter>
+    </Library>
+    <Library Include="lib\dynamic\x86\gclibo.lib">
+      <Filter>Resource Files</Filter>
+    </Library>
   </ItemGroup>
 </Project>
