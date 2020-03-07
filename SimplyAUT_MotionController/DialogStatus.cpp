@@ -14,7 +14,7 @@ IMPLEMENT_DYNAMIC(CDialogStatus, CDialogEx)
 
 CDialogStatus::CDialogStatus(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_STATUS, pParent)
-	, m_szStatus(_T("Status"))
+	, m_szStatus(_T(""))
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -74,6 +74,18 @@ void CDialogStatus::Create(CWnd* pParent)
 {
 	CDialogEx::Create(IDD_DIALOG_STATUS, pParent);
 	ShowWindow(SW_HIDE);
+}
+
+void CDialogStatus::AppendDebugMessage(const CString& szMsg)
+{
+	UpdateData(TRUE);
+	CString temp = szMsg + CString("\r\n") + m_szStatus;
+	m_szStatus = temp;
+	UpdateData(FALSE);
+}
+
+void CDialogStatus::EnableControls()
+{
 }
 
 

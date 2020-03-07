@@ -63,6 +63,9 @@
     <ClInclude Include="Gclib2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MotionControl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">
@@ -92,6 +95,9 @@
     <ClCompile Include="Gclib2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MotionControl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SimplyAUTMotionController.rc">
@@ -103,10 +109,10 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="dll\x86\gclib.dll">
-      <Filter>Resource Files</Filter>
+      <Filter>Source Files</Filter>
     </None>
     <None Include="dll\x86\gclibo.dll">
-      <Filter>Resource Files</Filter>
+      <Filter>Source Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -149,10 +155,10 @@
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\dynamic\x86\gclib.lib">
-      <Filter>Resource Files</Filter>
+      <Filter>Source Files</Filter>
     </Library>
     <Library Include="lib\dynamic\x86\gclibo.lib">
-      <Filter>Resource Files</Filter>
+      <Filter>Source Files</Filter>
     </Library>
   </ItemGroup>
 </Project>

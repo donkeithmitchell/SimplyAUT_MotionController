@@ -12,6 +12,9 @@ public:
 	virtual ~CDialogStatus();
 
 	void Create(CWnd*);
+	void AppendDebugMessage(const CString&);
+	void EnableControls();
+
 
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 

@@ -5,14 +5,16 @@
 #include "SimplyAUT_MotionController.h"
 #include "DialogGirthWeld.h"
 #include "afxdialogex.h"
+#include "MotionControl.h"
 #include "resource.h"
 
 // CDialogGirthWeld dialog
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
+	, m_motionControl(motion)
 	, m_nGalilState(nState)
 
 	, m_szLROffset(_T("0.0"))
@@ -144,16 +146,16 @@ BOOL CDialogGirthWeld::OnInitDialog()
 	m_spinScanDist.SetRange(0, UD_MAXVAL);
 	m_spinScanOverlap.SetRange(0, UD_MAXVAL);
 
-	m_bitmapPause.LoadBitmapW(IDB_BITMAP_PAUSE);
-	m_bitmapGoHorz.LoadBitmapW(IDB_BITMAP_GO_HORZ);
-	m_bitmapGoVert.LoadBitmapW(IDB_BITMAP_GO_VERT);
-	m_bitmapStop.LoadBitmapW(IDB_BITMAP_STOP);
+	m_bitmapPause.LoadBitmap(IDB_BITMAP_PAUSE);
+	m_bitmapGoHorz.LoadBitmap(IDB_BITMAP_GO_HORZ);
+	m_bitmapGoVert.LoadBitmap(IDB_BITMAP_GO_VERT);
+	m_bitmapStop.LoadBitmap(IDB_BITMAP_STOP);
 
-	m_bitmapLaserOff.LoadBitmapW(IDB_BITMAP_LASER_OFF);
-	m_bitmapLaserOK.LoadBitmapW(IDB_BITMAP_LASER_OK);
-	m_bitmapLaserError.LoadBitmapW(IDB_BITMAP_LASER_ERROR);
-	m_bitmapLaserLoading.LoadBitmapW(IDB_BITMAP_LASER_LOADING);
-	m_bitmapLaserHot.LoadBitmapW(IDB_BITMAP_LASER_HOT);
+	m_bitmapLaserOff.LoadBitmap(IDB_BITMAP_LASER_OFF);
+	m_bitmapLaserOK.LoadBitmap(IDB_BITMAP_LASER_OK);
+	m_bitmapLaserError.LoadBitmap(IDB_BITMAP_LASER_ERROR);
+	m_bitmapLaserLoading.LoadBitmap(IDB_BITMAP_LASER_LOADING);
+	m_bitmapLaserHot.LoadBitmap(IDB_BITMAP_LASER_HOT);
 
 	m_brRed.CreateSolidBrush(RGB(255, 0, 0));
 	m_brGreen.CreateSolidBrush(RGB(0, 255, 0));
@@ -302,6 +304,8 @@ void CDialogGirthWeld::OnDeltaposSpinScanOverlap(NMHDR* pNMHDR, LRESULT* pResult
 void CDialogGirthWeld::SetButtonBitmaps()
 {
 	// TODO: Add your control notification handler code here
+
+	BOOL bGalil = m_motionControl.IsConnected();
 	HBITMAP hBitmapHorz = (HBITMAP)m_bitmapGoHorz.GetSafeHandle();
 	HBITMAP hBitmapVert = (HBITMAP)m_bitmapGoVert.GetSafeHandle();
 	HBITMAP hBitmapStop = (HBITMAP)m_bitmapStop.GetSafeHandle();
@@ -323,15 +327,15 @@ void CDialogGirthWeld::SetButtonBitmaps()
 	m_buttonFwd.SetBitmap(m_nGalilState == GALIL_FWD ? hBitmapStop : hBitmapVert);
 
 	// set to 
-	m_buttonCalib.EnableWindow(m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_IDLE);
-	m_buttonManual.EnableWindow(m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_IDLE);
-	m_buttonAuto.EnableWindow(m_nGalilState == GALIL_AUTO || m_nGalilState == GALIL_IDLE);
-	m_buttonPause.EnableWindow(m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_AUTO);
-	m_buttonGoHome.EnableWindow((m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) && m_bReturnToHome);
-	m_buttonSetHome.EnableWindow(m_nGalilState == GALIL_IDLE && m_bReturnToHome);
+	m_buttonCalib.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_IDLE));
+	m_buttonManual.EnableWindow(bGalil && (m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_IDLE));
+	m_buttonAuto.EnableWindow(bGalil && (m_nGalilState == GALIL_AUTO || m_nGalilState == GALIL_IDLE));
+	m_buttonPause.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_AUTO));
+	m_buttonGoHome.EnableWindow(bGalil && (m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) && m_bReturnToHome);
+	m_buttonSetHome.EnableWindow(bGalil && m_nGalilState == GALIL_IDLE && m_bReturnToHome);
 
-	m_buttonBack.EnableWindow(m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_BACK || m_bPaused);
-	m_buttonFwd.EnableWindow(m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_FWD || m_bPaused);
+	m_buttonBack.EnableWindow(bGalil && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_BACK || m_bPaused));
+	m_buttonFwd.EnableWindow(bGalil && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_FWD || m_bPaused));
 
 	GetDlgItem(IDC_EDIT_LR_OFFSET)->EnableWindow(m_nGalilState == GALIL_IDLE);
 	GetDlgItem(IDC_EDIT_CIRC)->EnableWindow(m_nGalilState == GALIL_IDLE && m_nScanType == SCANTYPE_CIRC);
@@ -545,6 +549,11 @@ void CDialogGirthWeld::OnClickedCheckGoToStart()
 		m_bReturnToHome = FALSE;
 		UpdateData(FALSE);
 	}
+	SetButtonBitmaps();
+}
+
+void CDialogGirthWeld::EnableControls()
+{
 	SetButtonBitmaps();
 }
 

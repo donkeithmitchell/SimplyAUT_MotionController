@@ -5,6 +5,7 @@
 #include "SimplyAUT_MotionController.h"
 #include "CDialogConnect.h"
 #include "afxdialogex.h"
+#include "MotionControl.h"
 #include "resource.h"
 
 
@@ -12,8 +13,9 @@
 
 IMPLEMENT_DYNAMIC(CDialogConnect, CDialogEx)
 
-CDialogConnect::CDialogConnect(CWnd* pParent /*=nullptr*/)
+CDialogConnect::CDialogConnect(CMotionControl& motion, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_CONNECT, pParent)
+	, m_motionControl(motion)
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -22,6 +24,13 @@ CDialogConnect::CDialogConnect(CWnd* pParent /*=nullptr*/)
 CDialogConnect::~CDialogConnect()
 {
 }
+
+void CDialogConnect::Init(CWnd* pParent, UINT nMsg)
+{
+	m_pParent = pParent;
+	m_nMsg = nMsg;
+}
+
 
 void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 {
@@ -66,14 +75,32 @@ void CDialogConnect::OnOK()
 
 void CDialogConnect::OnClickedButtonConnect()
 {
-	BYTE laser[4], galil[4];
 	// TODO: Add your control notification handler code here
+	// connect if there is not a connection now, else disconnect
+	if (m_motionControl.IsConnected())
+	{
+		m_motionControl.Disconnect();
+	}
+	else
+	{
+		BYTE laser[4], galil[4];
+		// get the IP addresses of the lasewr and Gailil
+		m_ipLaser.GetAddress(laser[0], laser[1], laser[2], laser[3]);
+		m_ipGalil.GetAddress(galil[0], galil[1], galil[2], galil[3]);
 
-	// get the IP addresses of the lasewr and Gailil
-	m_ipLaser.GetAddress(laser[0], laser[1], laser[2], laser[3]);
-	m_ipGalil.GetAddress(galil[0], galil[1], galil[2], galil[3]);
+		m_bCheck = TRUE;
+		int ret = UpdateData(TRUE);
+		m_bCheck = FALSE;
+		if (ret)
+			m_motionControl.Connect(galil, 0.0);
+	}
+
+	// request the parent to enable all controls 
+	m_pParent->PostMessageA(m_nMsg, 1);
+
+//	SetButtonBitmaps(); // donwe in the above
+
 }
-
 // this dialog is sized to a tab, and not the size that designed into
 // thus, must locate the controls on Size
 void CDialogConnect::OnSize(UINT nFlag, int cx, int cy)
@@ -104,16 +131,10 @@ BOOL CDialogConnect::OnInitDialog()
 	int cx1 = rect.Width();
 	int cy1 = rect.Height();
 
-	m_bitmapDisconnect.LoadBitmapW(IDB_BITMAP_DISCONNECT);
-	m_bitmapConnect.LoadBitmapW(IDB_BITMAP_CONNECT);
 
-	HBITMAP hBitmap1 = (HBITMAP)m_bitmapDisconnect.GetSafeHandle();
-	HBITMAP hBitmap2 = (HBITMAP)m_bitmapConnect.GetSafeHandle();
-
-	m_buttonLaser.SetBitmap(hBitmap1);
-	m_buttonRGB.SetBitmap(hBitmap1);
-	m_buttonMAG.SetBitmap(hBitmap1);
-	m_buttonGalil.SetBitmap(hBitmap1);
+	m_bitmapDisconnect.LoadBitmap(IDB_BITMAP_DISCONNECT);
+	m_bitmapConnect.LoadBitmap(IDB_BITMAP_CONNECT);
+	SetButtonBitmaps();
 
 	m_ipLaser.SetAddress(192, 168, 12, 101);
 	m_ipGalil.SetAddress(192, 168, 1, 41);
@@ -123,4 +144,29 @@ BOOL CDialogConnect::OnInitDialog()
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
+
+void CDialogConnect::SetButtonBitmaps()
+{
+	HBITMAP hBitmap1 = (HBITMAP)m_bitmapDisconnect.GetSafeHandle();
+	HBITMAP hBitmap2 = (HBITMAP)m_bitmapConnect.GetSafeHandle();
+	BOOL bGalil = m_motionControl.IsConnected();
+
+	m_buttonLaser.SetBitmap(hBitmap1);
+	m_buttonRGB.SetBitmap(hBitmap1);
+	m_buttonMAG.SetBitmap(hBitmap1);
+	m_buttonGalil.SetBitmap(bGalil ? hBitmap2 : hBitmap1);
+
+	if (!m_motionControl.IsConnected())
+		GetDlgItem(IDC_BUTTON_CONNECT)->SetWindowText(_T("Connect"));
+	else
+		GetDlgItem(IDC_BUTTON_CONNECT)->SetWindowText(_T("Disconnect"));
+
+	m_ipGalil.EnableWindow(m_motionControl.IsConnected() ? FALSE : TRUE);
+}
+
+void CDialogConnect::EnableControls()
+{
+	SetButtonBitmaps();
+}
+
 

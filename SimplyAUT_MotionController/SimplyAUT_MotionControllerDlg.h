@@ -7,6 +7,7 @@
 #include "DialogMotors.h"
 #include "DialogGirthWeld.h"
 #include "DialogStatus.h"
+#include "MotionControl.h"
 
 
 // CSimplyAUTMotionControllerDlg dialog
@@ -26,16 +27,18 @@ public:
 
 	void OnSelchangeTab2();
 
+	enum { WM_DEGUG_MSG = WM_USER + 1 };
 
 // Implementation
 protected:
 	HICON m_hIcon;
-	GALIL_STATE m_galil_state;
+	GALIL_STATE			m_galil_state;
+	CMotionControl		m_motionControl;
 
-	CDialogConnect m_dlgConnect;
-	CDialogMotors  m_dlgMotors;
-	CDialogGirthWeld  m_dlgGirthWeld;
-	CDialogStatus  m_dlgStatus;
+	CDialogConnect		m_dlgConnect;
+	CDialogMotors		m_dlgMotors;
+	CDialogGirthWeld	m_dlgGirthWeld;
+	CDialogStatus		m_dlgStatus;
 
 	BOOL m_bInit;
 	BOOL m_bCheck;
@@ -46,6 +49,7 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnSize(UINT, int cx, int xy);
+	afx_msg LRESULT OnUserDebugMessage(WPARAM, LPARAM);
 	DECLARE_MESSAGE_MAP()
 public:
 	CTabCtrl m_tabControl;

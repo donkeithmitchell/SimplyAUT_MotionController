@@ -5,15 +5,17 @@
 #include "SimplyAUT_MotionController.h"
 #include "DialogMotors.h"
 #include "afxdialogex.h"
-#include "Gclib2.h""
+#include "Gclib2.h"
+#include "MotionControl.h"
 #include "resource.h"
 
 // CDialogMotors dialog
 
 IMPLEMENT_DYNAMIC(CDialogMotors, CDialogEx)
 
-CDialogMotors::CDialogMotors(const GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogMotors::CDialogMotors(CMotionControl& motion, const GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_MOTORS, pParent)
+	, m_motionControl(motion)
 	, m_nGalilState(nState)
 
 	, m_szScanSpeed(_T("10.0"))
@@ -116,6 +118,8 @@ void CDialogMotors::OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult)
 	m_fScanSpeed = min(max(m_fScanSpeed, 0.1), 100);
 	UpdateData(FALSE);
 
+	m_motionControl.SetScanSpeed(m_fScanSpeed);
+
 	*pResult = 0;
 }
 
@@ -139,5 +143,7 @@ void CDialogMotors::EbableControls()
 
 }
 
-
+void CDialogMotors::EnableControls()
+{
+}
 

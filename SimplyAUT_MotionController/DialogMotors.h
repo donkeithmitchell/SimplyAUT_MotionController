@@ -3,16 +3,19 @@
 
 // CDialogMotors dialog
 
+class CMotionControl;
 class CDialogMotors : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogMotors)
 
 public:
-	CDialogMotors(const GALIL_STATE&, CWnd* pParent = nullptr);   // standard constructor
+	CDialogMotors(CMotionControl&, const GALIL_STATE&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogMotors();
 
 	virtual BOOL OnInitDialog();
 	void Create(CWnd* pParent);
+	void EnableControls();
+
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -29,7 +32,8 @@ public:
 	afx_msg void OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult);
 	void EbableControls();
 
-	const GALIL_STATE& m_nGalilState;
+	const GALIL_STATE&	m_nGalilState;
+	CMotionControl&		m_motionControl;
 
 	CSpinButtonCtrl m_spinScanSpeed;
 	CSpinButtonCtrl m_spinScanAccel;

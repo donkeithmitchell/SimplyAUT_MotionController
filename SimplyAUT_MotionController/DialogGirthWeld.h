@@ -4,12 +4,13 @@
 
 // CDialogGirthWeld dialog
 
+class CMotionControl;
 class CDialogGirthWeld : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();
@@ -18,6 +19,8 @@ public:
 	BOOL	CheckIfToRunOrStop(GALIL_STATE);
 	BOOL	CheckParameters();
 	void    SetLaserStatus(LASER_STATUS nStatus);
+	void EnableControls();
+
 	
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -33,6 +36,7 @@ public:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 
 	GALIL_STATE& m_nGalilState;
+	CMotionControl& m_motionControl;
 
 	BOOL	m_bInit;
 	BOOL	m_bCheck;

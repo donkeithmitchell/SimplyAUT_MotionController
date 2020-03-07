@@ -53,13 +53,17 @@ END_MESSAGE_MAP()
 
 CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG, pParent)
-	, m_dlgGirthWeld(m_galil_state)
-	, m_dlgMotors(m_galil_state)
+	, m_dlgGirthWeld(m_motionControl, m_galil_state)
+	, m_dlgMotors(m_motionControl, m_galil_state)
+	, m_dlgConnect(m_motionControl)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
 	m_galil_state = GALIL_IDLE;
+
+	m_motionControl.Init(this, WM_DEGUG_MSG);
+	m_dlgConnect.Init(this, WM_DEGUG_MSG);
 }
 
 void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
@@ -74,6 +78,7 @@ BEGIN_MESSAGE_MAP(CSimplyAUTMotionControllerDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_WM_SIZE()
 	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB1, &CSimplyAUTMotionControllerDlg::OnSelchangeTab1)
+	ON_MESSAGE(WM_DEGUG_MSG, OnUserDebugMessage)
 END_MESSAGE_MAP()
 
 
@@ -125,6 +130,29 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	OnSelchangeTab2();
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
+}
+
+LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
+{
+	switch (wParam)
+	{
+		case 0: // receivbing address to a CString
+		{
+			const CString* pMsg = (CString*)lParam;
+			// now pass this to the status window
+			m_dlgStatus.AppendDebugMessage(*pMsg);
+			break;
+		}
+		case 1: // enable the various controlds
+		{
+			m_dlgConnect.EnableControls();
+			m_dlgMotors.EnableControls();
+			m_dlgGirthWeld.EnableControls();
+			m_dlgStatus.EnableControls();
+		}
+	}
+
+	return 0;
 }
 
 void CSimplyAUTMotionControllerDlg::OnSysCommand(UINT nID, LPARAM lParam)
