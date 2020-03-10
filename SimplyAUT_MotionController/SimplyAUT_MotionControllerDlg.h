@@ -8,6 +8,7 @@
 #include "DialogGirthWeld.h"
 #include "DialogStatus.h"
 #include "MotionControl.h"
+#include "LaserControl.h"
 
 
 // CSimplyAUTMotionControllerDlg dialog
@@ -26,6 +27,7 @@ public:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 
 	void OnSelchangeTab2();
+	BOOL CheckVisibleTab();
 
 	enum { WM_DEGUG_MSG = WM_USER + 1 };
 
@@ -34,6 +36,7 @@ protected:
 	HICON m_hIcon;
 	GALIL_STATE			m_galil_state;
 	CMotionControl		m_motionControl;
+	CLaserControl       m_laserControl;
 
 	CDialogConnect		m_dlgConnect;
 	CDialogMotors		m_dlgMotors;
@@ -42,6 +45,7 @@ protected:
 
 	BOOL m_bInit;
 	BOOL m_bCheck;
+	int  m_nSel;
 
 	// Generated message map functions
 	virtual BOOL OnInitDialog();

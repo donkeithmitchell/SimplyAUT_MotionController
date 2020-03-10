@@ -66,6 +66,21 @@
     <ClInclude Include="MotionControl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LaserControl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SLS_Comms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SLSDef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VA_CommonTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Button.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">
@@ -98,6 +113,12 @@
     <ClCompile Include="MotionControl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LaserControl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Button.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SimplyAUTMotionController.rc">
@@ -114,6 +135,7 @@
     <None Include="dll\x86\gclibo.dll">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="SLS_Comms.dll" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\SimplyAUT_MotionController.ico">
@@ -152,6 +174,12 @@
     <Image Include="res\bmp00003.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\bmp00004.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\bmp00005.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\dynamic\x86\gclib.lib">
@@ -160,5 +188,6 @@
     <Library Include="lib\dynamic\x86\gclibo.lib">
       <Filter>Source Files</Filter>
     </Library>
+    <Library Include="SLS_Comms.lib" />
   </ItemGroup>
 </Project>

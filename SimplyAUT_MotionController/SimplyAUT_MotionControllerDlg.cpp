@@ -53,17 +53,21 @@ END_MESSAGE_MAP()
 
 CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG, pParent)
-	, m_dlgGirthWeld(m_motionControl, m_galil_state)
+	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_galil_state)
 	, m_dlgMotors(m_motionControl, m_galil_state)
-	, m_dlgConnect(m_motionControl)
+	, m_dlgConnect(m_motionControl, m_laserControl)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
+	m_nSel = 0;
 	m_galil_state = GALIL_IDLE;
 
 	m_motionControl.Init(this, WM_DEGUG_MSG);
 	m_dlgConnect.Init(this, WM_DEGUG_MSG);
+	m_dlgGirthWeld.Init(this, WM_DEGUG_MSG);
+	m_dlgMotors.Init(this, WM_DEGUG_MSG);
+	m_dlgStatus.Init(this, WM_DEGUG_MSG);
 }
 
 void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
@@ -118,7 +122,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	m_tabControl.InsertItem(1, CString("Motors"));
 	m_tabControl.InsertItem(2, CString("Scan"));
 	m_tabControl.InsertItem(3, CString("Status"));
-	m_tabControl.SetCurSel(0);
+	m_tabControl.SetCurSel(m_nSel);
 
 	m_dlgConnect.Create(&m_tabControl);
 	m_dlgMotors.Create(&m_tabControl);
@@ -136,20 +140,36 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 {
 	switch (wParam)
 	{
-		case 0: // receivbing address to a CString
+		case MSG_SEND_DEBUGMSG: // receivbing address to a CString
 		{
 			const CString* pMsg = (CString*)lParam;
 			// now pass this to the status window
 			m_dlgStatus.AppendDebugMessage(*pMsg);
 			break;
 		}
-		case 1: // enable the various controlds
+		case MSG_SETBITMAPS: // enable the various controlds
 		{
 			m_dlgConnect.EnableControls();
 			m_dlgMotors.EnableControls();
 			m_dlgGirthWeld.EnableControls();
 			m_dlgStatus.EnableControls();
+			break;
 		}
+		case MSG_GETSCANSPEED:
+		{
+			double* pSpeed = (double*)lParam;
+			*pSpeed = m_dlgMotors.GetMotorSpeed();
+			break;
+		}
+		case MSG_GETACCEL:
+		{
+			double* pAccel = (double*)lParam;
+			*pAccel = m_dlgMotors.GetMotorAccel();
+			break;
+		}
+		case MSG_SHOW_MOTOR_SPEEDS:
+			m_dlgMotors.ShowMotorSpeeds();
+			break;
 	}
 
 	return 0;
@@ -242,21 +262,37 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 void CSimplyAUTMotionControllerDlg::OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	// TODO: Add your control notification handler code here
-	OnSelchangeTab2();
+	if (CheckVisibleTab())
+		OnSelchangeTab2();
+	else
+		m_tabControl.SetCurSel(m_nSel); // put back as there qwere errors in n edit box
 	*pResult = 0;
+}
+
+BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
+{
+	switch (m_nSel)
+	{
+	case 0: return m_dlgConnect.CheckVisibleTab();
+	case 1: return m_dlgMotors.CheckVisibleTab();
+	case 2: return m_dlgConnect.CheckVisibleTab();
+	case 3: return m_dlgConnect.CheckVisibleTab();
+	default: return FALSE;
+	}
+
 }
 
 void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 {
 	// TODO: Add your control notification handler code here
-	int nSel = m_tabControl.GetCurSel();
+	m_nSel = m_tabControl.GetCurSel();
 	ASSERT(IsWindow(m_dlgConnect.m_hWnd));
 	ASSERT(IsWindow(m_dlgMotors.m_hWnd));
 	ASSERT(IsWindow(m_dlgGirthWeld.m_hWnd));
 	ASSERT(IsWindow(m_dlgStatus.m_hWnd));
 
-	m_dlgConnect.ShowWindow(nSel == 0 ? SW_SHOW : SW_HIDE);
-	m_dlgMotors.ShowWindow(nSel == 1 ? SW_SHOW : SW_HIDE);
-	m_dlgGirthWeld.ShowWindow(nSel == 2 ? SW_SHOW : SW_HIDE);
-	m_dlgStatus.ShowWindow(nSel == 3 ? SW_SHOW : SW_HIDE);
+	m_dlgConnect.ShowWindow(m_nSel == 0 ? SW_SHOW : SW_HIDE);
+	m_dlgMotors.ShowWindow(m_nSel == 1 ? SW_SHOW : SW_HIDE);
+	m_dlgGirthWeld.ShowWindow(m_nSel == 2 ? SW_SHOW : SW_HIDE);
+	m_dlgStatus.ShowWindow(m_nSel == 3 ? SW_SHOW : SW_HIDE);
 }

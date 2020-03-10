@@ -188,6 +188,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Button.h" />
     <ClInclude Include="CDialogConnect.h" />
     <ClInclude Include="DialogGirthWeld.h" />
     <ClInclude Include="DialogMotors.h" />
@@ -198,20 +199,26 @@
     <ClInclude Include="include\gclibo.h" />
     <ClInclude Include="include\gclib_errors.h" />
     <ClInclude Include="include\gclib_record.h" />
+    <ClInclude Include="LaserControl.h" />
     <ClInclude Include="MotionControl.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SimplyAUT_MotionController.h" />
     <ClInclude Include="SimplyAUT_MotionControllerDlg.h" />
+    <ClInclude Include="SLSDef.h" />
+    <ClInclude Include="SLS_Comms.h" />
     <ClInclude Include="StaticLaser.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="VA_CommonTypes.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Button.cpp" />
     <ClCompile Include="CDialogConnect.cpp" />
     <ClCompile Include="DialogGirthWeld.cpp" />
     <ClCompile Include="DialogMotors.cpp" />
     <ClCompile Include="DialogStatus.cpp" />
     <ClCompile Include="Gclib2.cpp" />
+    <ClCompile Include="LaserControl.cpp" />
     <ClCompile Include="MotionControl.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -230,6 +237,7 @@
     <None Include="dll\x86\gclib.dll" />
     <None Include="dll\x86\gclibo.dll" />
     <None Include="res\SimplyAUTMotionController.rc2" />
+    <None Include="SLS_Comms.dll" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\bitmap1.bmp" />
@@ -243,11 +251,14 @@
     <Image Include="res\bmp00001.bmp" />
     <Image Include="res\bmp00002.bmp" />
     <Image Include="res\bmp00003.bmp" />
+    <Image Include="res\bmp00004.bmp" />
+    <Image Include="res\bmp00005.bmp" />
     <Image Include="res\SimplyAUT_MotionController.ico" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\dynamic\x86\gclib.lib" />
     <Library Include="lib\dynamic\x86\gclibo.lib" />
+    <Library Include="SLS_Comms.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

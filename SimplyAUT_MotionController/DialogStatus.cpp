@@ -16,6 +16,8 @@ CDialogStatus::CDialogStatus(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_STATUS, pParent)
 	, m_szStatus(_T(""))
 {
+	m_pParent = NULL;
+	m_nMsg = 0;
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
 }
@@ -23,6 +25,14 @@ CDialogStatus::CDialogStatus(CWnd* pParent /*=nullptr*/)
 CDialogStatus::~CDialogStatus()
 {
 }
+
+void CDialogStatus::Init(CWnd* pParent, UINT nMsg)
+{
+	m_pParent = pParent;
+	m_nMsg = nMsg;
+}
+
+
 
 void CDialogStatus::DoDataExchange(CDataExchange* pDX)
 {

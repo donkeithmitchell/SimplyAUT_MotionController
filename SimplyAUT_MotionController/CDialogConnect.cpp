@@ -6,6 +6,7 @@
 #include "CDialogConnect.h"
 #include "afxdialogex.h"
 #include "MotionControl.h"
+#include "LaserControl.h"
 #include "resource.h"
 
 
@@ -13,9 +14,10 @@
 
 IMPLEMENT_DYNAMIC(CDialogConnect, CDialogEx)
 
-CDialogConnect::CDialogConnect(CMotionControl& motion, CWnd* pParent /*=nullptr*/)
+CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_CONNECT, pParent)
 	, m_motionControl(motion)
+	, m_laserControl(laser)
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -80,23 +82,28 @@ void CDialogConnect::OnClickedButtonConnect()
 	if (m_motionControl.IsConnected())
 	{
 		m_motionControl.Disconnect();
+		m_laserControl.Disconnect();
 	}
 	else
 	{
 		BYTE laser[4], galil[4];
 		// get the IP addresses of the lasewr and Gailil
-		m_ipLaser.GetAddress(laser[0], laser[1], laser[2], laser[3]);
-		m_ipGalil.GetAddress(galil[0], galil[1], galil[2], galil[3]);
-
 		m_bCheck = TRUE;
 		int ret = UpdateData(TRUE);
 		m_bCheck = FALSE;
 		if (ret)
+		{
+			m_ipGalil.GetAddress(galil[0], galil[1], galil[2], galil[3]);
 			m_motionControl.Connect(galil, 0.0);
+			
+			m_ipLaser.GetAddress(laser[0], laser[1], laser[2], laser[3]);
+			m_laserControl.Connect(laser);
+
+		}
 	}
 
 	// request the parent to enable all controls 
-	m_pParent->PostMessageA(m_nMsg, 1);
+	m_pParent->PostMessageA(m_nMsg, MSG_SETBITMAPS);
 
 //	SetButtonBitmaps(); // donwe in the above
 
@@ -149,12 +156,14 @@ void CDialogConnect::SetButtonBitmaps()
 {
 	HBITMAP hBitmap1 = (HBITMAP)m_bitmapDisconnect.GetSafeHandle();
 	HBITMAP hBitmap2 = (HBITMAP)m_bitmapConnect.GetSafeHandle();
-	BOOL bGalil = m_motionControl.IsConnected();
 
-	m_buttonLaser.SetBitmap(hBitmap1);
+	BOOL bGalil = m_motionControl.IsConnected();
+	BOOL bLaser = m_laserControl.IsConnected();
+
 	m_buttonRGB.SetBitmap(hBitmap1);
 	m_buttonMAG.SetBitmap(hBitmap1);
 	m_buttonGalil.SetBitmap(bGalil ? hBitmap2 : hBitmap1);
+	m_buttonLaser.SetBitmap(bLaser ? hBitmap2 : hBitmap1);
 
 	if (!m_motionControl.IsConnected())
 		GetDlgItem(IDC_BUTTON_CONNECT)->SetWindowText(_T("Connect"));

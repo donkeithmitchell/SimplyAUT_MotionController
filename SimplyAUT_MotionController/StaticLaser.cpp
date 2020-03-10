@@ -4,6 +4,7 @@
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
 #include "StaticLaser.h"
+#include "LaserControl.h"
 #include "afxdialogex.h"
 
 
@@ -11,8 +12,9 @@
 
 IMPLEMENT_DYNAMIC(CStaticLaser, CWnd)
 
-CStaticLaser::CStaticLaser()
+CStaticLaser::CStaticLaser(CLaserControl& laser)
 	: CWnd()
+	, m_laserControl(laser)
 {
 	m_pParent = NULL;
 }
@@ -31,6 +33,7 @@ void CStaticLaser::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CStaticLaser, CWnd)
 	ON_WM_PAINT()
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -103,3 +106,20 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 	pDC->SelectObject(pPen);
 }
+
+void CStaticLaser::OnTimer(UINT_PTR nIDEvent)
+{
+	Measurement meas;
+	LASER_TEMPERATURE temp;
+
+	switch (nIDEvent)
+	{
+	case TIMER_GET_MEASUREMENT:
+		m_laserControl.GetLaserMeasurment(meas);
+		break;
+	case TIMER_GET_TEMPERATURE:
+		m_laserControl.GetLaserTemperature(temp);
+		break;
+	}
+}
+

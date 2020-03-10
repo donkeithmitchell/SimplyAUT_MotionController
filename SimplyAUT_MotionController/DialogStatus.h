@@ -14,10 +14,13 @@ public:
 	void Create(CWnd*);
 	void AppendDebugMessage(const CString&);
 	void EnableControls();
-
+	void Init(CWnd* pParent, UINT nMsg);
+	BOOL CheckVisibleTab() { return TRUE; }
 
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 
+	UINT  m_nMsg;
+	CWnd* m_pParent;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	CString m_szStatus;

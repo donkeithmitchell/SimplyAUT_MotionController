@@ -18,6 +18,9 @@ public:
 	CString GCommand(GCStringIn Command, bool Trim = true);
 	GReturn GCmd(GCStringIn command);
 	CString GCmdT(GCStringIn command);
+	CString Trim(CString str);
+	double  GetMotorSpeed(GCStringIn axis, double& accel);
+	double GetMotorPosition(GCStringIn axis);
 
 	GReturn GRead(GBufOut buffer, GSize buffer_len, GSize* bytes_read);
 	GReturn GWrite(GBufIn buffer, GSize buffer_len);

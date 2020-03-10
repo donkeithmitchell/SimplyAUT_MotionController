@@ -3,18 +3,21 @@
 
 // CDialogConnect dialog
 class CMotionControl;
+class CLaserControl;
+
 class CDialogConnect : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogConnect)
 
 public:
-	CDialogConnect(CMotionControl&, CWnd* pParent = nullptr);   // standard constructor
+	CDialogConnect(CMotionControl&, CLaserControl&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogConnect();
 	void Init(CWnd*, UINT);
 
 	void Create(CWnd* pParent);
 	void SetButtonBitmaps();
 	void EnableControls();
+	BOOL CheckVisibleTab() { return TRUE; }
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -41,6 +44,7 @@ public:
 	CBitmap	m_bitmapDisconnect;
 	CBitmap	m_bitmapConnect;
 	CMotionControl& m_motionControl;
+	CLaserControl& m_laserControl;
 
 	BOOL	m_bInit;
 	BOOL	m_bCheck;

@@ -32,10 +32,43 @@ void Gclib::SendDebugMessage(CString msg)
 {
     if (m_pParent && ::IsWindow(m_pParent->m_hWnd) && m_nMsg != 0)
     {
-        m_pParent->SendMessage(m_nMsg, 0, (WPARAM)&msg);
+        m_pParent->SendMessage(m_nMsg, MSG_SEND_DEBUGMSG, (WPARAM)&msg);
     }
 }
 
+double Gclib::GetMotorSpeed(GCStringIn axis, double& rAccel)
+{
+    GSize bytes_read = 0;
+    char Command[256];
+
+    rAccel = FLT_MAX;
+    if (this == NULL)
+        return FLT_MAX;
+
+    sprintf_s(Command, sizeof(Command), "MG _TV%s", axis);
+    GReturn rc1 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
+    double speed = (rc1 == G_NO_ERROR) ? atof(Trim(m_Buffer)) : FLT_MAX;
+
+    sprintf_s(Command, sizeof(Command), "MG _AC%s", axis);
+    GReturn rc2 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
+    rAccel = (rc2 == G_NO_ERROR) ? atof(Trim(m_Buffer)) : FLT_MAX;
+
+    return speed;
+}
+
+double Gclib::GetMotorPosition(GCStringIn axis)
+{
+    GSize bytes_read = 0;
+    char Command[256];
+    
+    if (this == NULL)
+        return FLT_MAX;
+    
+    sprintf_s(Command, sizeof(Command), "MG _TP%s", axis);
+    GReturn rc1 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
+    double pos = (rc1 == G_NO_ERROR) ? atof(Trim(m_Buffer)) : FLT_MAX;
+    return pos;
+}
 
 
 BOOL Gclib::IsConnected()const 
@@ -168,30 +201,37 @@ BOOL Gclib::GClose()
 CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
 {
     GSize bytes_read = 0;
+    SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
+    
     GReturn rc = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
     if (rc != G_NO_ERROR)
     {
-        GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC", m_Buffer, m_BufferSize, &bytes_read);
-        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCommand(") + _T(Command) + _T(")\n") + GError(rc));
+        GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
+        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCommand(") + _T(Command) 
+            + _T(")\n") + GError(rc) + _T("\n") + Trim(_T(m_Buffer)) );
         return _T("");
     }
-
-    CString ret(m_Buffer);
-    int len = ret.GetLength();
-
-    if (bTrim)
+    else if (bytes_read > 0)
     {
-
-        if (ret[len - 1] == ':')
-            ret = ret.Left(len - 1);
-
-        ret.TrimLeft();
-        ret.TrimRight();
-        return ret;
+        SendDebugMessage(Trim(m_Buffer));
     }
-    else
-        return ret;
+
+    return (bTrim) ? Trim(_T(m_Buffer)) : _T(m_Buffer);
 }
+
+CString Gclib::Trim(CString str)
+{
+    int len = str.GetLength();
+    if (str[len - 1] == ':')
+        str = str.Left(len - 1);
+
+    str.TrimLeft();
+    str.TrimRight();
+    str.Replace("\r", "");
+    str.Replace("\n", "");
+    return str;
+}
+
 
 CString Gclib::GCmdT(GCStringIn command)
 {
@@ -202,8 +242,10 @@ CString Gclib::GCmdT(GCStringIn command)
     GReturn rc = ::GCmdT(m_ConnectionHandle, command, trimmed_response, response_len, &front);
     if (rc != G_NO_ERROR)
     {
-        GReturn rc2 = ::GCmd(m_ConnectionHandle, "TC");
-        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmdT(") + command + _T(")\n") + GError(rc));
+        GSize bytes_read = 0;
+        GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
+        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmdT(") + _T(command)
+            + _T(")\n") + GError(rc) + _T("\n") + _T(m_Buffer));
         return _T("");
     }
     
@@ -218,9 +260,10 @@ GReturn Gclib::GCmd(GCStringIn command)
     GReturn rc = ::GCmd(m_ConnectionHandle, command);
     if (rc != G_NO_ERROR)
     {
-        GReturn rc2 = ::GCmd(m_ConnectionHandle, "TC");
-
-        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmd(") + command + _T(")\n") + GError(rc) );
+        GSize bytes_read = 0;
+        GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
+        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmd(") + _T(command)
+            + _T(")\n") + GError(rc) + _T("\n") + _T(m_Buffer));
         return rc;
     }
 
@@ -365,3 +408,4 @@ CString Gclib::GError(GReturn ErrorCode)
     delete[] error;
     return str;
 }
+\

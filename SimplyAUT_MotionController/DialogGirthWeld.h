@@ -1,16 +1,25 @@
 #pragma once
 #include "StaticLaser.h"
+#include "button.h"
+
+enum LASER_STATUS {
+	TIMER_LASER_OFF = 0, TIMER_LASER_OK, TIMER_LASER_ERROR, TIMER_LASER_HOT,
+	TIMER_LASER_SENDING_OK, TIMER_LASER_SENDING_ERROR, TIMER_LASER_LOADING, TIMER_SHOW_MOTOR_SPEEDS,
+	/*TIMER_STEER_LEFT, TIMER_STEER_RIGHT*/
+};
+
 
 
 // CDialogGirthWeld dialog
 
 class CMotionControl;
+class CLaserControl;
 class CDialogGirthWeld : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(CMotionControl&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, CLaserControl&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();
@@ -19,9 +28,19 @@ public:
 	BOOL	CheckIfToRunOrStop(GALIL_STATE);
 	BOOL	CheckParameters();
 	void    SetLaserStatus(LASER_STATUS nStatus);
-	void EnableControls();
+	void	EnableControls();
+	void    RunMotors();
+	double  GetMotorSpeed(double& accel);
+	void	Init(CWnd* pParent, UINT nMsg);
+	void	ShowMotorSpeeds();
+	void    ShowMotorPosition();
+	BOOL	CheckVisibleTab();
+	LRESULT UserSteer(BOOL bRight, BOOL bDown);
+	UINT    ThreadStopMotors(void);
 
-	
+	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED
+	};
+
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_DIALOG_GIRTHWELD };
@@ -34,18 +53,27 @@ protected:
 
 public:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
-
-	GALIL_STATE& m_nGalilState;
+	afx_msg LRESULT OnUserSteerLeft(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserSteerRight(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserMotorsStopped(WPARAM, LPARAM);
+	
+	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
+	CLaserControl&	m_laserControl;
+	HANDLE			m_hThreadStopMotors;
 
+	UINT  m_nMsg;
+	CWnd* m_pParent;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	BOOL	m_bPaused;
 	int     m_nTimerCount;
 
 	CBitmap	m_bitmapPause;
-	CBitmap	m_bitmapGoHorz;
-	CBitmap	m_bitmapGoVert;
+	CBitmap	m_bitmapGoRight;
+	CBitmap	m_bitmapGoLeft;
+	CBitmap	m_bitmapGoDown;
+	CBitmap	m_bitmapGoUp;
 	CBitmap	m_bitmapStop;
 
 	CBitmap	m_bitmapLaserOff;		// blank
@@ -84,9 +112,11 @@ public:
 	CButton m_buttonCalib;
 	CButton m_buttonManual;
 	CButton m_buttonAuto;
-	CButton m_buttonSetHome;
+	CButton m_buttonZeroHome;
 	CButton m_buttonGoHome;
 	CButton m_buttonBack;
+	CMyButton m_buttonLeft;
+	CMyButton m_buttonRight;
 	CButton m_buttonFwd;
 	CButton m_buttonLaserStatus;
 
@@ -112,9 +142,11 @@ public:
 	afx_msg void OnClickedButtonAuto();
 	afx_msg void OnClickedButtonFwd();
 	afx_msg void OnClickedButtonBack();
+	afx_msg void OnClickedButtonLeft();
+	afx_msg void OnClickedButtonRight();
 	afx_msg void OnPaint();
 
-	afx_msg void OnClickedButtonSetHome();
+	afx_msg void OnClickedButtonZeroHome();
 	afx_msg void OnClickedButtonGoHome();
 	afx_msg void OnRadioScanType();
 	afx_msg void OnClickedCheckGoToHome();

@@ -18,16 +18,18 @@ CDialogMotors::CDialogMotors(CMotionControl& motion, const GALIL_STATE& nState, 
 	, m_motionControl(motion)
 	, m_nGalilState(nState)
 
-	, m_szScanSpeed(_T("10.0"))
-	, m_szScanAccel(_T("10.0"))
-	, m_fScanSpeed(10.0)
-	, m_fScanAccel(10.0)
+	, m_szMotorSpeed(_T("50.0"))
+	, m_szMotorAccel(_T("25.0"))
+	, m_fMotorSpeed(50.0)
+	, m_fMotorAccel(25.0)
 
 	, m_szMotorA(_T(""))
 	, m_szMotorB(_T(""))
 	, m_szMotorC(_T(""))
 	, m_szMotorD(_T(""))
 {
+	m_pParent = NULL;
+	m_nMsg = 0;
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
 }
@@ -36,30 +38,38 @@ CDialogMotors::~CDialogMotors()
 {
 }
 
+void CDialogMotors::Init(CWnd* pParent, UINT nMsg)
+{
+	m_pParent = pParent;
+	m_nMsg = nMsg;
+}
+
+
+
 void CDialogMotors::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_SPIN_SPEED, m_spinScanSpeed);
 	DDX_Control(pDX, IDC_SPIN_ACCEL, m_spinScanAccel);
 
-	DDX_Text(pDX, IDC_EDIT_SPEED, m_szScanSpeed);
-	DDX_Text(pDX, IDC_EDIT_SPEED, m_fScanSpeed);
+	DDX_Text(pDX, IDC_EDIT_SPEED, m_szMotorSpeed);
+	DDX_Text(pDX, IDC_EDIT_SPEED, m_fMotorSpeed);
 	if (m_bCheck)
 	{
-		DDV_MinMaxDouble(pDX, m_fScanSpeed, 1.0, 100.0);
+		DDV_MinMaxDouble(pDX, m_fMotorSpeed, 1.0, 100.0);
 	}
 
-	DDX_Text(pDX, IDC_EDIT_ACCEL, m_szScanAccel);
-	DDX_Text(pDX, IDC_EDIT_ACCEL, m_szScanAccel);
+	DDX_Text(pDX, IDC_EDIT_ACCEL, m_szMotorAccel);
+	DDX_Text(pDX, IDC_EDIT_ACCEL, m_fMotorAccel);
 	if (m_bCheck)
 	{
-		DDV_MinMaxDouble(pDX, m_fScanAccel, 1.0, 100.0);
+		DDV_MinMaxDouble(pDX, m_fMotorAccel, 1.0, 100.0);
 	}
 
-	DDX_Text(pDX, IDC_EDIT_MA, m_szMotorA);
-	DDX_Text(pDX, IDC_EDIT_MB, m_szMotorB);
-	DDX_Text(pDX, IDC_EDIT_MC, m_szMotorC);
-	DDX_Text(pDX, IDC_EDIT_MD, m_szMotorD);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_A, m_szMotorA);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_B, m_szMotorB);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_C, m_szMotorC);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_D, m_szMotorD);
 }
 
 
@@ -114,11 +124,12 @@ void CDialogMotors::OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult)
 	// TODO: Add your control notification handler code here
 	int inc = pNMUpDown->iDelta;
 	UpdateData(TRUE);
-	m_fScanSpeed += (inc > 0) ? 0.1 : -0.1;
-	m_fScanSpeed = min(max(m_fScanSpeed, 0.1), 100);
+	m_fMotorSpeed += (inc > 0) ? 0.1 : -0.1;
+	m_fMotorSpeed = min(max(m_fMotorSpeed, 0.1), 100);
 	UpdateData(FALSE);
 
-	m_motionControl.SetScanSpeed(m_fScanSpeed);
+	if (m_motionControl.AreMotorsRunning())
+		m_motionControl.SetMotorSpeed(m_fMotorSpeed, m_fMotorAccel);
 
 	*pResult = 0;
 }
@@ -129,9 +140,12 @@ void CDialogMotors::OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult)
 	// TODO: Add your control notification handler code here
 	int inc = pNMUpDown->iDelta;
 	UpdateData(TRUE);
-	m_fScanAccel += (inc > 0) ? 0.1 : -0.1;
-	m_fScanAccel = min(max(m_fScanAccel, 0.1), 100);
+	m_fMotorAccel += (inc > 0) ? 0.1 : -0.1;
+	m_fMotorAccel = min(max(m_fMotorAccel, 0.1), 100);
 	UpdateData(FALSE);
+
+	if (m_motionControl.AreMotorsRunning())
+		m_motionControl.SetMotorSpeed(m_fMotorSpeed, m_fMotorAccel);
 
 	*pResult = 0;
 }
@@ -146,4 +160,44 @@ void CDialogMotors::EbableControls()
 void CDialogMotors::EnableControls()
 {
 }
+
+BOOL CDialogMotors::CheckVisibleTab()
+{
+	m_bCheck = TRUE;
+	BOOL ret = UpdateData(TRUE);
+	m_bCheck = FALSE;
+	return ret;
+}
+
+double CDialogMotors::GetMotorSpeed()
+{
+	m_bCheck = TRUE;
+	BOOL ret = UpdateData(TRUE);
+	m_bCheck = FALSE;
+	return ret ? m_fMotorSpeed : FLT_MAX;
+}
+double CDialogMotors::GetMotorAccel()
+{
+	m_bCheck = TRUE;
+	BOOL ret = UpdateData(TRUE);
+	m_bCheck = FALSE;
+	return ret ? m_fMotorAccel : FLT_MAX;
+}
+
+void CDialogMotors::ShowMotorSpeeds()
+{
+	UpdateData(TRUE);
+
+	double fAA, fSA = m_motionControl.GetMotorSpeed("A", fAA);
+	double fAB, fSB = m_motionControl.GetMotorSpeed("B", fAB);
+	double fAC, fSC = m_motionControl.GetMotorSpeed("C", fAC);
+	double fAD, fSD = m_motionControl.GetMotorSpeed("D", fAD);
+
+	m_szMotorA.Format("%.1f (%.1f)", fSA, fAA);
+	m_szMotorB.Format("%.1f (%.1f)", fSB, fAB);
+	m_szMotorC.Format("%.1f (%.1f)", fSC, fAC);
+	m_szMotorD.Format("%.1f (%.1f)", fSD, fAD);
+	UpdateData(FALSE);
+}
+
 
