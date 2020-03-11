@@ -129,7 +129,7 @@ void CDialogMotors::OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult)
 	UpdateData(FALSE);
 
 	if (m_motionControl.AreMotorsRunning())
-		m_motionControl.SetMotorSpeed(m_fMotorSpeed, m_fMotorAccel);
+		m_motionControl.SetMotorJogging(m_fMotorSpeed, m_fMotorAccel);
 
 	*pResult = 0;
 }
@@ -145,7 +145,7 @@ void CDialogMotors::OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult)
 	UpdateData(FALSE);
 
 	if (m_motionControl.AreMotorsRunning())
-		m_motionControl.SetMotorSpeed(m_fMotorSpeed, m_fMotorAccel);
+		m_motionControl.SetMotorJogging(m_fMotorSpeed, m_fMotorAccel);
 
 	*pResult = 0;
 }

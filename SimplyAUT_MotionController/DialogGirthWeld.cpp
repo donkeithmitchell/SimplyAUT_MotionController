@@ -18,6 +18,24 @@ static UINT ThreadStopMotors(LPVOID param)
 	return this2->ThreadStopMotors();
 }
 
+static UINT ThreadGoToHome(LPVOID param)
+{
+	CDialogGirthWeld* this2 = (CDialogGirthWeld*)param;
+	return this2->ThreadGoToHome();
+}
+
+static UINT ThreadRunRestart(LPVOID param)
+{
+	CDialogGirthWeld* this2 = (CDialogGirthWeld*)param;
+	return this2->ThreadRunManual(FALSE);
+}
+
+static UINT ThreadRunManual(LPVOID param)
+{
+	CDialogGirthWeld* this2 = (CDialogGirthWeld*)param;
+	return this2->ThreadRunManual(TRUE);
+}
+
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
 CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
@@ -55,7 +73,10 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_nTimerCount = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
-	m_hThreadStopMotors = NULL;
+	m_hThreadRunMotors = NULL;
+	m_fMotorSpeed = 0;
+	m_fMotorAccel = 0;
+	m_nGaililStateBackup = GALIL_IDLE;
 }
 
 CDialogGirthWeld::~CDialogGirthWeld()
@@ -120,7 +141,7 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_AUTOHOME,		m_bReturnToHome);
 	DDX_Check(pDX, IDC_CHECK_RETURNTOSTART,	m_bReturnToStart);
 
-	DDX_Control(pDX, IDC_STATIC_LASER, m_staticLaser);
+	DDX_Control(pDX, IDC_STATIC_LASER,		m_staticLaser);
 	DDX_Text(pDX, IDC_STATIC_HOMEDIST,		m_szHomeDist);
 	DDX_Text(pDX, IDC_STATIC_SCANNEDDIST,	m_szDistScanned);
 
@@ -159,7 +180,6 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_MESSAGE(WM_STEER_LEFT,				&CDialogGirthWeld::OnUserSteerLeft)
 	ON_MESSAGE(WM_STEER_RIGHT,				&CDialogGirthWeld::OnUserSteerRight)
 	ON_MESSAGE(WM_MOTORSSTOPPED,			&CDialogGirthWeld::OnUserMotorsStopped)
-
 END_MESSAGE_MAP()
 
 
@@ -304,7 +324,7 @@ void CDialogGirthWeld::ShowMotorPosition()
 		m_szDistScanned.Format("****");
 	else
 	{
-		m_szDistScanned.Format("%.1f", (posA + posB + posC + posD)/4);
+		m_szDistScanned.Format("%.1f", max(max(max(posA, posB), posC), posD) );
 	}
 
 	UpdateData(FALSE);
@@ -421,12 +441,13 @@ void CDialogGirthWeld::SetButtonBitmaps()
 	m_buttonBack.SetBitmap(m_nGalilState == GALIL_BACK ? hBitmapStop : hBitmapDown);
 	m_buttonLeft.SetBitmap(hBitmapLeft);
 	m_buttonRight.SetBitmap(hBitmapRight);
+	m_buttonGoHome.SetBitmap(m_nGalilState == GALIL_GOHOME ? hBitmapStop : hBitmapRight);
 
 	// set to 
 	m_buttonCalib.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_IDLE));
 	m_buttonManual.EnableWindow(bGalil && (m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_IDLE));
 	m_buttonAuto.EnableWindow(bGalil && (m_nGalilState == GALIL_AUTO || m_nGalilState == GALIL_IDLE));
-	m_buttonPause.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_AUTO));
+	m_buttonPause.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_AUTO) && !(m_bPaused && m_hThreadRunMotorsxx != NULL) );
 	m_buttonGoHome.EnableWindow(bGalil && (m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) );
 	m_buttonZeroHome.EnableWindow(bGalil && m_nGalilState == GALIL_IDLE );
 
@@ -453,6 +474,24 @@ void CDialogGirthWeld::OnClickedButtonPause()
 {
 	m_bPaused = !m_bPaused;
 	SetButtonBitmaps();
+
+	// stop the motors, and resume
+	if (m_bPaused)
+	{
+		SetButtonBitmaps();
+		m_motionControl.StopMotors();
+		KillTimer(TIMER_SHOW_MOTOR_SPEEDS);
+	}
+	// resume the motors
+	// this is similar to OnClickedButtonManual
+	// except the position is not reset
+	else
+	{
+		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
+		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunRestart, (LPVOID)this)->m_hThread;
+	}
+	SetButtonBitmaps();
 }
 
 void CDialogGirthWeld::OnClickedButtonCalib()
@@ -460,42 +499,99 @@ void CDialogGirthWeld::OnClickedButtonCalib()
 	// TODO: Add your control notification handler code here
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_CALIB))
 	{
-		m_nGalilState = (m_nGalilState == GALIL_IDLE) ? GALIL_CALIB : GALIL_IDLE;
+		m_bPaused = FALSE;
+		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_CALIB : GALIL_IDLE;
 		SetButtonBitmaps();
 	}
 }
 
-
+// this run does NOT look for a start line
+// however, it optionally backs up to the '0' position first
+// spin a thread to run this
 void CDialogGirthWeld::OnClickedButtonManual()
 {
 	// TODO: Add your control notification handler code here
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_MANUAL))
 	{
-		m_nGalilState = (m_nGalilState == GALIL_IDLE) ? GALIL_MANUAL : GALIL_IDLE;
+		m_bPaused = FALSE;
+		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_MANUAL : GALIL_IDLE;
 		SetButtonBitmaps();
+		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
+		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+
+		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunManual, (LPVOID)this)->m_hThread;
 	}
 }
-
 
 void CDialogGirthWeld::OnClickedButtonAuto()
 {
 	// TODO: Add your control notification handler code here
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_AUTO))
 	{
-		m_nGalilState = (m_nGalilState == GALIL_IDLE) ? GALIL_AUTO : GALIL_IDLE;
+		m_bPaused = FALSE;
+		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_AUTO : GALIL_IDLE;
 		SetButtonBitmaps();
 	}
 }
 void CDialogGirthWeld::OnClickedButtonGoHome()
 {
 	// TODO: Add your control notification handler code here
-	if (CheckParameters() && CheckIfToRunOrStop(GALIL_GOHOME))
+	if (CheckParameters() ) // && CheckIfToRunOrStop(GALIL_GOHOME)) 
 	{
-		m_nGalilState = (m_nGalilState == GALIL_IDLE) ? GALIL_GOHOME : GALIL_IDLE;
+		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_GOHOME : GALIL_IDLE;
 		SetButtonBitmaps();
 		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
-		m_motionControl.GoToHomePosition();
+		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+		m_hThreadRunMotors = ::AfxBeginThread(::ThreadGoToHome, (LPVOID)this)->m_hThread;
 	}
+}
+
+// 1. check if to go to home position prior to run
+UINT CDialogGirthWeld::ThreadRunManual(BOOL reset_pos)
+{
+	// check if to go home first
+	if (m_bReturnToHome)
+		m_motionControl.GoToPosition(0.0);
+
+	// check if the run was aborted
+	if (m_nGalilState == GALIL_MANUAL)
+	{
+		// set the current location as zero
+		if (reset_pos)
+		{
+			m_motionControl.ZeroPositions();
+			m_motionControl.SetSlewSpeed(m_fMotorSpeed);
+		}
+
+		// calculate the length of the run
+			// it will be currently at zero, so just go to the length
+		double len = (m_nScanType == 0) ? m_fScanCirc + m_fScanOverlap : m_fDistToScan;
+
+		m_motionControl.GoToPosition(len);
+	}
+	else
+		m_motionControl.StopMotors();
+
+	if( !m_bPaused )
+		PostMessage(WM_MOTORSSTOPPED);
+
+	return 0L;
+}
+
+
+
+UINT CDialogGirthWeld::ThreadGoToHome()
+{
+	if (m_nGalilState == GALIL_GOHOME)
+	{
+		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
+		m_motionControl.GoToPosition(0.0);
+	}
+	else
+		m_motionControl.StopMotors();
+
+	PostMessage(WM_MOTORSSTOPPED);
+	return 0;
 }
 
 
@@ -520,7 +616,13 @@ void CDialogGirthWeld::OnClickedButtonBack()
 	// TODO: Add your control notification handler code here
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_BACK))
 	{
-		m_nGalilState = (m_nGalilState == GALIL_IDLE) ? GALIL_BACK : GALIL_IDLE;
+		if (!m_bPaused)
+			m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_BACK : GALIL_IDLE;
+		else if (m_nGalilState == GALIL_BACK)
+			m_nGalilState = GALIL_IDLE;
+		else
+			m_nGalilState = GALIL_BACK;
+
 //		SetButtonBitmaps();
 		RunMotors();
 	}
@@ -532,7 +634,13 @@ void CDialogGirthWeld::OnClickedButtonFwd()
 	// TODO: Add your control notification handler code here
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_FWD))
 	{
-		m_nGalilState = (m_nGalilState == GALIL_IDLE) ? GALIL_FWD : GALIL_IDLE;
+		if (!m_bPaused)
+			m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_FWD : GALIL_IDLE;
+		else if(m_nGalilState == GALIL_FWD )
+			m_nGalilState = GALIL_IDLE;
+		else
+			m_nGalilState = GALIL_FWD;
+
 	//	SetButtonBitmaps();
 		RunMotors();
 	}
@@ -548,24 +656,25 @@ void CDialogGirthWeld::RunMotors()
 		// because of deceleration it takes a while for the motors to stop
 		// will not return from this fuinction until they have stopped
 		// thus, call this from a thread, and block starts until the motors are stopped
-		m_hThreadStopMotors = AfxBeginThread(::ThreadStopMotors, (LPVOID)this)->m_hThread;
+		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+		m_hThreadRunMotors = AfxBeginThread(::ThreadStopMotors, (LPVOID)this)->m_hThread;
 	//	m_motionControl.StopMotors();		// donw in the thread
 	//	KillTimer(TIMER_SHOW_MOTOR_SPEEDS);
 	}
-	else if (m_nGalilState == GALIL_FWD)
+	else if (m_nGalilState == GALIL_FWD || (m_bPaused && m_nGaililStateBackup == GALIL_FWD) )
 	{
 		if (speed != FLT_MAX && accel != FLT_MAX)
 		{
-			m_motionControl.SetMotorSpeed(speed, accel);
+			m_motionControl.SetMotorJogging(speed, accel);
 			SetButtonBitmaps();
 			SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		}
 	}
-	else if (m_nGalilState == GALIL_BACK)
+	else if (m_nGalilState == GALIL_BACK || (m_bPaused && m_nGaililStateBackup == GALIL_FWD))
 	{
 		if (speed != FLT_MAX && accel != FLT_MAX)
 		{
-			m_motionControl.SetMotorSpeed(-speed, accel);
+			m_motionControl.SetMotorJogging(-speed, accel);
 			SetButtonBitmaps();
 			SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		}
@@ -581,12 +690,20 @@ UINT CDialogGirthWeld::ThreadStopMotors()
 
 LRESULT CDialogGirthWeld::OnUserMotorsStopped(WPARAM, LPARAM)
 {
-	::WaitForSingleObject(m_hThreadStopMotors, INFINITE);
-	m_hThreadStopMotors = NULL;
-	KillTimer(TIMER_SHOW_MOTOR_SPEEDS);
+	::WaitForSingleObject(m_hThreadRunMotors, INFINITE);
+	m_hThreadRunMotors = NULL;
+	if (!m_bPaused)
+	{
+		m_nGalilState = GALIL_IDLE;
+		KillTimer(TIMER_SHOW_MOTOR_SPEEDS);
+	}
+	else
+		m_nGalilState = m_nGaililStateBackup;
+
 	SetButtonBitmaps();
 	return 0L;
 }
+
 
 double CDialogGirthWeld::GetMotorSpeed(double& rAccel)
 {
@@ -652,7 +769,7 @@ BOOL CDialogGirthWeld::CheckIfToRunOrStop(GALIL_STATE nState)
 		ret = AfxMessageBox(_T("Stop the Calibration Run"), MB_OKCANCEL);
 		break;
 	case GALIL_MANUAL:
-		ret = AfxMessageBox(_T("Stop the Manual Run"), MB_OKCANCEL);
+		ret = IDOK; //  AfxMessageBox(_T("Stop the Manual Run"), MB_OKCANCEL);
 		break;
 	case GALIL_AUTO:
 		ret = AfxMessageBox(_T("Stop the Auto Run"), MB_OKCANCEL);

@@ -19,10 +19,10 @@ CMotionControl::~CMotionControl()
 {
     if (m_pGclib)
     {
-        SetMotorSpeed(0,0);
-        m_pGclib->GCommand("ST"); //stop all motion and programs
-        m_pGclib->GMotionComplete("S"); //Block until motion is complete on vector plane S
-        m_pGclib->GCommand("MO");
+        StopMotors();
+        m_pGclib->StopMotors(); //stop all motion and programs
+        m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+        m_pGclib->MotorsOff();
     }
 
 	delete m_pGclib;
@@ -100,12 +100,8 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 
 
     SendDebugMessage(_T("Initialization of the Galil..."));
-    m_pGclib->GCommand("ST"); //stop all motion and programs
-    m_pGclib->GMotionComplete("S"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("A"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("B"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("C"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("D"); //Block until motion is complete on vector plane S
+    m_pGclib->StopMotors(); //stop all motion and programs
+    m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
 
     m_pGclib->GCommand("KP*=1.05");     // proportional constant
     m_pGclib->GCommand("KI*=0");        // integrator
@@ -116,12 +112,12 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
     m_pGclib->GCommand("AU*=0.5");
     m_pGclib->GCommand("AG*=0");
     m_pGclib->GCommand("TL*=1.655");
-    m_pGclib->GCommand("DP*=0");        // all to zero
-    m_pGclib->GCommand("AC*=50000");    // acceleration cts/sec
-    m_pGclib->GCommand("DC*=50000");    // deceleration cts/sec
-    m_pGclib->GCommand("JG*=0");        // always connect at zero speed
-    m_pGclib->GCommand("SH");           // enable all axes
- //   m_pGclib->GCommand("SP 40000");     // speed all axes cts/sec
+    m_pGclib->DefinePosition(0);        // all to zero
+    m_pGclib->SetAcceleration(50000);    // acceleration cts/sec
+    m_pGclib->SetDeceleration(50000);    // deceleration cts/sec
+    m_pGclib->SetJogSpeed(0);           // always connect at zero speed
+    m_pGclib->SetServoHere();           // enable all axes
+    m_pGclib->SetSlewSpeed(40000);     // speed all axes cts/sec
  //   m_pGclib->GCommand("PR 100000");     // move distance all axes cts
  //   m_pGclib->GCommand("BG");     // move distance all axes cts
 
@@ -136,136 +132,73 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 // can only do this if the mnotor is stopped
 void CMotionControl::ZeroPositions()
 {
-    m_pGclib->GCommand("ST"); //stop all motion and programs
-    m_pGclib->GMotionComplete("S"); //Block until motion is complete on vector plane S
-    m_pGclib->GCommand("DP*=0");        // all to zero
+    m_pGclib->StopMotors(); //stop all motion and programs
+    m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+    m_pGclib->DefinePosition(0);        // all to zero
 }
-
 void CMotionControl::GoToHomePosition()
 {
     m_pGclib->GCommand("PA 0,0,0,0");
     m_pGclib->GCommand("SH");           // enable all axes
     m_pGclib->GCommand("BG*");   // Begin motion on all Axis
 }
+    
 
-
-void CMotionControl::RunTest1()
+void CMotionControl::GoToPosition(double pos_mm)
 {
-    m_pGclib->GCmd("ST"); //stop all motion and programs
+    CString str;
 
-    //-------------------------------------------------------------------------
-    // Independent motion
-    m_pGclib->GCmd("DP 0"); //define A position zero
-    CString str = m_pGclib->GCmdT("RP");
+    int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
+    int posA = AxisDirection("A") * pos_cnt;
+    int posB = AxisDirection("B") * pos_cnt;
+    int posC = AxisDirection("C") * pos_cnt;
+    int posD = AxisDirection("D") * pos_cnt;
+    str.Format("PA %d, %d, %d, %d", posA, posB, posC, posD);
 
-    SendDebugMessage("\nPosition: " + str);
-    m_pGclib->GCmd("SP 4000"); //set up speed
-    m_pGclib->GCmd("AC 1280000"); //acceleration
-    m_pGclib->GCmd("DC 1280000"); //deceleration
-    m_pGclib->GCmd("PR 8000"); //Postion Relative.
-    m_pGclib->GCmd("SH A"); //Servo Here
-    SendDebugMessage("Beginning independent motion... ");
-    m_pGclib->GCmd("BG A"); //Begin motion
-    m_pGclib->GMotionComplete("A"); //Block until motion is complete on axis A
-    SendDebugMessage("Motion Complete on A");
-    str = m_pGclib->GCmdT("RP");
-    SendDebugMessage("Position: " + str);
+    m_pGclib->GCommand(str);
+    m_pGclib->GCommand("SH");           // enable all axes
+    m_pGclib->GCommand("BG*");   // Begin motion on all Axis
 
-    //-------------------------------------------------------------------------
-    // Vector motion
-    m_pGclib->GCmd("DP 0"); //define position zero on A
-    m_pGclib->GCmdT("RP");
-    SendDebugMessage("\nPosition: " + str);
-    m_pGclib->GCmd("VS 2000");  //set up vector speed, S plane
-    m_pGclib->GCmd("VA 100000"); //vector Acceleration
-    m_pGclib->GCmd("VD 100000"); //vector deceleration
-    m_pGclib->GCmd("VM AN"); //invoke vector mode, use virtual axis for 1-axis controllers
-    m_pGclib->GCmd("VP 3000, 3000"); //buffer Vector Position
-    m_pGclib->GCmd("VP 6000,0"); //buffer Vector Position
-    m_pGclib->GCmd("VE"); //indicate Vector End
-    SendDebugMessage("Beginning vector motion... ");
-    m_pGclib->GCmd("BG S"); //begin S plane
-    m_pGclib->GMotionComplete("S"); //Block until motion is complete on vector plane S
-    SendDebugMessage("Motion Complete on vector plane S\n");
-    str = m_pGclib->GCmdT("RP");
-    SendDebugMessage("Position: " + str);
 
+//    int posA = AxisDirection("A") * DistancePerSecondToEncoderCount(pos_mm);
+//    int posB = AxisDirection("B") * DistancePerSecondToEncoderCount(pos_mm);
+//    int posC = AxisDirection("C") * DistancePerSecondToEncoderCount(pos_mm);
+//    int posD = AxisDirection("D") * DistancePerSecondToEncoderCount(pos_mm);
+//    m_pGclib->GoToPosition(posA, posB, posC, posD);
+ //   m_pGclib->GoToPosition(pos_cnt);
+
+ //   m_pGclib->SetServoHere();
+ //   m_pGclib->BeginMotors();   // Begin motion on all Axis
+
+    // now wait for the mnotors to stop
+    // this xshould be called by a thread
+    m_pGclib->WaitForMotorsToStop();
+    m_pGclib->StopMotors();
 }
 
-void CMotionControl::RunTest2()
-{
-
-//-------------------------------------------------------------------------
-// Independent motion
-    m_pGclib->GCommand("DP 0"); //define A position zero
-    CString trimmed = m_pGclib->GCmdT("RP");
-    SendDebugMessage(_T("nPosition: ") + trimmed);
-
-    m_pGclib->GCommand("SP 4000"); //set up speed
-    m_pGclib->GCommand("AC 1280000"); //acceleration
-    m_pGclib->GCommand("DC 1280000"); //deceleration
-    m_pGclib->GCommand("PR 8000"); //Postion Relative.
-    m_pGclib->GCommand("SH A"); //Servo Here
-
-    SendDebugMessage("Beginning independent motion... ");
-    m_pGclib->GCommand("BG A"); //Begin motion
-    m_pGclib->GMotionComplete("A"); //Block until motion is complete on axis A
-
-    SendDebugMessage("Motion Complete on A");
-    trimmed = m_pGclib->GCmdT("RP");
-    SendDebugMessage("Position: " + trimmed);
-
-    //-------------------------------------------------------------------------
-    // Vector motion
-    m_pGclib->GCommand("DP 0"); //define position zero on A
-    trimmed = m_pGclib->GCmdT("RP");
-    SendDebugMessage("Position: " + trimmed);
-
-    m_pGclib->GCommand("VS 2000");  //set up vector speed, S plane
-    m_pGclib->GCommand("VA 100000"); //vector Acceleration
-    m_pGclib->GCommand("VD 100000"); //vector deceleration
-    m_pGclib->GCommand("VM AN"); //invoke vector mode, use virtual axis for 1-axis controllers
-    m_pGclib->GCommand("VP 3000, 3000"); //buffer Vector Position
-    m_pGclib->GCommand("VP 6000,0"); //buffer Vector Position
-    m_pGclib->GCommand("VE"); //indicate Vector End
-
-    SendDebugMessage("Beginning vector motion... ");
-    m_pGclib->GCommand("BG S"); //begin S plane
-    m_pGclib->GMotionComplete("S"); //Block until motion is complete on vector plane S
-
-    SendDebugMessage("Motion Complete on vector plane S");
-    trimmed = m_pGclib->GCmdT("RP");
-    SendDebugMessage("Position: " + trimmed);
-
-}
 void CMotionControl::StopMotors()
 {
-    m_pGclib->GCmd("ST");    // stop all motors
- //   m_pGclib->GMotionComplete("*"); //Wait for motion to complete
- //   m_pGclib->GMotionComplete("S"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("A"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("B"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("C"); //Block until motion is complete on vector plane S
-    m_pGclib->GMotionComplete("D"); //Block until motion is complete on vector plane S
+    m_pGclib->StopMotors();    // stop all motors
+    m_pGclib->WaitForMotorsToStop(); 
 }
-BOOL CMotionControl::SetMotorSpeed(double speed, double accel)
+BOOL CMotionControl::SetMotorJogging(double speed, double accel)
 {
-    return SetMotorSpeed(speed, speed, speed, speed, accel);
+    return SetMotorJogging(speed, speed, speed, speed, accel);
 }
 
 double CMotionControl::GetMotorSpeed(GCStringIn axis, double& rAccel)
 {
-    double speed = m_pGclib->GetMotorSpeed(axis, rAccel); // thjis is in ticks, want thew speed in mm/sec
-    rAccel = EncoderCountToDistancePerSecond(rAccel);
-    speed = EncoderCountToDistancePerSecond(speed);
+    int accel, speed = m_pGclib->GetMotorSpeed(axis, accel); // thjis is in counts, want the speed in mm/sec
+    rAccel = EncoderCountToDistancePerSecond(accel);
+    double fSpeed = EncoderCountToDistancePerSecond(speed);
     return (speed == FLT_MAX) ? FLT_MAX : AxisDirection(axis) * speed;
 }
 
 double CMotionControl::GetMotorPosition(GCStringIn axis)
 {
-    double pos = m_pGclib->GetMotorPosition(axis); // thjis is in ticks, want thew speed in mm/sec
-    pos = EncoderCountToDistancePerSecond(pos);
-    return AxisDirection(axis) *  pos;
+    int pos = m_pGclib->GetMotorPosition(axis); // thjis is in ticks, want thew speed in mm/sec
+    double fPos = EncoderCountToDistancePerSecond(pos);
+    return AxisDirection(axis) *  fPos;
 }
 
 int CMotionControl::AxisDirection( GCStringIn axis)const
@@ -294,7 +227,7 @@ BOOL CMotionControl::AreMotorsRunning()
 }
 
 
-BOOL CMotionControl::SetMotorSpeed(double speedA, double speedB, double speedC, double speedD, double accel)
+BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC, double speedD, double accel)
     {
     if (!IsConnected())
         return FALSE;
@@ -308,60 +241,48 @@ BOOL CMotionControl::SetMotorSpeed(double speedA, double speedB, double speedC, 
     m_pGclib->GCommand("AU*=0.5");
  // m_pGclib->GCommand("AG*=0");        // amplifier gain (not while motor is run ning)
     m_pGclib->GCommand("TL*=1.655");
- // m_pGclib->GCommand("DP*=0");        // define position all to zero  (not while motor is run ning)
+ // m_pGclib->DefinePosition(0);        // define position all to zero  (not while motor is run ning)
 //  m_pGclib->GCommand("AC*=50000");    // acceleration cts/sec (leave as were)
 //  m_pGclib->GCommand("DC*=50000");    // deceleration cts/sec
 
     // the left side motors are inverted
-    char str[256];
-    accel = DistancePerSecondToEncoderCount(accel);
-    sprintf_s(str, sizeof(str), "AC*=%g", accel);
-    m_pGclib->GCommand(str);
+    m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(accel));
+    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(accel));
 
-    sprintf_s(str, sizeof(str), "DC*=%g", accel);
-    m_pGclib->GCommand(str);
-
-  //  speedA = DistancePerSecondToEncoderCount(speedA);
-  //  sprintf_s(str, sizeof(str), "JG*=%d", (int)(AxisDirection("A") * speedA + 0.5));
-  //  m_pGclib->GCommand(str);
-
-    speedA = AxisDirection("A") * DistancePerSecondToEncoderCount(speedA);
-    sprintf_s(str, sizeof(str), "JGA=%d", (int)(speedA+0.5));
-    m_pGclib->GCommand(str);
-
-    speedB = AxisDirection("B") * DistancePerSecondToEncoderCount(speedB);
-    sprintf_s(str, sizeof(str), "JGB=%d", (int)(speedB + 0.5));
-    m_pGclib->GCommand(str);
-
-    speedC = AxisDirection("C") * DistancePerSecondToEncoderCount(speedC);
-    sprintf_s(str, sizeof(str), "JGC=%d", (int)(speedC + 0.5));
-    m_pGclib->GCommand(str);
-
-    speedD = AxisDirection("D") * DistancePerSecondToEncoderCount(speedD);
-    sprintf_s(str, sizeof(str), "JGD=%d", (int)(speedD + 0.5));
-    m_pGclib->GCommand(str);
+    m_pGclib->SetJogSpeed("A", AxisDirection("A") * DistancePerSecondToEncoderCount(speedA));
+    m_pGclib->SetJogSpeed("B", AxisDirection("B") * DistancePerSecondToEncoderCount(speedB));
+    m_pGclib->SetJogSpeed("C", AxisDirection("C") * DistancePerSecondToEncoderCount(speedC));
+    m_pGclib->SetJogSpeed("D", AxisDirection("D") * DistancePerSecondToEncoderCount(speedD));
 
     m_pGclib->GCommand("SH");           // enable all axes
-    m_pGclib->GCommand("BG*");   // Begin motion on all Axis
+    m_pGclib->BeginMotors();   // Begin motion on all Axis
     return TRUE;
 }
 
-double CMotionControl::EncoderCountToDistancePerSecond(double encoderCount)const
+double CMotionControl::EncoderCountToDistancePerSecond(int encoderCount)const
 {
     double distancePerSecond;
     double perimeter = PI * WHEEL_DIAMETER;
 
-    distancePerSecond = (encoderCount == FLT_MAX) ? FLT_MAX : ((double)encoderCount / COUNTS_PER_TURN) * perimeter;
+    distancePerSecond = (encoderCount == INT_MAX) ? FLT_MAX : ((double)encoderCount / COUNTS_PER_TURN) * perimeter;
     return distancePerSecond;
 }
 
-double CMotionControl::DistancePerSecondToEncoderCount(double DistancePerSecond)const
+int CMotionControl::DistancePerSecondToEncoderCount(double DistancePerSecond)const
 {
-    double encoderCount;
     double perimeter = PI * WHEEL_DIAMETER;
 
-    encoderCount = (DistancePerSecond == FLT_MAX) ? FLT_MAX : (DistancePerSecond * COUNTS_PER_TURN) / perimeter;
+    int encoderCount = (DistancePerSecond == FLT_MAX) ? INT_MAX : (int)((DistancePerSecond * COUNTS_PER_TURN) / perimeter + 0.5);
     return encoderCount;
+}
+
+void CMotionControl::SetSlewSpeed(double speed_mm_sec)
+{
+    int A = AxisDirection("A") * DistancePerSecondToEncoderCount(speed_mm_sec);
+    int B = AxisDirection("B") * DistancePerSecondToEncoderCount(speed_mm_sec);
+    int C = AxisDirection("C") * DistancePerSecondToEncoderCount(speed_mm_sec);
+    int D = AxisDirection("D") * DistancePerSecondToEncoderCount(speed_mm_sec);
+    m_pGclib->SetSlewSpeed(A,B,C,D);
 }
 
 // steer to the right (TRUE0 or left (FALSE)
@@ -395,5 +316,5 @@ BOOL CMotionControl::SteerMotors(BOOL bRight, BOOL bMouseDown)
             spA = spD = spC;
     }
 
-    return SetMotorSpeed(spA, spB, spC, spD, accelA);
+    return SetMotorJogging(spA, spB, spC, spD, accelA);
 }

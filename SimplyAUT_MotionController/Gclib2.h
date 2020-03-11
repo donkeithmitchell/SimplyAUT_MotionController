@@ -19,8 +19,8 @@ public:
 	GReturn GCmd(GCStringIn command);
 	CString GCmdT(GCStringIn command);
 	CString Trim(CString str);
-	double  GetMotorSpeed(GCStringIn axis, double& accel);
-	double GetMotorPosition(GCStringIn axis);
+	int     GetMotorSpeed(GCStringIn axis, int& accel); // encoder counts
+	int     GetMotorPosition(GCStringIn axis);
 
 	GReturn GRead(GBufOut buffer, GSize buffer_len, GSize* bytes_read);
 	GReturn GWrite(GBufIn buffer, GSize buffer_len);
@@ -36,6 +36,21 @@ public:
 	CString GInfo();
 	CString GVersion();
 	GReturn GMotionComplete(GCStringIn axes);
+
+	void    StopMotors();
+	void    MotorsOff();
+	void    WaitForMotorsToStop();
+	void    BeginMotors();
+	void    SetSlewSpeed(int speed);
+	void    SetSlewSpeed(int A, int B, int C, int D);
+	void    SetJogSpeed(GCStringIn, int speed);
+	void    SetJogSpeed(int speed);
+	void    SetAcceleration(int accel);
+	void    SetDeceleration(int accel);
+	void    DefinePosition(int pos);
+	void    GoToPosition(int pos);
+	void    GoToPosition(int A, int B, int C, int D);
+	void    SetServoHere();
 
 private:
 	CString GError(GReturn ErrorCode);

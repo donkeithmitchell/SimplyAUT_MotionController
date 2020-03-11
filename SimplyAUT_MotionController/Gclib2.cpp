@@ -36,37 +36,37 @@ void Gclib::SendDebugMessage(CString msg)
     }
 }
 
-double Gclib::GetMotorSpeed(GCStringIn axis, double& rAccel)
+int Gclib::GetMotorSpeed(GCStringIn axis, int& rAccel)
 {
     GSize bytes_read = 0;
     char Command[256];
 
-    rAccel = FLT_MAX;
+    rAccel = INT_MAX;
     if (this == NULL)
-        return FLT_MAX;
+        return INT_MAX;
 
     sprintf_s(Command, sizeof(Command), "MG _TV%s", axis);
     GReturn rc1 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
-    double speed = (rc1 == G_NO_ERROR) ? atof(Trim(m_Buffer)) : FLT_MAX;
+    int speed = (rc1 == G_NO_ERROR) ? atoi(Trim(m_Buffer)) : INT_MAX;
 
     sprintf_s(Command, sizeof(Command), "MG _AC%s", axis);
     GReturn rc2 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
-    rAccel = (rc2 == G_NO_ERROR) ? atof(Trim(m_Buffer)) : FLT_MAX;
+    rAccel = (rc2 == G_NO_ERROR) ? atoi(Trim(m_Buffer)) : INT_MAX;
 
     return speed;
 }
 
-double Gclib::GetMotorPosition(GCStringIn axis)
+int Gclib::GetMotorPosition(GCStringIn axis)
 {
     GSize bytes_read = 0;
     char Command[256];
     
     if (this == NULL)
-        return FLT_MAX;
+        return INT_MAX;
     
     sprintf_s(Command, sizeof(Command), "MG _TP%s", axis);
     GReturn rc1 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
-    double pos = (rc1 == G_NO_ERROR) ? atof(Trim(m_Buffer)) : FLT_MAX;
+    int pos = (rc1 == G_NO_ERROR) ? atoi(Trim(m_Buffer)) : INT_MAX;
     return pos;
 }
 
@@ -158,7 +158,93 @@ GReturn Gclib::GMotionComplete(GCStringIn axes)
     return rc;
 }
 
+// The SH commands tells the controller to use the current motor position as the command position and to enable servo control at the current position.
+void Gclib::SetServoHere()
+{
+    GCommand("SH"); 
+}
 
+void Gclib::MotorsOff()
+{
+    GCommand("MO"); 
+}
+
+void Gclib::StopMotors()
+{
+    GCommand("ST"); //stop all motion and programs
+}
+
+void Gclib::BeginMotors()
+{
+    GCommand("BG*"); //stop all motion and programs
+}
+
+void Gclib::SetSlewSpeed(int speed)
+{
+    SetSlewSpeed(speed, speed, speed, speed);
+}
+void Gclib::SetSlewSpeed(int A, int B, int C, int D)
+{
+    CString str;
+    str.Format("SP %d,%d,%d,%d", A, B, C, D);
+ //   GCommand(str);
+}
+
+void Gclib::SetJogSpeed(int speed)
+{
+    SetJogSpeed("A", speed);
+    SetJogSpeed("B", speed);
+    SetJogSpeed("C", speed);
+    SetJogSpeed("D", speed);
+}
+void Gclib::SetJogSpeed(GCStringIn axis, int speed)
+{
+    CString str;
+    str.Format("JG%s=%d", axis, speed);
+    GCommand(str);
+}
+
+void Gclib::SetAcceleration(int accel)
+{
+    CString str;
+    str.Format("AC*=%d", accel);
+    GCommand(str);
+}
+void Gclib::SetDeceleration(int accel)
+{
+    CString str;
+    str.Format("DC*=%d", accel);
+    GCommand(str);
+}
+
+// used to define where the zero is
+void Gclib::DefinePosition(int pos)
+{
+    CString str;
+    str.Format("DP*=%d", pos);
+    GCommand(str);
+}
+
+void Gclib::GoToPosition(int pos)
+{
+    GoToPosition(pos, pos, pos, pos);
+}
+
+void Gclib::GoToPosition(int A, int B, int C, int D)
+{
+    CString str;
+    str.Format("PA=%d,%d,%d,%d", A, B, C, D);
+    GCommand(str);
+}
+
+
+void Gclib::WaitForMotorsToStop()
+{
+    GMotionComplete("A"); 
+    GMotionComplete("B"); 
+    GMotionComplete("C"); 
+    GMotionComplete("D"); 
+}
 
 
 /// <summary>

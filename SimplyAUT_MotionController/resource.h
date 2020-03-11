@@ -25,7 +25,6 @@
 #define IDB_BITMAP_LASER_ERROR          141
 #define IDB_BITMAP_LASER_OFF            142
 #define IDB_BITMAP_GO_LEFT              143
-#define IDB_BITMAP_GO_DOWN1             144
 #define IDB_BITMAP_GO_UP                144
 #define IDC_BUTTON_CONNECT              1001
 #define IDC_IPADDRESS_LASER             1004
@@ -68,6 +67,7 @@
 #define IDC_SPIN_CIRC                   1038
 #define IDC_BUTTON_ZERO_HOME            1039
 #define IDC_BUTTON_GO_HOME              1040
+#define IDC_BUTTON_PAUSE2               1040
 #define IDC_STATIC_PAUSE                1041
 #define IDC_EDIT_STATUS                 1042
 #define IDC_EDIT_DIST                   1042

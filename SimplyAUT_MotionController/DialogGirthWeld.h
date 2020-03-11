@@ -37,9 +37,10 @@ public:
 	BOOL	CheckVisibleTab();
 	LRESULT UserSteer(BOOL bRight, BOOL bDown);
 	UINT    ThreadStopMotors(void);
+	UINT	ThreadGoToHome(void);
+	UINT	ThreadRunManual(BOOL);
 
-	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED
-	};
+	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED	};
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -56,11 +57,12 @@ public:
 	afx_msg LRESULT OnUserSteerLeft(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserSteerRight(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserMotorsStopped(WPARAM, LPARAM);
-	
+
 	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
-	HANDLE			m_hThreadStopMotors;
+	HANDLE			m_hThreadRunMotors;
+	GALIL_STATE		m_nGaililStateBackup;
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;
@@ -68,6 +70,8 @@ public:
 	BOOL	m_bCheck;
 	BOOL	m_bPaused;
 	int     m_nTimerCount;
+	double  m_fMotorSpeed;
+	double  m_fMotorAccel;
 
 	CBitmap	m_bitmapPause;
 	CBitmap	m_bitmapGoRight;
