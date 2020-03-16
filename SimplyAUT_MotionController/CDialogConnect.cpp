@@ -15,7 +15,7 @@
 
 IMPLEMENT_DYNAMIC(CDialogConnect, CDialogEx)
 
-CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CMagController& mag, CWnd* pParent /*=nullptr*/)
+CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_CONNECT, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
@@ -49,7 +49,6 @@ void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_IPADDRESS_GALIL, m_ipGalil);
 	DDX_Control(pDX, IDC_IPADDRESS_MAG, m_ipMag);
 	DDX_Control(pDX, IDC_BUTTON_LASER, m_buttonLaser);
-	DDX_Control(pDX, IDC_BUTTON_RGB, m_buttonRGB);
 	DDX_Control(pDX, IDC_BUTTON_MAG, m_buttonMAG);
 	DDX_Control(pDX, IDC_BUTTON_GALIL, m_buttonGalil);
 	DDX_Text(pDX, IDC_EDIT_MAG_PORT, m_szPort);
@@ -177,7 +176,6 @@ void CDialogConnect::SetButtonBitmaps()
 	BOOL bLaser = m_laserControl.IsConnected();
 	BOOL bMag = m_magControl.IsConnected();
 
-	m_buttonRGB.SetBitmap(hBitmap1);
 	m_buttonMAG.SetBitmap(bMag ? hBitmap2 : hBitmap1);
 	m_buttonGalil.SetBitmap(bGalil ? hBitmap2 : hBitmap1);
 	m_buttonLaser.SetBitmap(bLaser ? hBitmap2 : hBitmap1);
@@ -185,6 +183,7 @@ void CDialogConnect::SetButtonBitmaps()
 	m_ipLaser.EnableWindow(!bLaser);
 	m_ipGalil.EnableWindow(!bGalil);
 	m_ipMag.EnableWindow(!bMag);
+	GetDlgItem(IDC_EDIT_MAG_PORT)->EnableWindow(!bMag);
 
 
 	if (!m_motionControl.IsConnected())

@@ -16,13 +16,13 @@
 
 class CMotionControl;
 class CLaserControl;
-class CMagController;
+class CMagControl;
 class CDialogGirthWeld : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagController&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();
@@ -71,7 +71,7 @@ public:
 	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
-	CMagController& m_magControl;
+	CMagControl& m_magControl;
 	HANDLE			m_hThreadRunMotors;
 	GALIL_STATE		m_nGaililStateBackup;
 

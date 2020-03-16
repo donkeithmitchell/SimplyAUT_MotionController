@@ -1,43 +1,11 @@
 #pragma once
+#include "LaserProfile.h"
+#include "SLSDef.h"
 
 
 // CDialogLaser dialog
 class CMotionControl;
 class CLaserControl;
-
-class CStaticLaserProfile : public CWnd
-{
-	DECLARE_DYNAMIC(CStaticLaserProfile)
-
-public:
-	CStaticLaserProfile(CLaserControl&);   // standard constructor
-	virtual ~CStaticLaserProfile();
-	void Init(CWnd*, UINT);
-
-	void Create(CWnd* pParent);
-	void DrawLaserProfile(CDC*);
-
-	CWnd* m_pParent;
-	UINT	m_nMsg;
-
-	CLaserControl&	m_laserControl;
-	CString		m_jointPos_str;
-	CString		m_gapVal_str;
-	CString		m_edgesPos_str;
-	CString		m_mismVal_str;
-	int			m_profile_count;
-
-	// Dialog Data
-#ifdef AFX_DESIGN_TIME
-#endif
-
-protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	afx_msg void OnPaint();
-	afx_msg void OnTimer(UINT_PTR nIDEvent);
-
-	DECLARE_MESSAGE_MAP()
-};
 
 class CDialogLaser : public CDialogEx
 {

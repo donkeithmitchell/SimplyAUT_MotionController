@@ -249,6 +249,18 @@ BOOL CLaserControl::Connect(const BYTE address[4])
     return TRUE;
 }
 
+BOOL CLaserControl::ConvPixelToMm(int row, int col, double& sw, double& hw)
+{
+	if (IsConnected())
+	{
+		::ConvPixelToMm(row, col, &sw, &hw);
+		return TRUE;
+	}
+	else
+		return FALSE;
+
+}
+
 BOOL CLaserControl::GetLaserVersion(unsigned short& major, unsigned short& minor)
 {
 	if (!IsConnected())

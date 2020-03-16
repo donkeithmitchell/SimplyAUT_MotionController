@@ -5,6 +5,7 @@
 #include "SimplyAUT_MotionController.h"
 #include "StaticLaser.h"
 #include "LaserControl.h"
+#include "MagController.h"
 #include "afxdialogex.h"
 
 static double PI = 3.14159265358979323846;
@@ -14,14 +15,21 @@ static double PI = 3.14159265358979323846;
 
 IMPLEMENT_DYNAMIC(CStaticLaser, CWnd)
 
-CStaticLaser::CStaticLaser(CLaserControl& laser)
+CStaticLaser::CStaticLaser(CLaserControl& laser, CMagControl& mag)
 	: CWnd()
 	, m_laserControl(laser)
+	, m_magControl(mag)
+//	, m_wndLaserProfile(laser, ::GetSysColor(COLOR_3DFACE))
 	, m_ptMouse(INT_MAX, INT_MAX)
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
 	m_fHomeAng = 0;
+	m_profile_count = 0;
+	m_image_count = 0;
+	m_valid_edges = FALSE;
+	m_valid_joint_pos = FALSE;
+
 }
 
 CStaticLaser::~CStaticLaser()
@@ -43,6 +51,7 @@ void CStaticLaser::DoDataExchange(CDataExchange* pDX)
 
 
 BEGIN_MESSAGE_MAP(CStaticLaser, CWnd)
+	ON_WM_SIZE()
 	ON_WM_PAINT()
 	ON_WM_TIMER()
 	ON_WM_RBUTTONDOWN()
@@ -57,6 +66,9 @@ void CStaticLaser::Create(CWnd* pParent)
 	m_pParent = pParent;
 	BOOL ret = CWnd::Create(NULL, _T(""), WS_CHILD | WS_VISIBLE, CRect(0,0, 0,0), pParent, 1, NULL);
 	ASSERT(m_hWnd != NULL);
+
+//	m_wndLaserProfile.Create(this);
+//	m_wndLaserProfile.Init(this, 0);
 
 	EnableWindow(TRUE);
 	InvalidateRgn(NULL);
@@ -78,8 +90,30 @@ void CStaticLaser::OnPaint()
 	CBitmap* pBitmap = memDC.SelectObject(&bitmap);
 	DrawCrawlerLocation(&memDC);
 	DrawLaserProfile(&memDC);
+//	m_wndLaserProfile.InvalidateRgn(NULL);
 	dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
 }
+
+void CStaticLaser::OnSize(UINT nFlag, int cx, int cy)
+{
+	CRect rect;
+	CWnd::OnSize(nFlag, cx, cy);
+	/*
+	if (!IsWindow(m_hWnd))
+		return;
+	if (!IsWindow(m_wndLaserProfile.m_hWnd))
+		return;
+
+	// positioon in the bottom half and in the centre half of that
+	GetClientRect(&rect);
+	int x1 = rect.left + rect.Width() / 6;
+	int x2 = rect.right - rect.Width() / 6;
+	int y1 = (rect.top + rect.bottom) / 2 + 8;
+	int y2 = rect.bottom - rect.Height() / 6;
+	m_wndLaserProfile.MoveWindow(x1, y1, x2 - x1, y2 - y1);
+	*/
+}
+
 
 int CStaticLaser::GetPipeRect(CRect* rect)
 {
@@ -142,7 +176,11 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 		int y1 = (int)(y0 + radius1 * sin(ang) + 0.5);
 
 		// draw a filled dot at this location
-		CBrush brush2(RGB(0, 0, 0));
+		// red if magnets not engaged, else greenm
+		BOOL bMagOn = m_magControl.AreMagnetsEngaged();
+		CBrush brush2(bMagOn ? RGB(0, 255, 0) : RGB(255, 0, 0));
+		CPen pen2(PS_SOLID, 0, (bMagOn ? RGB(0, 255, 0) : RGB(255, 0, 0)));
+		CPen * pPen2 = pDC->SelectObject(&pen2);
 		CBrush* pBrush2 = pDC->SelectObject(&brush2);
 		pDC->Ellipse(x1 - 5, y1 - 5, x1 + 5, y1 + 5);
 	}
@@ -169,26 +207,91 @@ void CStaticLaser::SetCrawlerLocation(CPoint pt)
 	InvalidateRgn(NULL);
 }
 
+void CStaticLaser::GetLaserRect(CRect* rect)
+{
+	// positioon in the bottom half and in the centre half of that
+	GetClientRect(rect);
+	int x1 = rect->left + rect->Width() / 6;
+	int x2 = rect->right - rect->Width() / 6;
+	int y1 = rect->top + rect->Height() / 8;
+	int y2 = (rect->bottom + rect->top) / 2;
+	rect->SetRect(x1,y1, x2, y2);
+}
+
 
 // draw the profile returned by the laser within the above circle
 void CStaticLaser::DrawLaserProfile(CDC* pDC)
 {
+	int i, x, y;
 	CRect rect;
-	GetClientRect(&rect);
 
-	CPen pen(PS_SOLID, 0, RGB(0, 0, 0));
-	CPen* pPen = pDC->SelectObject(&pen);
+	if (!m_laserControl.IsLaserOn())
+		return;
 
-	// draw the horizontal axis across the middle
-	int x1 = rect.left;
-	int x2 = rect.right;
-	int y = (rect.top + rect.bottom) / 2;
+	GetLaserProfile();
+	GetLaserRect(&rect);
 
-	pDC->MoveTo(x1, y);
-	pDC->LineTo(x2, y);
+	CPen black(PS_SOLID, 0, RGB(0, 0, 0));
+	pDC->SelectObject(&black);
+	pDC->MoveTo(rect.left, rect.bottom);
+	pDC->LineTo(rect.right, rect.bottom);
 
-	pDC->SelectObject(pPen);
+	// Draw the background of the laser display
+	CBrush black_brush;
+	CPen PenPrimaryEdge(PS_SOLID, 2, RGB(10, 10, 250));
+	CPen PenSecondaryEdge(PS_SOLID, 1, RGB(250, 250, 10));
+	CPen PenTrackingPoint(PS_SOLID, 2, RGB(10, 200, 10));
+
+	black_brush.CreateSolidBrush(::GetSysColor(COLOR_3DFACE));
+	pDC->FillRect(&rect, &black_brush);
+	pDC->SelectObject(&PenPrimaryEdge);
+
+	// Display Profile
+	double disp_width_factor = (double)rect.Width() / (double)FRAME_WIDTH;
+	double disp_height_factor = (double)rect.Height() / (double)FRAME_HEIGHT;
+
+	int init = 1;
+	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
+	pDC->SelectObject(&hits);
+
+	for (int i = 0; i < SENSOR_WIDTH; i++)
+	{
+		if (m_profile.hits[i].pos1 != 10000)
+		{
+			double x = rect.left + double(i) * disp_width_factor;
+			double y = rect.bottom - (double)(m_profile.hits[i].pos1) * disp_height_factor;
+			if (init) pDC->MoveTo((int)x, (int)y);
+			else pDC->LineTo((int)x, (int)y);
+			init = 0;
+		}
+	}
+	if (m_image_count)
+	{
+		pDC->SelectObject(&PenPrimaryEdge);
+		double x1 = rect.left + (double)(m_measure.mp[1].x) * disp_width_factor;
+		double y1 = rect.bottom - (double)(m_measure.mp[1].y) * disp_height_factor;
+		pDC->MoveTo((int)x1, (int)y1 - 3);
+		pDC->LineTo((int)x1, (int)y1 + 3);
+
+		double x2 = rect.left + (double)(m_measure.mp[2].x) * disp_width_factor;
+		double y2 = rect.bottom - (double)(m_measure.mp[2].y) * disp_height_factor;
+		pDC->MoveTo((int)x2, (int)y2 - 3);
+		pDC->LineTo((int)x2, (int)y2 + 3);
+	}
+	// Display Tracking Point
+	if (m_valid_joint_pos)
+	{
+		double x = rect.left + (double)(m_measure.mp[0].x) * disp_width_factor;
+		double y = rect.bottom - (double)(m_measure.mp[0].y) * disp_height_factor;
+		pDC->SelectObject(&PenTrackingPoint);
+		pDC->MoveTo((int)x - 7, (int)y);
+		pDC->LineTo((int)x + 7, (int)y);
+		pDC->MoveTo((int)x, (int)y - 7);
+		pDC->LineTo((int)x, (int)y + 7);
+	}
+
 }
+
 
 void CStaticLaser::OnTimer(UINT_PTR nIDEvent)
 {
@@ -204,6 +307,71 @@ void CStaticLaser::OnTimer(UINT_PTR nIDEvent)
 		m_laserControl.GetLaserTemperature(temp);
 		break;
 	}
+}
+
+void CStaticLaser::GetLaserProfile()
+{
+	CString tstr;
+
+	double h_mm = 0.0, v_mm = 0.0;
+	double h2_mm = 0.0, v2_mm = 0.0;
+
+	if (!IsWindowVisible())
+		return;
+
+
+	if (m_laserControl.IsConnected() && m_laserControl.IsLaserOn() && m_laserControl.GetLaserMeasurment(m_measure))
+	{
+		if (m_measure.mp[0].status == 0)
+		{
+			m_laserControl.ConvPixelToMm((int)m_measure.mp[0].x, (int)m_measure.mp[0].y, h_mm, v_mm);
+//			m_jointPos_str.Format("(%.1f,%.1f)", h_mm, v_mm);
+			m_valid_joint_pos = true;
+		}
+		else
+		{
+	//		m_jointPos_str = "-----";
+			m_valid_joint_pos = false;
+		}
+		if ((m_measure.mp[1].status == 0) || (m_measure.mp[2].status == 0))
+		{
+			m_laserControl.ConvPixelToMm((int)m_measure.mp[1].x, (int)m_measure.mp[1].y, h_mm, v_mm);
+			m_laserControl.ConvPixelToMm((int)m_measure.mp[2].x, (int)m_measure.mp[2].y, h2_mm, v2_mm);
+	//		m_edgesPos_str.Format("%+5.1f,%+5.1f %+5.1f,%+5.1f", h_mm, v_mm, h2_mm, v2_mm);
+			m_image_count = true;
+		}
+		else
+		{
+	//		m_edgesPos_str = "-----";
+			m_image_count = false;
+		}
+		if (m_measure.mv[0].status == 0)
+		{
+	//		m_gapVal_str.Format("%+5.1f", m_measure.mv[0].val);
+		}
+		else
+		{
+	//		m_gapVal_str = "-----";
+		}
+		if (m_measure.mv[1].status == 0)
+		{
+	//		m_mismVal_str.Format("%+5.1f", m_measure.mv[1].val);
+		}
+		else
+		{
+	//		m_mismVal_str = "-----";
+		}
+		if (m_laserControl.GetProfile(m_profile))
+		{
+			m_image_count++;
+		}
+		m_profile_count = m_image_count;
+
+		if (m_profile_count % 10 == 0)
+			m_pParent->PostMessageA(m_nMsg);
+	}
+
+	InvalidateRgn(NULL);
 }
 
 void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)

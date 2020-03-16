@@ -87,6 +87,12 @@
     <ClInclude Include="DialogLaser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DialogMag.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LaserProfile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">
@@ -129,6 +135,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DialogLaser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogMag.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LaserProfile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

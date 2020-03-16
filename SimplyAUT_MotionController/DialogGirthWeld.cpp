@@ -40,12 +40,12 @@ static UINT ThreadRunManual(LPVOID param)
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagController& mag, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_wndLaser(laser)
+	, m_wndLaser(laser, mag)
 	, m_nGalilState(nState)
 
 	, m_szLROffset(_T("0.0"))
@@ -496,7 +496,7 @@ void CDialogGirthWeld::SetButtonBitmaps()
 	SendDebugMessage("SetButtonBitmaps");
 
 	BOOL bGalil = m_motionControl.IsConnected();
-	BOOL bMag = m_magControl.AreWheelsEngaged();
+	BOOL bMag = m_magControl.AreMagnetsEngaged();
 
 	HBITMAP hBitmapRight = (HBITMAP)m_bitmapGoRight.GetSafeHandle();
 	HBITMAP hBitmapLeft = (HBITMAP)m_bitmapGoLeft.GetSafeHandle();
@@ -548,6 +548,8 @@ void CDialogGirthWeld::SetButtonBitmaps()
 
 
 	GetDlgItem(IDC_STATIC_PAUSE)->SetWindowText(m_bPaused ? _T("Resume" : _T("Pause")));
+
+	m_wndLaser.InvalidateRgn(NULL);
 }
 
 

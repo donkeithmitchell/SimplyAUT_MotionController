@@ -11,6 +11,7 @@
 #include "LaserControl.h"
 #include "MagController.h"
 #include "DialogLaser.h"
+#include "DialogMag.h"
 
 
 // CSimplyAUTMotionControllerDlg dialog
@@ -24,7 +25,7 @@ public:
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG };
 #endif
-	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_SCAN, TAB_LASER, TAB_STATUS};
+	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_SCAN, TAB_LASER, TAB_MAG, TAB_STATUS};
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
@@ -40,13 +41,14 @@ protected:
 	GALIL_STATE			m_galil_state;
 	CMotionControl		m_motionControl;
 	CLaserControl       m_laserControl;
-	CMagController		m_magControl;
+	CMagControl		m_magControl;
 
 	CDialogConnect		m_dlgConnect;
 	CDialogMotors		m_dlgMotors;
 	CDialogGirthWeld	m_dlgGirthWeld;
 	CDialogLaser		m_dlgLaser;
 	CDialogStatus		m_dlgStatus;
+	CDialogMag          m_dlgMag;
 
 	BOOL m_bInit;
 	BOOL m_bCheck;

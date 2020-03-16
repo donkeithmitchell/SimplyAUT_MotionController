@@ -17,6 +17,7 @@
 #define IDD_DIALOG_STATUS1              133
 #define IDD_DIALOG_LASER                133
 #define IDB_BITMAP_PAUSE                134
+#define IDD_DIALOG_MAG                  134
 #define IDB_BITMAP_GO_HORZ              135
 #define IDB_BITMAP_GO_RIGHT             135
 #define IDB_BITMAP_GO_VERT              136
@@ -122,8 +123,14 @@
 #define IDC_ROI_EDIT                    1081
 #define IDC_CLOSE_BUTTON                1082
 #define IDC_STATIC_PROFILE              1083
-#define IDC_EDIT1                       1084
 #define IDC_EDIT_MAG_PORT               1084
+#define IDC_STATIC_MAG_VERSION          1085
+#define IDC_STATIC_MAG_ENCODER          1086
+#define IDC_CHECK_MAG_ENABLE            1087
+#define IDC_BUTTON_MAG_CLEAR            1088
+#define IDC_STATIC_MAG_ENCODER2         1089
+#define IDC_STATIC_MAG_RGB              1089
+#define IDC_BUTTON_MAG_ON               1090
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
@@ -132,7 +139,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1085
+#define _APS_NEXT_CONTROL_VALUE         1091
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

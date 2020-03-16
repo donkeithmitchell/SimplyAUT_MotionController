@@ -192,6 +192,7 @@
     <ClInclude Include="CDialogConnect.h" />
     <ClInclude Include="DialogGirthWeld.h" />
     <ClInclude Include="DialogLaser.h" />
+    <ClInclude Include="DialogMag.h" />
     <ClInclude Include="DialogMotors.h" />
     <ClInclude Include="DialogStatus.h" />
     <ClInclude Include="framework.h" />
@@ -201,6 +202,7 @@
     <ClInclude Include="include\gclib_errors.h" />
     <ClInclude Include="include\gclib_record.h" />
     <ClInclude Include="LaserControl.h" />
+    <ClInclude Include="LaserProfile.h" />
     <ClInclude Include="MagController.h" />
     <ClInclude Include="MotionControl.h" />
     <ClInclude Include="pch.h" />
@@ -218,10 +220,12 @@
     <ClCompile Include="CDialogConnect.cpp" />
     <ClCompile Include="DialogGirthWeld.cpp" />
     <ClCompile Include="DialogLaser.cpp" />
+    <ClCompile Include="DialogMag.cpp" />
     <ClCompile Include="DialogMotors.cpp" />
     <ClCompile Include="DialogStatus.cpp" />
     <ClCompile Include="Gclib2.cpp" />
     <ClCompile Include="LaserControl.cpp" />
+    <ClCompile Include="LaserProfile.cpp" />
     <ClCompile Include="MagController.cpp" />
     <ClCompile Include="MotionControl.cpp" />
     <ClCompile Include="pch.cpp">

@@ -39,6 +39,7 @@ public:
 	BOOL SetLaserOptions(int opt);
 	BOOL SetLaserOptions(int opt1, int opt2, int opt3, int opt4);
 	BOOL GetLaserVersion(unsigned short& major, unsigned short& minor);
+	BOOL ConvPixelToMm(int row, int col, double& sw, double& hw);
 
 	int		m_nLaserPower;
 	int		m_nCameraShutter;

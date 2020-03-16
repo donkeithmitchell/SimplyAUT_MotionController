@@ -14,7 +14,7 @@
 
 IMPLEMENT_DYNAMIC(CDialogMotors, CDialogEx)
 
-CDialogMotors::CDialogMotors(CMotionControl& motion, CMagController& mag, const GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogMotors::CDialogMotors(CMotionControl& motion, CMagControl& mag, const GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_MOTORS, pParent)
 	, m_motionControl(motion)
 	, m_magControl(mag)
@@ -29,7 +29,6 @@ CDialogMotors::CDialogMotors(CMotionControl& motion, CMagController& mag, const 
 	, m_szMotorB(_T(""))
 	, m_szMotorC(_T(""))
 	, m_szMotorD(_T(""))
-	, m_bMagEngaged(FALSE)
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -73,15 +72,13 @@ void CDialogMotors::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_STATIC_MOTOR_B, m_szMotorB);
 	DDX_Text(pDX, IDC_STATIC_MOTOR_C, m_szMotorC);
 	DDX_Text(pDX, IDC_STATIC_MOTOR_D, m_szMotorD);
-	DDX_Check(pDX, IDC_CHECK_MAG_ENGAGED, m_bMagEngaged);
+
 }
 
 
 BEGIN_MESSAGE_MAP(CDialogMotors, CDialogEx)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_SPEED, &CDialogMotors::OnDeltaposSpinScanSpeed)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_ACCEL, &CDialogMotors::OnDeltaposSpinScanAccel)
-	ON_BN_CLICKED(IDC_CHECK_MAG_ENGAGED, &CDialogMotors::OnClickedButtonEngaged)
-
 	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
@@ -141,22 +138,6 @@ void CDialogMotors::OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-void CDialogMotors::OnClickedButtonEngaged()
-{
-	UpdateData(TRUE);
-	if (!m_bMagEngaged)
-	{
-		int ret = AfxMessageBox("[ Warning ]\nInsure the crawler is in a safe location before disengaging the wheel magnets", MB_OKCANCEL);
-		if (ret == IDOK)
-		{
-		}
-		else
-			m_bMagEngaged = TRUE;
-	}
-	m_magControl.SetWheelsEngaged(m_bMagEngaged);
-	UpdateData(FALSE);
-	m_pParent->PostMessageA(m_nMsg, MSG_SETBITMAPS);
-}
 
 void CDialogMotors::OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult)
 {
@@ -179,7 +160,6 @@ void CDialogMotors::EnableControls()
 	BOOL bConnect = m_motionControl.IsConnected();
 	GetDlgItem(IDC_EDIT_SPEED)->EnableWindow(bConnect && m_nGalilState == GALIL_IDLE);
 	GetDlgItem(IDC_EDIT_ACCEL)->EnableWindow(bConnect && m_nGalilState == GALIL_IDLE);
-	GetDlgItem(IDC_CHECK_MAG_ENGAGED)->EnableWindow(bConnect && m_nGalilState == GALIL_IDLE);
 }
 
 BOOL CDialogMotors::CheckVisibleTab()
