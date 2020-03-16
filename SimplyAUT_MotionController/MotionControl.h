@@ -23,7 +23,7 @@ public:
 	int DistancePerSecondToEncoderCount(double DistancePerSecond)const;
 	int    AxisDirection(GCStringIn axis)const;
 	void   ZeroPositions();
-	void   GoToPosition(double pos);
+	void   GoToPosition(double pos, double fSpeed, double fAccel);
 	BOOL   SteerMotors(BOOL bRight, BOOL bDown);
 	void   SetSlewSpeed(double speed);
 	void   GoToHomePosition();

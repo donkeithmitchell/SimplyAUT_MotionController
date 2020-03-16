@@ -4,12 +4,13 @@
 // CDialogMotors dialog
 
 class CMotionControl;
+class CMagController;
 class CDialogMotors : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogMotors)
 
 public:
-	CDialogMotors(CMotionControl&, const GALIL_STATE&, CWnd* pParent = nullptr);   // standard constructor
+	CDialogMotors(CMotionControl&, CMagController& mag, const GALIL_STATE&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogMotors();
 
 	virtual BOOL OnInitDialog();
@@ -33,11 +34,12 @@ public:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	afx_msg void OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult);
-	void	EbableControls();
+	afx_msg void OnClickedButtonEngaged();
 	void	Init(CWnd* pParent, UINT nMsg);
 
 	const GALIL_STATE&	m_nGalilState;
 	CMotionControl&		m_motionControl;
+	CMagController&		m_magControl;
 
 	CSpinButtonCtrl m_spinScanSpeed;
 	CSpinButtonCtrl m_spinScanAccel;
@@ -57,4 +59,5 @@ public:
 	CWnd* m_pParent;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
+	BOOL m_bMagEngaged;
 };

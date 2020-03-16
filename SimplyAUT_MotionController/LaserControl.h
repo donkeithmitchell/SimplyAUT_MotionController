@@ -24,14 +24,21 @@ public:
 	void EnableControls();
 	BOOL TurnLaserOn(BOOL);
 	BOOL GetLaserTemperature(LASER_TEMPERATURE&);
+	BOOL GetLaserStatus(SensorStatus& SensorStatus);
 	BOOL GetLaserMeasurment(Measurement&);
+	BOOL SetLaserMeasurment(const Measurement&);
 	BOOL SetAutoLaserCheck(BOOL);
 	BOOL SetLaserIntensity(int nLaserPower);
 	BOOL SetCameraShutter(int nCameraShutter);
-	BOOL SetCameraRoi();
-	BOOL GetProfile(Profile* pProfile);
+	BOOL GetProfile(Profile& profile);
 	BOOL GetProfilemm(Profilemm* pProfile, int hit_no);
 	void Frm_Find_Sensors();
+	int  GetSerialNumber();
+	BOOL GetCameraRoi(CRect& rect);
+	BOOL SetCameraRoi(const CRect& rect);
+	BOOL SetLaserOptions(int opt);
+	BOOL SetLaserOptions(int opt1, int opt2, int opt3, int opt4);
+	BOOL GetLaserVersion(unsigned short& major, unsigned short& minor);
 
 	int		m_nLaserPower;
 	int		m_nCameraShutter;

@@ -4,13 +4,14 @@
 // CDialogConnect dialog
 class CMotionControl;
 class CLaserControl;
+class CMagController;
 
 class CDialogConnect : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogConnect)
 
 public:
-	CDialogConnect(CMotionControl&, CLaserControl&, CWnd* pParent = nullptr);   // standard constructor
+	CDialogConnect(CMotionControl&, CLaserControl&, CMagController&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogConnect();
 	void Init(CWnd*, UINT);
 
@@ -36,15 +37,18 @@ public:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	CIPAddressCtrl m_ipLaser;
 	CIPAddressCtrl m_ipGalil;
+	CIPAddressCtrl m_ipMag;
 	CButton m_buttonLaser;
 	CButton m_buttonRGB;
 	CButton m_buttonMAG;
 	CButton m_buttonGalil;
+	CString m_szPort;
 
 	CBitmap	m_bitmapDisconnect;
 	CBitmap	m_bitmapConnect;
 	CMotionControl& m_motionControl;
 	CLaserControl& m_laserControl;
+	CMagController& m_magControl;
 
 	BOOL	m_bInit;
 	BOOL	m_bCheck;

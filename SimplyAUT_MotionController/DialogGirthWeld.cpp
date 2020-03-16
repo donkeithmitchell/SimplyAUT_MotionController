@@ -6,6 +6,8 @@
 #include "DialogGirthWeld.h"
 #include "afxdialogex.h"
 #include "MotionControl.h"
+#include "LaserControl.h"
+#include "MagController.h"
 #include "resource.h"
 
 static const int LASER_BLINK = 500;
@@ -38,17 +40,17 @@ static UINT ThreadRunManual(LPVOID param)
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagController& mag, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
+	, m_magControl(mag)
 	, m_wndLaser(laser)
 	, m_nGalilState(nState)
 
 	, m_szLROffset(_T("0.0"))
 	, m_szScanCirc(_T("100.0"))
 	, m_szDistToScan(_T("100.0"))
-	, m_szDistScanned(_T("0.0"))
 	, m_szScanOverlap(_T("50.0"))
 
 	, m_fLROffset(0.0)
@@ -65,11 +67,18 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_nScanType(FALSE)
 	, m_bReturnToHome(FALSE)
 	, m_bReturnToStart(FALSE)
+
+	, m_szScannedDist(_T("0.0 mm"))
 	, m_szHomeDist(_T("0.0 mm"))
+	, m_bSeekReverse(FALSE)
+	, m_szTempBoard(_T(""))
+	, m_szTempLaser(_T(""))
+	, m_szTempSensor(_T(""))
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
 	m_bPaused = FALSE;
+	m_bResumed = FALSE;
 	m_nTimerCount = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -77,6 +86,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_fMotorSpeed = 0;
 	m_fMotorAccel = 0;
 	m_nGaililStateBackup = GALIL_IDLE;
+	m_fScanStart = FLT_MAX;
 }
 
 CDialogGirthWeld::~CDialogGirthWeld()
@@ -94,61 +104,66 @@ void CDialogGirthWeld::Init(CWnd* pParent, UINT nMsg)
 void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_SPIN_LR_OFFSET,	m_spinLROffset);
-	DDX_Control(pDX, IDC_SPIN_CIRC,			m_spinScanCirc);
-	DDX_Control(pDX, IDC_SPIN_DIST,			m_spinScanDist);
-	DDX_Control(pDX, IDC_SPIN_OVERLAP,		m_spinScanOverlap);
+	DDX_Control(pDX, IDC_SPIN_LR_OFFSET, m_spinLROffset);
+	DDX_Control(pDX, IDC_SPIN_CIRC, m_spinScanCirc);
+	DDX_Control(pDX, IDC_SPIN_DIST, m_spinScanDist);
+	DDX_Control(pDX, IDC_SPIN_OVERLAP, m_spinScanOverlap);
 
-	DDX_Text(pDX, IDC_EDIT_LR_OFFSET,		m_szLROffset);
-	DDX_Text(pDX, IDC_EDIT_LR_OFFSET,		m_fLROffset);
+	DDX_Text(pDX, IDC_EDIT_LR_OFFSET, m_szLROffset);
+	DDX_Text(pDX, IDC_EDIT_LR_OFFSET, m_fLROffset);
 	if (m_bCheck)
 	{
 		DDV_MinMaxDouble(pDX, m_fLROffset, 0.0, 10.0);
 	}
-	DDX_Text(pDX, IDC_EDIT_CIRC,			m_szScanCirc);
-	DDX_Text(pDX, IDC_EDIT_CIRC,			m_fScanCirc);
+	DDX_Text(pDX, IDC_EDIT_CIRC, m_szScanCirc);
+	DDX_Text(pDX, IDC_EDIT_CIRC, m_fScanCirc);
 	if (m_bCheck)
 	{
 		DDV_MinMaxDouble(pDX, m_fScanCirc, 100.0, 10000.0);
 	}
-	DDX_Text(pDX, IDC_EDIT_DIST,			m_szDistToScan);
-	DDX_Text(pDX, IDC_EDIT_DIST,			m_fDistToScan);
+	DDX_Text(pDX, IDC_EDIT_DIST, m_szDistToScan);
+	DDX_Text(pDX, IDC_EDIT_DIST, m_fDistToScan);
 	if (m_bCheck)
 	{
 		DDV_MinMaxDouble(pDX, m_fDistToScan, 10.0, 10000.0);
 	}
 
-	DDX_Text(pDX, IDC_EDIT_OVERLAP,			m_szScanOverlap);
-	DDX_Text(pDX, IDC_EDIT_OVERLAP,			m_fScanOverlap);
+	DDX_Text(pDX, IDC_EDIT_OVERLAP, m_szScanOverlap);
+	DDX_Text(pDX, IDC_EDIT_OVERLAP, m_fScanOverlap);
 	if (m_bCheck)
 	{
 		DDV_MinMaxDouble(pDX, m_fScanOverlap, 0.0, 100.0);
 	}
 
-	DDX_Control(pDX, IDC_BUTTON_PAUSE,		m_buttonPause);
-	DDX_Control(pDX, IDC_BUTTON_CALIB,		m_buttonCalib);
-	DDX_Control(pDX, IDC_BUTTON_MANUAL,		m_buttonManual);
-	DDX_Control(pDX, IDC_BUTTON_AUTO,		m_buttonAuto);
-	DDX_Control(pDX, IDC_BUTTON_BACK,		m_buttonBack);
-	DDX_Control(pDX, IDC_BUTTON_LEFT,		m_buttonLeft);
-	DDX_Control(pDX, IDC_BUTTON_RIGHT,		m_buttonRight);
-	DDX_Control(pDX, IDC_BUTTON_FWD,		m_buttonFwd);
-	DDX_Control(pDX, IDC_BUTTON_ZERO_HOME,	m_buttonZeroHome);
-	DDX_Control(pDX, IDC_BUTTON_GO_HOME,	m_buttonGoHome);
+	DDX_Control(pDX, IDC_BUTTON_PAUSE, m_buttonPause);
+	DDX_Control(pDX, IDC_BUTTON_CALIB, m_buttonCalib);
+	DDX_Control(pDX, IDC_BUTTON_MANUAL, m_buttonManual);
+	DDX_Control(pDX, IDC_BUTTON_AUTO, m_buttonAuto);
+	DDX_Control(pDX, IDC_BUTTON_BACK, m_buttonBack);
+	DDX_Control(pDX, IDC_BUTTON_LEFT, m_buttonLeft);
+	DDX_Control(pDX, IDC_BUTTON_RIGHT, m_buttonRight);
+	DDX_Control(pDX, IDC_BUTTON_FWD, m_buttonFwd);
+	DDX_Control(pDX, IDC_BUTTON_ZERO_HOME, m_buttonZeroHome);
+	DDX_Control(pDX, IDC_BUTTON_GO_HOME, m_buttonGoHome);
 	DDX_Control(pDX, IDC_BUTTON_LASER_STATUS, m_buttonLaserStatus);
 
-	DDX_Radio(pDX, IDC_RADIO_CIRC,			m_nScanType);
-	DDX_Check(pDX, IDC_CHECK_AUTOHOME,		m_bReturnToHome);
-	DDX_Check(pDX, IDC_CHECK_RETURNTOSTART,	m_bReturnToStart);
+	DDX_Radio(pDX, IDC_RADIO_CIRC, m_nScanType);
+	DDX_Check(pDX, IDC_CHECK_AUTOHOME, m_bReturnToHome);
+	DDX_Check(pDX, IDC_CHECK_RETURNTOSTART, m_bReturnToStart);
 
-	DDX_Control(pDX, IDC_STATIC_LASER,		m_staticLaser);
-	DDX_Text(pDX, IDC_STATIC_HOMEDIST,		m_szHomeDist);
-	DDX_Text(pDX, IDC_STATIC_SCANNEDDIST,	m_szDistScanned);
+	DDX_Control(pDX, IDC_STATIC_LASER, m_staticLaser);
+	DDX_Text(pDX, IDC_STATIC_HOMEDIST, m_szHomeDist);
+	DDX_Text(pDX, IDC_STATIC_SCANNEDDIST, m_szScannedDist);
 
-	DDX_Text(pDX, IDC_STATIC_LASER_US,		m_szLaserHiLowUS);
-	DDX_Text(pDX, IDC_STATIC_LASER_DS,		m_szLaserHiLowDS);
-	DDX_Text(pDX, IDC_STATIC_LASER_DIFF,	m_szLaserHiLowDiff);
-	DDX_Text(pDX, IDC_STATIC_CAP_HEIGHT,	m_szLaserCapHeight);
+	DDX_Text(pDX, IDC_STATIC_LASER_US, m_szLaserHiLowUS);
+	DDX_Text(pDX, IDC_STATIC_LASER_DS, m_szLaserHiLowDS);
+	DDX_Text(pDX, IDC_STATIC_LASER_DIFF, m_szLaserHiLowDiff);
+	DDX_Text(pDX, IDC_STATIC_CAP_HEIGHT, m_szLaserCapHeight);
+	DDX_Check(pDX, IDC_CHECK_AUTO_REVERSE, m_bSeekReverse);
+
+	DDX_Text(pDX, IDC_STATIC_TEMP_BOARD, m_szTempBoard);
+	DDX_Text(pDX, IDC_STATIC_TEMP_LASER, m_szTempLaser);
+	DDX_Text(pDX, IDC_STATIC_TEMP_SENSOR, m_szTempSensor);
 }
 
 
@@ -156,7 +171,7 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_SIZE()
 	ON_WM_TIMER()
-//	ON_WM_CTLCOLOR()
+	ON_WM_CTLCOLOR()
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_LR_OFFSET, &CDialogGirthWeld::OnDeltaposSpinLrOffset)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_CIRC, &CDialogGirthWeld::OnDeltaposSpinScanCirc)
 	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_DIST, &CDialogGirthWeld::OnDeltaposSpinScanDist)
@@ -180,6 +195,7 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_MESSAGE(WM_STEER_LEFT,				&CDialogGirthWeld::OnUserSteerLeft)
 	ON_MESSAGE(WM_STEER_RIGHT,				&CDialogGirthWeld::OnUserSteerRight)
 	ON_MESSAGE(WM_MOTORSSTOPPED,			&CDialogGirthWeld::OnUserMotorsStopped)
+	ON_MESSAGE(WM_USER_STATIC,				&CDialogGirthWeld::OnUserStaticParameter)
 END_MESSAGE_MAP()
 
 
@@ -214,13 +230,15 @@ BOOL CDialogGirthWeld::OnInitDialog()
 	m_brMagenta.CreateSolidBrush(RGB(255, 0, 255));
 
 	m_wndLaser.Create(&m_staticLaser);
+	m_wndLaser.Init(this, WM_USER_STATIC);
 	m_buttonLeft.Init(this, WM_STEER_LEFT);
 	m_buttonRight.Init(this, WM_STEER_RIGHT);
 
 	m_bInit = TRUE;
 	SetButtonBitmaps();
 
-	SetLaserStatus(TIMER_LASER_OFF);
+//	SetLaserStatus(TIMER_LASER_OFF);
+	SetTimer(TIMER_LASER_STATUS, 500, NULL); // temperature and status
 
 	PostMessage(WM_SIZE);
 
@@ -247,52 +265,26 @@ void CDialogGirthWeld::Create(CWnd* pParent)
 	CDialogEx::Create(IDD_DIALOG_GIRTHWELD, pParent);
 	ShowWindow(SW_HIDE);
 }
-
+/*
 void CDialogGirthWeld::SetLaserStatus(LASER_STATUS nStatus)
 {
 	m_nTimerCount = 0;
 	SetTimer(nStatus, LASER_BLINK, NULL); // this will default the laser statusd
 }
-
+*/
 // set a timer at 500 ms to cycle between off and on colours to show blink
 void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 {
 	// if sewtting to steady, then kill the timer after setting
-	HBITMAP hBitmap = NULL;
 	switch (nIDEvent)
 	{
-	case TIMER_LASER_OFF:
-		hBitmap = (HBITMAP)m_bitmapLaserOff.GetSafeHandle();
-		KillTimer(nIDEvent);
-		break; // off
-	case TIMER_LASER_OK:
-		hBitmap = (HBITMAP)m_bitmapLaserOK.GetSafeHandle();
-		KillTimer(nIDEvent);
-		break; // ok (grren steady)
-	case TIMER_LASER_ERROR:
-		hBitmap = (HBITMAP)m_bitmapLaserError.GetSafeHandle();
-		KillTimer(nIDEvent);
-		break; // HW error (red steady)
-	case TIMER_LASER_HOT:
-		hBitmap = (HBITMAP)m_bitmapLaserHot.GetSafeHandle();
-		KillTimer(nIDEvent);
-		break; // OK HOT (magenta steady)
-	// these are blink, so keep the time alive
-	case TIMER_LASER_SENDING_OK:
-		m_nTimerCount++;
-		hBitmap = (m_nTimerCount%2 == 0) ? (HBITMAP)m_bitmapLaserOff.GetSafeHandle() : (HBITMAP)m_bitmapLaserOK.GetSafeHandle();
-		break; // sending data OK (green blink)
-	case TIMER_LASER_SENDING_ERROR:
-		m_nTimerCount++;
-		hBitmap = (m_nTimerCount % 2 == 0) ? (HBITMAP)m_bitmapLaserOff.GetSafeHandle() : (HBITMAP)m_bitmapLaserHot.GetSafeHandle();
-		break; // sending data HOT (magenta blink) 
-	case TIMER_LASER_LOADING:
-		m_nTimerCount++;
-		hBitmap = (m_nTimerCount % 2 == 0) ? (HBITMAP)m_bitmapLaserOff.GetSafeHandle() : (HBITMAP)m_bitmapLaserLoading.GetSafeHandle();
-		break; // saving data (blue blink)
 	case TIMER_SHOW_MOTOR_SPEEDS:
 		ShowMotorSpeeds();
 		ShowMotorPosition();
+		break;
+	case TIMER_LASER_STATUS:
+		ShowLaserTemperature();
+		ShowLaserStatus();
 		break;
 
 //	case TIMER_STEER_LEFT:
@@ -302,7 +294,53 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 	default:
 		return;
 	}
-	m_buttonLaserStatus.SetBitmap(hBitmap);
+}
+
+void CDialogGirthWeld::ShowLaserStatus()
+{
+	HBITMAP hBitmap = NULL;
+
+	SensorStatus SensorStatus;
+	if( !m_laserControl.GetLaserStatus(SensorStatus) )
+		hBitmap = (HBITMAP)m_bitmapLaserOff.GetSafeHandle();
+	else if (SensorStatus.LaserStatus == 1)
+		hBitmap = (HBITMAP)m_bitmapLaserOK.GetSafeHandle(); // ok (grren steady)
+	else if (SensorStatus.LaserStatus == 2)
+		hBitmap = (HBITMAP)m_bitmapLaserError.GetSafeHandle();// HW error (red steady)
+	else if (SensorStatus.LaserStatus == 3)
+		hBitmap = (HBITMAP)m_bitmapLaserHot.GetSafeHandle();// OK HOT (magenta steady)
+	else if (SensorStatus.LaserStatus == 4)
+		hBitmap = (m_nTimerCount++ % 2 == 0) ? (HBITMAP)m_bitmapLaserOff.GetSafeHandle() : (HBITMAP)m_bitmapLaserOK.GetSafeHandle();// sending data OK (green blink)
+	else if (SensorStatus.LaserStatus == 5)
+		hBitmap = (m_nTimerCount++ % 2 == 0) ? (HBITMAP)m_bitmapLaserOff.GetSafeHandle() : (HBITMAP)m_bitmapLaserHot.GetSafeHandle();// sending data HOT (magenta blink) 
+	else if (SensorStatus.LaserStatus == 6)
+		hBitmap = (m_nTimerCount++ % 2 == 0) ? (HBITMAP)m_bitmapLaserOff.GetSafeHandle() : (HBITMAP)m_bitmapLaserLoading.GetSafeHandle();// sending data HOT (magenta blink) 
+
+	if( hBitmap)
+		m_buttonLaserStatus.SetBitmap(hBitmap);
+}
+	
+void CDialogGirthWeld::ShowLaserTemperature()
+{
+	UpdateData(TRUE);
+
+	// note if the temperature has changeds, do not want to call UpdateData(FALSE) too often
+	CString szTemp1 = m_szTempBoard;
+	CString szTemp2 = m_szTempLaser;
+	CString szTemp3 = m_szTempSensor;
+
+	LASER_TEMPERATURE temp;
+	if (m_laserControl.GetLaserTemperature(temp))
+	{
+		m_szTempBoard.Format("%.0f C", temp.BoardTemperature);
+		m_szTempLaser.Format("%.0f C", temp.LaserTemperature);
+		m_szTempSensor.Format("%.0f C", temp.SensorTemperature);
+	}
+	else
+		m_szTempBoard = m_szTempLaser = m_szTempSensor = _T("Off");
+
+	if (szTemp1.Compare(m_szTempBoard) != 0 || szTemp2.Compare(m_szTempLaser) != 0 || szTemp2.Compare(m_szTempSensor) != 0)
+		UpdateData(FALSE);
 }
 
 void CDialogGirthWeld::ShowMotorSpeeds()
@@ -310,23 +348,55 @@ void CDialogGirthWeld::ShowMotorSpeeds()
 	m_pParent->SendMessage(m_nMsg, MSG_SHOW_MOTOR_SPEEDS, 0);
 }
 
-// show the positoon as the average of the four motors
-void CDialogGirthWeld::ShowMotorPosition()
+double CDialogGirthWeld::GetMaximumMotorPosition()
 {
-	UpdateData(TRUE);
-	double dist1 = atof(m_szDistScanned);
 	double posA = m_motionControl.GetMotorPosition("A");
 	double posB = m_motionControl.GetMotorPosition("B");
 	double posC = m_motionControl.GetMotorPosition("C");
 	double posD = m_motionControl.GetMotorPosition("D");
 
-	if( posA == FLT_MAX || posB == FLT_MAX || posC == FLT_MAX || posD == FLT_MAX )
-		m_szDistScanned.Format("****");
+
+	if (posA == FLT_MAX || posB == FLT_MAX || posC == FLT_MAX || posD == FLT_MAX)
+		return FLT_MAX;
 	else
 	{
-		m_szDistScanned.Format("%.1f", max(max(max(posA, posB), posC), posD) );
+		// these positions may be pos or neg
+		double maxPos = max(max(max(posA, posB), posC), posD);
+		double minPos = min(min(min(posA, posB), posC), posD);
+		if (fabs(maxPos) > fabs(minPos))
+			return maxPos;
+		else
+			return minPos;
 	}
 
+}
+
+// show the positoon as the average of the four motors
+// the motor position is the home ;osition
+// the scanned position may not start at home, thus may vary
+void CDialogGirthWeld::ShowMotorPosition()
+{
+	UpdateData(TRUE);
+	double dist1 = atof(m_szHomeDist);
+	double dist2 = atof(m_szScannedDist);
+
+	double pos = GetMaximumMotorPosition();
+	if (pos == FLT_MAX)
+	{
+		m_szHomeDist.Format("");
+		m_szScannedDist.Format("");
+	}
+	else
+	{
+		m_szHomeDist.Format("%.1f", pos);
+		if(m_fScanStart != FLT_MAX )
+			m_szScannedDist.Format("%.1f", pos - m_fScanStart);
+		else
+			m_szScannedDist.Format("");
+	}
+
+	// the scanned distance requires the start location to be noted
+	m_wndLaser.InvalidateRgn(NULL);
 	UpdateData(FALSE);
 }
 
@@ -339,23 +409,24 @@ BOOL CDialogGirthWeld::CheckVisibleTab()
 }
 
 
-
-/*
 HBRUSH CDialogGirthWeld::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 {
 	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);
 
-	if (pWnd->GetDlgCtrlID() == IDC_STATIC_LASER_STATUS)
+	if (pWnd->GetDlgCtrlID() == IDC_STATIC_TEMP_BOARD)
 	{
-		//set the static text color to red      
-	//	pDC->SetTextColor(RGB(255, 0, 0));
-		pDC->SelectObject(&m_brRed);
+		//set the static text color to red     
+		SensorStatus SensorStatus;
+		m_laserControl.GetLaserStatus(SensorStatus);
+
+		pDC->SetTextColor(RGB(255, 0, 0));
+//		pDC->SelectObject(&m_brRed);
 	}
 
 	// TODO: Return a different brush if the default is not desired   
 	return hbr;
 }
-*/
+
 void CDialogGirthWeld::OnDeltaposSpinLrOffset(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
@@ -411,13 +482,22 @@ void CDialogGirthWeld::OnDeltaposSpinScanOverlap(NMHDR* pNMHDR, LRESULT* pResult
 }
 
 
-
+void CDialogGirthWeld::SendDebugMessage(CString msg)
+{
+	if (m_pParent && ::IsWindow(m_pParent->m_hWnd) && m_nMsg != 0)
+	{
+		m_pParent->SendMessage(m_nMsg, MSG_SEND_DEBUGMSG, (WPARAM)&msg);
+	}
+}
 
 void CDialogGirthWeld::SetButtonBitmaps()
 {
 	// TODO: Add your control notification handler code here
+	SendDebugMessage("SetButtonBitmaps");
 
 	BOOL bGalil = m_motionControl.IsConnected();
+	BOOL bMag = m_magControl.AreWheelsEngaged();
+
 	HBITMAP hBitmapRight = (HBITMAP)m_bitmapGoRight.GetSafeHandle();
 	HBITMAP hBitmapLeft = (HBITMAP)m_bitmapGoLeft.GetSafeHandle();
 	HBITMAP hBitmapUp = (HBITMAP)m_bitmapGoUp.GetSafeHandle();
@@ -444,17 +524,17 @@ void CDialogGirthWeld::SetButtonBitmaps()
 	m_buttonGoHome.SetBitmap(m_nGalilState == GALIL_GOHOME ? hBitmapStop : hBitmapRight);
 
 	// set to 
-	m_buttonCalib.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_IDLE));
-	m_buttonManual.EnableWindow(bGalil && (m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_IDLE));
-	m_buttonAuto.EnableWindow(bGalil && (m_nGalilState == GALIL_AUTO || m_nGalilState == GALIL_IDLE));
-	m_buttonPause.EnableWindow(bGalil && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_AUTO) && !(m_bPaused && m_hThreadRunMotorsxx != NULL) );
-	m_buttonGoHome.EnableWindow(bGalil && (m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) );
-	m_buttonZeroHome.EnableWindow(bGalil && m_nGalilState == GALIL_IDLE );
+	m_buttonCalib.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_IDLE));
+	m_buttonManual.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_IDLE));
+	m_buttonAuto.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_AUTO || m_nGalilState == GALIL_IDLE));
+	m_buttonPause.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_CALIB || m_nGalilState == GALIL_MANUAL || m_nGalilState == GALIL_AUTO)); // && !(m_bPaused && m_hThreadRunMotors != NULL) );
+	m_buttonGoHome.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) );
+	m_buttonZeroHome.EnableWindow(bGalil && bMag && m_nGalilState == GALIL_IDLE );
 
-	m_buttonBack.EnableWindow(bGalil && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_BACK || m_bPaused));
-	m_buttonFwd.EnableWindow(bGalil && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_FWD || m_bPaused));
-	m_buttonLeft.EnableWindow(bGalil && (m_nGalilState == GALIL_FWD || m_nGalilState == GALIL_BACK) && !m_bPaused);
-	m_buttonRight.EnableWindow(bGalil && (m_nGalilState == GALIL_FWD || m_nGalilState == GALIL_BACK) && !m_bPaused);
+	m_buttonBack.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_BACK || m_bPaused));
+	m_buttonFwd.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_FWD || m_bPaused));
+	m_buttonLeft.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_FWD || m_nGalilState == GALIL_BACK) && !m_bPaused);
+	m_buttonRight.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_FWD || m_nGalilState == GALIL_BACK) && !m_bPaused);
 
 	GetDlgItem(IDC_EDIT_LR_OFFSET)->EnableWindow(m_nGalilState == GALIL_IDLE);
 	GetDlgItem(IDC_EDIT_CIRC)->EnableWindow(m_nGalilState == GALIL_IDLE && m_nScanType == SCANTYPE_CIRC);
@@ -464,6 +544,7 @@ void CDialogGirthWeld::SetButtonBitmaps()
 	GetDlgItem(IDC_RADIO_DIST)->EnableWindow(m_nGalilState == GALIL_IDLE);
 	GetDlgItem(IDC_CHECK_AUTOHOME)->EnableWindow(m_nGalilState == GALIL_IDLE);
 	GetDlgItem(IDC_CHECK_RETURNTOSTART)->EnableWindow(m_nGalilState == GALIL_IDLE);
+	GetDlgItem(IDC_CHECK_AUTO_REVERSE)->EnableWindow(m_nGalilState == GALIL_IDLE);
 
 
 	GetDlgItem(IDC_STATIC_PAUSE)->SetWindowText(m_bPaused ? _T("Resume" : _T("Pause")));
@@ -472,6 +553,7 @@ void CDialogGirthWeld::SetButtonBitmaps()
 
 void CDialogGirthWeld::OnClickedButtonPause()
 {
+	SendDebugMessage("OnClickedButtonPause");
 	m_bPaused = !m_bPaused;
 	SetButtonBitmaps();
 
@@ -480,6 +562,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 	{
 		SetButtonBitmaps();
 		m_motionControl.StopMotors();
+		m_laserControl.TurnLaserOn(FALSE);
 		KillTimer(TIMER_SHOW_MOTOR_SPEEDS);
 	}
 	// resume the motors
@@ -487,6 +570,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 	// except the position is not reset
 	else
 	{
+		m_bResumed = TRUE;
 		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunRestart, (LPVOID)this)->m_hThread;
@@ -497,6 +581,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 void CDialogGirthWeld::OnClickedButtonCalib()
 {
 	// TODO: Add your control notification handler code here
+	SendDebugMessage("OnClickedButtonCalib");
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_CALIB))
 	{
 		m_bPaused = FALSE;
@@ -511,11 +596,17 @@ void CDialogGirthWeld::OnClickedButtonCalib()
 void CDialogGirthWeld::OnClickedButtonManual()
 {
 	// TODO: Add your control notification handler code here
+	SendDebugMessage("OnClickedButtonManual");
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_MANUAL))
 	{
 		m_bPaused = FALSE;
+		m_bResumed = FALSE;
 		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_MANUAL : GALIL_IDLE;
-		SetButtonBitmaps();
+		if(m_nGalilState == GALIL_MANUAL )
+			SetButtonBitmaps();
+		else
+			m_buttonManual.EnableWindow(FALSE);
+
 		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
 
@@ -526,6 +617,7 @@ void CDialogGirthWeld::OnClickedButtonManual()
 void CDialogGirthWeld::OnClickedButtonAuto()
 {
 	// TODO: Add your control notification handler code here
+	SendDebugMessage("OnClickedButtonAuto");
 	if (CheckParameters() && CheckIfToRunOrStop(GALIL_AUTO))
 	{
 		m_bPaused = FALSE;
@@ -536,6 +628,7 @@ void CDialogGirthWeld::OnClickedButtonAuto()
 void CDialogGirthWeld::OnClickedButtonGoHome()
 {
 	// TODO: Add your control notification handler code here
+	SendDebugMessage("OnClickedButtonGoHome");
 	if (CheckParameters() ) // && CheckIfToRunOrStop(GALIL_GOHOME)) 
 	{
 		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_GOHOME : GALIL_IDLE;
@@ -550,28 +643,49 @@ void CDialogGirthWeld::OnClickedButtonGoHome()
 UINT CDialogGirthWeld::ThreadRunManual(BOOL reset_pos)
 {
 	// check if to go home first
+	double pos = (m_nScanType == 0) ? m_fScanCirc + m_fScanOverlap : m_fDistToScan;
 	if (m_bReturnToHome)
-		m_motionControl.GoToPosition(0.0);
+		m_motionControl.GoToPosition(0.0, m_fMotorSpeed, m_fMotorAccel);
+	else if( !m_bResumed )
+		pos += atof(m_szHomeDist);
 
 	// check if the run was aborted
 	if (m_nGalilState == GALIL_MANUAL)
 	{
+		// check that the laser is on
+		m_laserControl.TurnLaserOn(TRUE);
+
 		// set the current location as zero
 		if (reset_pos)
 		{
-			m_motionControl.ZeroPositions();
+			// optionally return to the home poisitioin beforee scanning
+			if(m_bReturnToHome )
+				m_motionControl.ZeroPositions();
+
+			// always set the default speed to all motors
 			m_motionControl.SetSlewSpeed(m_fMotorSpeed);
+			m_fScanStart = FLT_MAX;
 		}
 
 		// calculate the length of the run
-			// it will be currently at zero, so just go to the length
-		double len = (m_nScanType == 0) ? m_fScanCirc + m_fScanOverlap : m_fDistToScan;
+		// it will be currently at zero, so just go to the length
+		// if did not goto home first, may need to add the starting position to the length
 
-		m_motionControl.GoToPosition(len);
+		if( !m_bResumed )
+			m_fScanStart = atof(m_szHomeDist);
+		m_motionControl.GoToPosition(pos, m_fMotorSpeed, m_fMotorAccel);
+		m_laserControl.TurnLaserOn(FALSE);
 	}
 	else
+	{
+		m_bResumed = FALSE;
 		m_motionControl.StopMotors();
+		m_laserControl.TurnLaserOn(FALSE);
 
+	}
+
+	// if click pause, this thread will end
+	// howev er, do not call the call back
 	if( !m_bPaused )
 		PostMessage(WM_MOTORSSTOPPED);
 
@@ -585,10 +699,14 @@ UINT CDialogGirthWeld::ThreadGoToHome()
 	if (m_nGalilState == GALIL_GOHOME)
 	{
 		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
-		m_motionControl.GoToPosition(0.0);
+		m_laserControl.TurnLaserOn(TRUE);
+		m_motionControl.GoToPosition(0.0, m_fMotorSpeed, m_fMotorAccel);
 	}
 	else
+	{
 		m_motionControl.StopMotors();
+		m_laserControl.TurnLaserOn(FALSE);
+	}
 
 	PostMessage(WM_MOTORSSTOPPED);
 	return 0;
@@ -665,6 +783,7 @@ void CDialogGirthWeld::RunMotors()
 	{
 		if (speed != FLT_MAX && accel != FLT_MAX)
 		{
+			m_laserControl.TurnLaserOn(true);
 			m_motionControl.SetMotorJogging(speed, accel);
 			SetButtonBitmaps();
 			SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
@@ -674,6 +793,7 @@ void CDialogGirthWeld::RunMotors()
 	{
 		if (speed != FLT_MAX && accel != FLT_MAX)
 		{
+			m_laserControl.TurnLaserOn(true);
 			m_motionControl.SetMotorJogging(-speed, accel);
 			SetButtonBitmaps();
 			SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
@@ -684,8 +804,27 @@ void CDialogGirthWeld::RunMotors()
 UINT CDialogGirthWeld::ThreadStopMotors()
 {
 	m_motionControl.StopMotors();
+	m_laserControl.TurnLaserOn(FALSE);
 	PostMessage(WM_MOTORSSTOPPED);
 	return 0;
+}
+
+LRESULT CDialogGirthWeld::OnUserStaticParameter(WPARAM wParam, LPARAM lParam)
+{
+	double* param = (double*)lParam;
+	switch (wParam)
+	{
+	case STATUS_GET_CIRC:
+		*param = (m_nScanType == 0) ? m_fScanCirc : FLT_MAX;
+		break;
+	case STATUS_GETLOCATION:
+		*param = m_motionControl.GetMotorPosition("A");
+		break;
+	default:
+		*param = FLT_MAX;
+	}
+
+	return 0L;
 }
 
 LRESULT CDialogGirthWeld::OnUserMotorsStopped(WPARAM, LPARAM)
@@ -699,6 +838,10 @@ LRESULT CDialogGirthWeld::OnUserMotorsStopped(WPARAM, LPARAM)
 	}
 	else
 		m_nGalilState = m_nGaililStateBackup;
+
+	// dont reset if paused, as will mcontinue scan
+	if( !m_bPaused)
+		m_fScanStart = FLT_MAX;
 
 	SetButtonBitmaps();
 	return 0L;
@@ -719,8 +862,12 @@ void CDialogGirthWeld::OnClickedButtonZeroHome()
 {
 	// TODO: Add your control notification handler code here
 	UpdateData(TRUE);
+	SendDebugMessage("OnClickedButtonZeroHome");
+
 	m_motionControl.ZeroPositions();
-	m_szDistScanned = _T("0.0");
+	m_szScannedDist = _T("0.0");
+	m_szHomeDist = _T("0.0");
+	m_wndLaser.InvalidateRgn(NULL);
 	UpdateData(FALSE);
 }
 
@@ -854,4 +1001,5 @@ void CDialogGirthWeld::EnableControls()
 {
 	SetButtonBitmaps();
 }
+
 

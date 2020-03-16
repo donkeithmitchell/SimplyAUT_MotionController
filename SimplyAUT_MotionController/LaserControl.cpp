@@ -72,14 +72,27 @@ BOOL CLaserControl::IsLaserOn()
 	return (SensorStatus.LaserStatus == 0) ? FALSE : TRUE;
 }
 
-BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE& temperature)
+BOOL CLaserControl::GetLaserStatus(SensorStatus& SensorStatus)
 {
-	if (IsLaserOn())
-	{
-		SensorStatus SensorStatus;
-		::DLLGetSensorStatus(&SensorStatus);
-		::SLSGetSensorStatus();
+	::DLLGetSensorStatus(&SensorStatus);
+	::SLSGetSensorStatus();
+	return TRUE;
+}
 
+int CLaserControl::GetSerialNumber()
+{
+	if (!IsConnected())
+		return 0;
+	else
+		return 10357;
+}
+
+
+BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE & temperature)
+{
+	SensorStatus SensorStatus;
+	if (GetLaserStatus(SensorStatus) )
+	{
 		double t1 = (((double)SensorStatus.MainBrdTemp) / 100.0) - 100.0;
 		double t2 = (((double)SensorStatus.LaserTemp) / 100.0) - 100.0;
 		double t3 = (((double)SensorStatus.PsuBrdTemp) / 100.0) - 100.0;
@@ -97,15 +110,26 @@ BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE& temperature)
 		return FALSE;
 }
 
+BOOL CLaserControl::SetLaserOptions(int opt)
+{
+	return SetLaserOptions(opt, opt, opt, opt);
+}
+
+BOOL CLaserControl::SetLaserOptions(int opt1, int opt2, int opt3, int opt4)
+{
+	::SLSSetLaserOptions(opt1, opt2, opt3, opt4);
+	return TRUE;
+}
+
 BOOL CLaserControl::SetAutoLaserCheck(BOOL bAuto)
 {
 	if (IsLaserOn())
 	{
 		if (bAuto)
-			SLSSetLaserOptions(1, 1, 1, 1);
+			SetLaserOptions(1);
 		else
 		{
-			SLSSetLaserOptions(0, 0, 0, 0);
+			SetLaserOptions(0);
 			SetLaserIntensity(m_nLaserPower);
 		}
 		return TRUE;
@@ -138,24 +162,36 @@ BOOL CLaserControl::SetCameraShutter(int nCameraShutter)
 		return FALSE;
 }
 
-BOOL CLaserControl::SetCameraRoi()
+BOOL CLaserControl::SetCameraRoi(const CRect& rect)
 {
 	if (IsConnected())
 	{
 		CString str;
-		int ROI_x1 = 0;
-		int ROI_y1 = 0;
-		int ROI_x2 = 1023;
-		int ROI_y2 = 1279;
-
-		SLSSetCameraRoi(ROI_x1, ROI_y1, ROI_x2, ROI_y2);
-		str.Format("%d,%d-%d,%d", (int)ROI_x1, (int)ROI_y1, (int)ROI_x2, (int)ROI_y2);
+		SLSSetCameraRoi((unsigned short)rect.left, (unsigned short)rect.top, (unsigned short)rect.right, (unsigned short)rect.bottom);
+		str.Format("%d,%d-%d,%d", rect.left, rect.top, rect.right, rect.bottom);
 		SendDebugMessage(str);
 		return TRUE;
 	}
 	else
 		return FALSE;
 }
+
+BOOL CLaserControl::GetCameraRoi(CRect& rect)
+{
+	SensorStatus SensorStatus;
+	if (GetLaserStatus(SensorStatus))
+	{
+		rect.left = SensorStatus.roi_x1;
+		rect.right = SensorStatus.roi_x2;
+		rect.top = SensorStatus.roi_y1;
+		rect.bottom = SensorStatus.roi_y2;
+		return TRUE;
+	}
+	else
+		return FALSE;
+}
+
+
 
 
 
@@ -206,12 +242,23 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 
 
 	::SLSSetLaserOptions(1, 1, 1, 1);	// Turns Auto Laser ON
-	SetCameraRoi();
+	SetCameraRoi( CRect(0,0, 1023, 1279) );
 
-	TurnLaserOn(TRUE);
+// only turn on ikf motor run n ing
+//	TurnLaserOn(TRUE);
     return TRUE;
 }
 
+BOOL CLaserControl::GetLaserVersion(unsigned short& major, unsigned short& minor)
+{
+	if (!IsConnected())
+		return FALSE;
+
+	major = minor = 0;
+	::SLSGetSensorVersion();
+	::DLLGetSensorVersion(&major, &minor);
+	return TRUE;
+}
 BOOL CLaserControl::GetLaserMeasurment(Measurement& meas)
 {
 	if (!IsConnected())
@@ -246,14 +293,14 @@ BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 	return TRUE;
 }
 
-BOOL CLaserControl::GetProfile(Profile* pProfile)
+BOOL CLaserControl::GetProfile(Profile& profile)
 {
 	if (!IsConnected())
 		return FALSE;
 	else if (!IsLaserOn())
 		return FALSE;
 	else
-		return ::DLLGetProfile(pProfile);
+		return ::DLLGetProfile(&profile);
 }
 
 BOOL CLaserControl::GetProfilemm(Profilemm* pProfile, int hit_no)

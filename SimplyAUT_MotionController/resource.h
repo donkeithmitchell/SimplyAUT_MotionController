@@ -13,6 +13,9 @@
 #define IDB_BITMAP_DISCONNECT           132
 #define IDD_DIALOG_STATUS               132
 #define IDB_BITMAP_CONNECT              133
+#define IDR_MENU_POPUP                  133
+#define IDD_DIALOG_STATUS1              133
+#define IDD_DIALOG_LASER                133
 #define IDB_BITMAP_PAUSE                134
 #define IDB_BITMAP_GO_HORZ              135
 #define IDB_BITMAP_GO_RIGHT             135
@@ -37,9 +40,11 @@
 #define IDC_STATIC_RGB                  1011
 #define IDC_STATIC_GALIL                1012
 #define IDC_STATIC_LASER_IP             1013
+#define IDC_IPADDRESS_MAG               1014
 #define IDC_TAB1                        1015
 #define IDC_STATIC_LASER_IP2            1015
 #define IDC_EDIT_MA                     1016
+#define IDC_STATIC_LASER_IP3            1016
 #define IDC_EDIT_MB                     1017
 #define IDC_EDIT_MC                     1018
 #define IDC_EDIT_MD                     1019
@@ -67,7 +72,6 @@
 #define IDC_SPIN_CIRC                   1038
 #define IDC_BUTTON_ZERO_HOME            1039
 #define IDC_BUTTON_GO_HOME              1040
-#define IDC_BUTTON_PAUSE2               1040
 #define IDC_STATIC_PAUSE                1041
 #define IDC_EDIT_STATUS                 1042
 #define IDC_EDIT_DIST                   1042
@@ -88,17 +92,47 @@
 #define IDC_STATIC_MOTOR_A              1057
 #define IDC_BUTTON_LEFT                 1057
 #define IDC_STATIC_MOTOR_B              1058
+#define IDC_CHECK_AUTO_REVERSE          1058
 #define IDC_STATIC_MOTOR_C              1059
+#define IDC_STATIC_TEMP_BOARD           1059
 #define IDC_STATIC_MOTOR_A4             1060
 #define IDC_STATIC_MOTOR_D              1060
+#define IDC_STATIC_TEMP_LASER           1060
+#define IDC_CHECK_MAG_ENGAGED           1061
+#define IDC_STATIC_TEMP_SENSOR          1061
+#define IDC_INITIALISE_BUTTON           1062
+#define IDC_SERIALNUMBER_EDIT           1063
+#define IDC_LASER_BUTTON                1064
+#define IDC_TEMPERATURE_EDIT            1065
+#define IDC_MSG_EDIT                    1066
+#define IDC_LASERPOWER_BUTTON           1067
+#define IDC_LASERPOWER_EDIT             1068
+#define IDC_SENSORVERSION_EDIT          1069
+#define IDC_CALIBRATIONVERSION_EDIT     1070
+#define IDC_AUTOLASER_CHECK             1071
+#define IDC_PROFILECOUNT_EDIT           1072
+#define IDC_LASERPOWER_SLIDER           1073
+#define IDC_SHUTTER_SLIDER              1074
+#define IDC_SHUTTER_EDIT                1075
+#define IDC_JOINTPOS_EDIT               1076
+#define IDC_EDGESPOS_EDIT               1077
+#define IDC_GAPVALUE_EDIT               1078
+#define IDC_MISMATCHVALUE_EDIT          1079
+#define IDC_ROI_BUTTON                  1080
+#define IDC_ROI_EDIT                    1081
+#define IDC_CLOSE_BUTTON                1082
+#define IDC_STATIC_PROFILE              1083
+#define IDC_EDIT1                       1084
+#define IDC_EDIT_MAG_PORT               1084
+#define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        133
-#define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1058
+#define _APS_NEXT_RESOURCE_VALUE        134
+#define _APS_NEXT_COMMAND_VALUE         32772
+#define _APS_NEXT_CONTROL_VALUE         1085
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

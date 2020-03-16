@@ -2,11 +2,13 @@
 #include "StaticLaser.h"
 #include "button.h"
 
-enum LASER_STATUS {
-	TIMER_LASER_OFF = 0, TIMER_LASER_OK, TIMER_LASER_ERROR, TIMER_LASER_HOT,
-	TIMER_LASER_SENDING_OK, TIMER_LASER_SENDING_ERROR, TIMER_LASER_LOADING, TIMER_SHOW_MOTOR_SPEEDS,
-	/*TIMER_STEER_LEFT, TIMER_STEER_RIGHT*/
-};
+//enum LASER_STATUS {
+//	TIMER_LASER_OFF = 0, TIMER_LASER_OK, TIMER_LASER_ERROR, TIMER_LASER_HOT,
+//	TIMER_LASER_SENDING_OK, TIMER_LASER_SENDING_ERROR, TIMER_LASER_LOADING, TIMER_SHOW_MOTOR_SPEEDS,
+//	TIMER_LASER_STATUS /*TIMER_STEER_LEFT, TIMER_STEER_RIGHT*/
+//};
+
+
 
 
 
@@ -14,12 +16,13 @@ enum LASER_STATUS {
 
 class CMotionControl;
 class CLaserControl;
+class CMagController;
 class CDialogGirthWeld : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(CMotionControl&, CLaserControl&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagController&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();
@@ -27,7 +30,7 @@ public:
 	void	SetButtonBitmaps();
 	BOOL	CheckIfToRunOrStop(GALIL_STATE);
 	BOOL	CheckParameters();
-	void    SetLaserStatus(LASER_STATUS nStatus);
+//	void    SetLaserStatus(LASER_STATUS nStatus);
 	void	EnableControls();
 	void    RunMotors();
 	double  GetMotorSpeed(double& accel);
@@ -39,8 +42,14 @@ public:
 	UINT    ThreadStopMotors(void);
 	UINT	ThreadGoToHome(void);
 	UINT	ThreadRunManual(BOOL);
+	void	SendDebugMessage(CString);
+	double  GetMaximumMotorPosition();
+	void    ShowLaserTemperature();
+	void    ShowLaserStatus();
 
-	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED	};
+
+	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED, WM_USER_STATIC };
+	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS };
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -57,10 +66,12 @@ public:
 	afx_msg LRESULT OnUserSteerLeft(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserSteerRight(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserMotorsStopped(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserStaticParameter(WPARAM, LPARAM);
 
 	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
+	CMagController& m_magControl;
 	HANDLE			m_hThreadRunMotors;
 	GALIL_STATE		m_nGaililStateBackup;
 
@@ -69,6 +80,7 @@ public:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	BOOL	m_bPaused;
+	BOOL    m_bResumed;
 	int     m_nTimerCount;
 	double  m_fMotorSpeed;
 	double  m_fMotorAccel;
@@ -98,7 +110,10 @@ public:
 	CString m_szLROffset;
 	CString m_szScanCirc;
 	CString m_szDistToScan;
-	CString m_szDistScanned;
+	CString m_szScannedDist;
+
+	double  m_fScanStart;
+	CString m_szHomeDist;
 	CString m_szScanOverlap;
 
 	CString   m_szLaserHiLowUS;
@@ -126,7 +141,6 @@ public:
 
 	BOOL m_bReturnToHome;
 	BOOL m_bReturnToStart;
-	CString m_szHomeDist;
 
 	CBrush	m_brRed;
 	CBrush	m_brGreen;
@@ -137,7 +151,7 @@ public:
 	afx_msg void OnDeltaposSpinScanCirc(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDeltaposSpinScanDist(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDeltaposSpinScanOverlap(NMHDR* pNMHDR, LRESULT* pResult);
-//	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 
 	afx_msg void OnClickedButtonPause();
@@ -155,4 +169,8 @@ public:
 	afx_msg void OnRadioScanType();
 	afx_msg void OnClickedCheckGoToHome();
 	afx_msg void OnClickedCheckGoToStart();
+	BOOL m_bSeekReverse;
+	CString m_szTempBoard;
+	CString m_szTempLaser;
+	CString m_szTempSensor;
 };

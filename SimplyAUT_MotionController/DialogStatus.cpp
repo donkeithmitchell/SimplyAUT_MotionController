@@ -89,7 +89,17 @@ void CDialogStatus::Create(CWnd* pParent)
 void CDialogStatus::AppendDebugMessage(const CString& szMsg)
 {
 	UpdateData(TRUE);
-	CString temp = szMsg + CString("\r\n") + m_szStatus;
+	CString temp = szMsg;
+	temp = temp.TrimLeft();
+	temp = temp.TrimRight();
+	int len = temp.GetLength();
+	if (len == 0)
+		return;
+
+	if (temp[len - 1] == '\n')
+		temp = temp.Left(len - 1);
+		
+	temp = temp	+ CString("\r\n") + m_szStatus;
 	m_szStatus = temp;
 	UpdateData(FALSE);
 }

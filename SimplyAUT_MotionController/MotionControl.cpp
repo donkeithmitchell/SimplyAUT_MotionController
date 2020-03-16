@@ -144,9 +144,14 @@ void CMotionControl::GoToHomePosition()
 }
     
 
-void CMotionControl::GoToPosition(double pos_mm)
+void CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
 {
     CString str;
+
+    // set the motor speeds
+    m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(fAccel));
+    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(fAccel));
+    SetSlewSpeed(fSpeed);
 
     int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
     int posA = AxisDirection("A") * pos_cnt;

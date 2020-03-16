@@ -53,9 +53,10 @@ END_MESSAGE_MAP()
 
 CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG, pParent)
-	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_galil_state)
-	, m_dlgMotors(m_motionControl, m_galil_state)
-	, m_dlgConnect(m_motionControl, m_laserControl)
+	, m_dlgConnect(m_motionControl, m_laserControl, m_magControl)
+	, m_dlgMotors(m_motionControl, m_magControl, m_galil_state)
+	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_magControl, m_galil_state)
+	, m_dlgLaser(m_motionControl, m_laserControl)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
@@ -67,6 +68,7 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_dlgConnect.Init(this, WM_DEGUG_MSG);
 	m_dlgGirthWeld.Init(this, WM_DEGUG_MSG);
 	m_dlgMotors.Init(this, WM_DEGUG_MSG);
+	m_dlgLaser.Init(this, WM_DEGUG_MSG);
 	m_dlgStatus.Init(this, WM_DEGUG_MSG);
 }
 
@@ -118,15 +120,17 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// TODO: Add extra initialization here
-	m_tabControl.InsertItem(0, CString("Connect"));
-	m_tabControl.InsertItem(1, CString("Motors"));
-	m_tabControl.InsertItem(2, CString("Scan"));
-	m_tabControl.InsertItem(3, CString("Status"));
+	m_tabControl.InsertItem(TAB_CONNECT, CString("Connect"));
+	m_tabControl.InsertItem(TAB_MOTORS, CString("Motors"));
+	m_tabControl.InsertItem(TAB_SCAN, CString("Scan"));
+	m_tabControl.InsertItem(TAB_LASER, CString("Laser"));
+	m_tabControl.InsertItem(TAB_STATUS, CString("Status"));
 	m_tabControl.SetCurSel(m_nSel);
 
 	m_dlgConnect.Create(&m_tabControl);
 	m_dlgMotors.Create(&m_tabControl);
 	m_dlgGirthWeld.Create(&m_tabControl);
+	m_dlgLaser.Create(&m_tabControl);
 	m_dlgStatus.Create(&m_tabControl);
 
 	m_bInit = TRUE;
@@ -138,6 +142,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 
 LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
 {
+	if( m_bInit )
 	switch (wParam)
 	{
 		case MSG_SEND_DEBUGMSG: // receivbing address to a CString
@@ -152,6 +157,7 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			m_dlgConnect.EnableControls();
 			m_dlgMotors.EnableControls();
 			m_dlgGirthWeld.EnableControls();
+			m_dlgLaser.EnableControls();
 			m_dlgStatus.EnableControls();
 			break;
 		}
@@ -254,6 +260,7 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 	m_dlgConnect.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgMotors.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgGirthWeld.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
+	m_dlgLaser.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgStatus.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 }
 
@@ -273,10 +280,11 @@ BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 {
 	switch (m_nSel)
 	{
-	case 0: return m_dlgConnect.CheckVisibleTab();
-	case 1: return m_dlgMotors.CheckVisibleTab();
-	case 2: return m_dlgConnect.CheckVisibleTab();
-	case 3: return m_dlgConnect.CheckVisibleTab();
+	case TAB_CONNECT: return m_dlgConnect.CheckVisibleTab();
+	case TAB_MOTORS: return m_dlgMotors.CheckVisibleTab();
+	case TAB_SCAN: return m_dlgConnect.CheckVisibleTab();
+	case TAB_LASER: return m_dlgLaser.CheckVisibleTab();
+	case TAB_STATUS: return m_dlgStatus.CheckVisibleTab();
 	default: return FALSE;
 	}
 
@@ -285,14 +293,20 @@ BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 {
 	// TODO: Add your control notification handler code here
+	// if changing from the laser tab, then turn the laser off
+	if (m_nSel == TAB_LASER)
+		m_laserControl.TurnLaserOn(FALSE);
+
 	m_nSel = m_tabControl.GetCurSel();
 	ASSERT(IsWindow(m_dlgConnect.m_hWnd));
 	ASSERT(IsWindow(m_dlgMotors.m_hWnd));
 	ASSERT(IsWindow(m_dlgGirthWeld.m_hWnd));
+	ASSERT(IsWindow(m_dlgLaser.m_hWnd));
 	ASSERT(IsWindow(m_dlgStatus.m_hWnd));
 
-	m_dlgConnect.ShowWindow(m_nSel == 0 ? SW_SHOW : SW_HIDE);
-	m_dlgMotors.ShowWindow(m_nSel == 1 ? SW_SHOW : SW_HIDE);
-	m_dlgGirthWeld.ShowWindow(m_nSel == 2 ? SW_SHOW : SW_HIDE);
-	m_dlgStatus.ShowWindow(m_nSel == 3 ? SW_SHOW : SW_HIDE);
+	m_dlgConnect.ShowWindow(m_nSel == TAB_CONNECT ? SW_SHOW : SW_HIDE);
+	m_dlgMotors.ShowWindow(m_nSel == TAB_MOTORS ? SW_SHOW : SW_HIDE);
+	m_dlgGirthWeld.ShowWindow(m_nSel == TAB_SCAN ? SW_SHOW : SW_HIDE);
+	m_dlgLaser.ShowWindow(m_nSel == TAB_LASER ? SW_SHOW : SW_HIDE);
+	m_dlgStatus.ShowWindow(m_nSel == TAB_STATUS ? SW_SHOW : SW_HIDE);
 }

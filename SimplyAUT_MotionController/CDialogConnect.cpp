@@ -7,6 +7,7 @@
 #include "afxdialogex.h"
 #include "MotionControl.h"
 #include "LaserControl.h"
+#include "MagController.h"
 #include "resource.h"
 
 
@@ -14,10 +15,14 @@
 
 IMPLEMENT_DYNAMIC(CDialogConnect, CDialogEx)
 
-CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CWnd* pParent /*=nullptr*/)
+CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CMagController& mag, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_CONNECT, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
+	, m_szPort(_T("23"))
+	, m_magControl(mag)
+	, m_nMsg(0)
+	, m_pParent(NULL)
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -25,6 +30,9 @@ CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CWn
 
 CDialogConnect::~CDialogConnect()
 {
+	m_motionControl.Disconnect();
+	m_laserControl.Disconnect();
+	m_magControl.Disconnect();
 }
 
 void CDialogConnect::Init(CWnd* pParent, UINT nMsg)
@@ -39,10 +47,12 @@ void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_IPADDRESS_LASER, m_ipLaser);
 	DDX_Control(pDX, IDC_IPADDRESS_GALIL, m_ipGalil);
+	DDX_Control(pDX, IDC_IPADDRESS_MAG, m_ipMag);
 	DDX_Control(pDX, IDC_BUTTON_LASER, m_buttonLaser);
 	DDX_Control(pDX, IDC_BUTTON_RGB, m_buttonRGB);
 	DDX_Control(pDX, IDC_BUTTON_MAG, m_buttonMAG);
 	DDX_Control(pDX, IDC_BUTTON_GALIL, m_buttonGalil);
+	DDX_Text(pDX, IDC_EDIT_MAG_PORT, m_szPort);
 }
 
 
@@ -83,10 +93,11 @@ void CDialogConnect::OnClickedButtonConnect()
 	{
 		m_motionControl.Disconnect();
 		m_laserControl.Disconnect();
+		m_magControl.Disconnect();
 	}
 	else
 	{
-		BYTE laser[4], galil[4];
+		BYTE laser[4], galil[4], mag[4];
 		// get the IP addresses of the lasewr and Gailil
 		m_bCheck = TRUE;
 		int ret = UpdateData(TRUE);
@@ -95,9 +106,12 @@ void CDialogConnect::OnClickedButtonConnect()
 		{
 			m_ipGalil.GetAddress(galil[0], galil[1], galil[2], galil[3]);
 			m_motionControl.Connect(galil, 0.0);
-			
+
 			m_ipLaser.GetAddress(laser[0], laser[1], laser[2], laser[3]);
 			m_laserControl.Connect(laser);
+
+			m_ipMag.GetAddress(mag[0], mag[1], mag[2], mag[3]);
+			m_magControl.Connect(mag, atoi(m_szPort));
 
 		}
 	}
@@ -145,6 +159,8 @@ BOOL CDialogConnect::OnInitDialog()
 
 	m_ipLaser.SetAddress(192, 168, 12, 101);
 	m_ipGalil.SetAddress(192, 168, 1, 41);
+	m_ipMag.SetAddress(192, 168, 1, 30);
+	m_szPort = _T("23");
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
@@ -159,11 +175,17 @@ void CDialogConnect::SetButtonBitmaps()
 
 	BOOL bGalil = m_motionControl.IsConnected();
 	BOOL bLaser = m_laserControl.IsConnected();
+	BOOL bMag = m_magControl.IsConnected();
 
 	m_buttonRGB.SetBitmap(hBitmap1);
-	m_buttonMAG.SetBitmap(hBitmap1);
+	m_buttonMAG.SetBitmap(bMag ? hBitmap2 : hBitmap1);
 	m_buttonGalil.SetBitmap(bGalil ? hBitmap2 : hBitmap1);
 	m_buttonLaser.SetBitmap(bLaser ? hBitmap2 : hBitmap1);
+
+	m_ipLaser.EnableWindow(!bLaser);
+	m_ipGalil.EnableWindow(!bGalil);
+	m_ipMag.EnableWindow(!bMag);
+
 
 	if (!m_motionControl.IsConnected())
 		GetDlgItem(IDC_BUTTON_CONNECT)->SetWindowText(_T("Connect"));

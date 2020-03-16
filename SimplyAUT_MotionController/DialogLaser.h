@@ -1,0 +1,104 @@
+#pragma once
+
+
+// CDialogLaser dialog
+class CMotionControl;
+class CLaserControl;
+
+class CStaticLaserProfile : public CWnd
+{
+	DECLARE_DYNAMIC(CStaticLaserProfile)
+
+public:
+	CStaticLaserProfile(CLaserControl&);   // standard constructor
+	virtual ~CStaticLaserProfile();
+	void Init(CWnd*, UINT);
+
+	void Create(CWnd* pParent);
+	void DrawLaserProfile(CDC*);
+
+	CWnd* m_pParent;
+	UINT	m_nMsg;
+
+	CLaserControl&	m_laserControl;
+	CString		m_jointPos_str;
+	CString		m_gapVal_str;
+	CString		m_edgesPos_str;
+	CString		m_mismVal_str;
+	int			m_profile_count;
+
+	// Dialog Data
+#ifdef AFX_DESIGN_TIME
+#endif
+
+protected:
+	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	afx_msg void OnPaint();
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+
+	DECLARE_MESSAGE_MAP()
+};
+
+class CDialogLaser : public CDialogEx
+{
+	DECLARE_DYNAMIC(CDialogLaser)
+
+public:
+	CDialogLaser(CMotionControl&, CLaserControl&, CWnd* pParent = nullptr);   // standard constructor
+	virtual ~CDialogLaser();
+
+	void Create(CWnd*);
+	void EnableControls();
+	void Init(CWnd* pParent, UINT nMsg);
+	BOOL CheckVisibleTab() { return TRUE; }
+
+	UINT  m_nMsg;
+	CWnd* m_pParent;
+	BOOL	m_bInit;
+	BOOL	m_bCheck;
+	CStaticLaserProfile m_wndProfile;
+
+	int		m_ROI_stage;
+
+	BOOL	m_bAutoLaser;
+	CSliderCtrl	m_laser_power_sld;
+	CSliderCtrl	m_camera_shutter_sld;
+	CEdit	m_calibration_version;
+	CEdit	m_sensor_version;
+	CEdit	m_temperature_edit;
+	int		m_LaserPower;
+	int		m_CameraShutter;
+	CString	m_ROI_str;
+	HICON	m_hIcon;
+	CRect	m_ImageDisplayRect;
+
+
+	CMotionControl& m_motionControl;
+	CLaserControl& m_laserControl;
+
+	afx_msg void OnSize(UINT nFlag, int cx, int cy);
+//	afx_msg void OnPaint();
+	afx_msg void OnTimer(UINT nIDEvent);
+	afx_msg HCURSOR OnQueryDragIcon();
+	afx_msg void OnLaserButton();
+	afx_msg void OnAutolaserCheck();
+	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnReleasedcaptureLaserpowerSlider(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnReleasedcaptureShutterSlider(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnRoiButton();
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg LRESULT OnUserUpdateDialog(WPARAM, LPARAM);
+
+
+// Dialog Data
+#ifdef AFX_DESIGN_TIME
+	enum { IDD = IDD_DIALOG_LASER };
+#endif
+	enum { WM_USER_UPDATE_DIALOG = WM_USER + 1 };
+
+protected:
+	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	virtual BOOL OnInitDialog();
+
+	DECLARE_MESSAGE_MAP()
+};

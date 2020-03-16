@@ -42,7 +42,7 @@ int Gclib::GetMotorSpeed(GCStringIn axis, int& rAccel)
     char Command[256];
 
     rAccel = INT_MAX;
-    if (this == NULL)
+    if (this == NULL || !IsConnected())
         return INT_MAX;
 
     sprintf_s(Command, sizeof(Command), "MG _TV%s", axis);
@@ -61,7 +61,7 @@ int Gclib::GetMotorPosition(GCStringIn axis)
     GSize bytes_read = 0;
     char Command[256];
     
-    if (this == NULL)
+    if (this == NULL || !IsConnected() )
         return INT_MAX;
     
     sprintf_s(Command, sizeof(Command), "MG _TP%s", axis);
@@ -136,6 +136,9 @@ CString Gclib::GInfo()
 //! Uses GUtility(), @ref G_UTIL_VERSION and @ref G_UTIL_GCAPS_VERSION to provide the library and @ref gcaps version numbers.
 CString Gclib::GVersion()
 {
+    if (this == NULL || !IsConnected())
+        return _T("");
+
     GSize info_len = 256;
     GCStringOut info = new char[info_len];
 
@@ -154,6 +157,9 @@ CString Gclib::GVersion()
 //! Blocking call that returns once all axes specified have completed their motion.
 GReturn Gclib::GMotionComplete(GCStringIn axes)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+
     GReturn rc = ::GMotionComplete(m_ConnectionHandle, axes);
     return rc;
 }
@@ -187,7 +193,7 @@ void Gclib::SetSlewSpeed(int A, int B, int C, int D)
 {
     CString str;
     str.Format("SP %d,%d,%d,%d", A, B, C, D);
- //   GCommand(str);
+    GCommand(str);
 }
 
 void Gclib::SetJogSpeed(int speed)
@@ -287,6 +293,9 @@ BOOL Gclib::GClose()
 CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
 {
     GSize bytes_read = 0;
+    if (this == NULL || !IsConnected())
+        return _T("");
+
     SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
     
     GReturn rc = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
@@ -321,6 +330,9 @@ CString Gclib::Trim(CString str)
 
 CString Gclib::GCmdT(GCStringIn command)
 {
+    if (this == NULL || !IsConnected())
+        return _T("");
+    
     GSize response_len = 256;
     GCStringOut trimmed_response = new char[response_len];
     GCStringOut front;
@@ -343,6 +355,9 @@ CString Gclib::GCmdT(GCStringIn command)
 
 GReturn Gclib::GCmd(GCStringIn command)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GCmd(m_ConnectionHandle, command);
     if (rc != G_NO_ERROR)
     {
@@ -358,6 +373,9 @@ GReturn Gclib::GCmd(GCStringIn command)
 
 GReturn Gclib::GRead(GBufOut buffer, GSize buffer_len, GSize* bytes_read)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GRead(m_ConnectionHandle, buffer, buffer_len, bytes_read);
     if (rc != G_NO_ERROR)
     {
@@ -369,6 +387,9 @@ GReturn Gclib::GRead(GBufOut buffer, GSize buffer_len, GSize* bytes_read)
 
 GReturn Gclib::GWrite(GBufIn buffer, GSize buffer_len)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GWrite(m_ConnectionHandle, buffer, buffer_len);
     if (rc != G_NO_ERROR)
     {
@@ -380,6 +401,9 @@ GReturn Gclib::GWrite(GBufIn buffer, GSize buffer_len)
 
 GReturn Gclib::GProgramDownload(GCStringIn program, GCStringIn preprocessor)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GProgramDownload(m_ConnectionHandle, program, preprocessor);
     if (rc != G_NO_ERROR)
     {
@@ -392,6 +416,9 @@ GReturn Gclib::GProgramDownload(GCStringIn program, GCStringIn preprocessor)
 
 GReturn Gclib::GProgramUpload(GBufOut buffer, GSize buffer_len)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GProgramUpload(m_ConnectionHandle, buffer, buffer_len);
     if (rc != G_NO_ERROR)
     {
@@ -403,6 +430,9 @@ GReturn Gclib::GProgramUpload(GBufOut buffer, GSize buffer_len)
 
 GReturn Gclib::GArrayDownload(const GCStringIn array_name, GOption first, GOption last, GCStringIn buffer)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+
     GReturn rc = ::GArrayDownload(m_ConnectionHandle, array_name, first, last, buffer);
     if (rc != G_NO_ERROR)
     {
@@ -414,6 +444,9 @@ GReturn Gclib::GArrayDownload(const GCStringIn array_name, GOption first, GOptio
 
 GReturn Gclib::GArrayUpload(const GCStringIn array_name, GOption first, GOption last, GOption delim, GBufOut buffer, GSize buffer_len)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GArrayUpload(m_ConnectionHandle, array_name, first, last, delim, buffer, buffer_len);
 
     if (rc != G_NO_ERROR)
@@ -426,6 +459,9 @@ GReturn Gclib::GArrayUpload(const GCStringIn array_name, GOption first, GOption 
 
 GReturn Gclib::GRecord(union GDataRecord* record, GOption method)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GRecord(m_ConnectionHandle, record, method);
     if (rc != G_NO_ERROR)
     {
@@ -437,6 +473,9 @@ GReturn Gclib::GRecord(union GDataRecord* record, GOption method)
 
 GReturn Gclib::GMessage(GCStringOut buffer, GSize buffer_len)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GMessage(m_ConnectionHandle, buffer, buffer_len);
     if (rc != G_NO_ERROR)
     {
@@ -448,6 +487,9 @@ GReturn Gclib::GMessage(GCStringOut buffer, GSize buffer_len)
 
 GReturn Gclib::GInterrupt(GStatus* status_byte)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GInterrupt(m_ConnectionHandle, status_byte);
     if (rc != G_NO_ERROR)
     {
@@ -459,6 +501,9 @@ GReturn Gclib::GInterrupt(GStatus* status_byte)
 
 GReturn Gclib::GFirmwareDownload(GCStringIn filepath)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GFirmwareDownload(m_ConnectionHandle, filepath);
     if (rc != G_NO_ERROR)
     {
@@ -470,6 +515,9 @@ GReturn Gclib::GFirmwareDownload(GCStringIn filepath)
 
 GReturn Gclib::GUtility(GOption request, GMemory memory1, GMemory memory2)
 {
+    if (this == NULL || !IsConnected())
+        return G_GCLIB_ERROR;
+    
     GReturn rc = ::GUtility(m_ConnectionHandle, request, memory1, memory2);
     if (rc != G_NO_ERROR)
     {
@@ -483,6 +531,9 @@ GReturn Gclib::GUtility(GOption request, GMemory memory1, GMemory memory2)
 
 CString Gclib::GError(GReturn ErrorCode)
 {
+    if (this == NULL || !IsConnected())
+        return _T("");
+    
     GSize error_len = 256;
     GCStringOut error = new char[error_len];
     ::GError(ErrorCode, error, error_len);
