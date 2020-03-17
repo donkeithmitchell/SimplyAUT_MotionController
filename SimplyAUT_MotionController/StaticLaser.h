@@ -1,8 +1,11 @@
 #pragma once
 #include "DialogLaser.h"
 #include "SLSDef.h"
+#include "LaserControl.h"
+#include "Misc.h"
 
-enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION };
+enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS
+};
 
 // CStaticLaser dialog
 class CLaserControl;
@@ -25,6 +28,9 @@ public:
 	int GetPipeRect(CRect*);
 	void GetLaserProfile();
 	void  GetLaserRect(CRect*);
+	CDoublePoint GetJointPos() { return m_joint_pos; }
+	CDoublePoint GetEdgePos(int ind) { return m_edge_pos[ind]; }
+	CPoint GetScreenPixel(double x, double y);
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
@@ -34,10 +40,13 @@ public:
 
 	Profile			m_profile;
 	Measurement		m_measure;
-	int			m_profile_count;
-	int         m_image_count;
-	BOOL		m_valid_edges;
-	BOOL		m_valid_joint_pos;
+	int				m_profile_count;
+	int				m_image_count;
+	CDoublePoint    m_joint_pos;
+	CDoublePoint    m_edge_pos[3];
+	double			m_disp_width_factor;
+	double			m_disp_height_factor;
+	CRect			m_disp_rect;
 
 //	CStaticLaserProfile m_wndLaserProfile;
 	CLaserControl& m_laserControl;

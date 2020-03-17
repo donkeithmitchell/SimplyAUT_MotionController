@@ -204,6 +204,7 @@
     <ClInclude Include="LaserControl.h" />
     <ClInclude Include="LaserProfile.h" />
     <ClInclude Include="MagController.h" />
+    <ClInclude Include="Misc.h" />
     <ClInclude Include="MotionControl.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />

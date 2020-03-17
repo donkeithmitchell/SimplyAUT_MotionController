@@ -26,8 +26,6 @@ public:
 	BOOL	m_bCheck;
 	CStaticLaserProfile m_wndProfile;
 
-	int		m_ROI_stage;
-
 	BOOL	m_bAutoLaser;
 	CSliderCtrl	m_laser_power_sld;
 	CSliderCtrl	m_camera_shutter_sld;
@@ -36,10 +34,7 @@ public:
 	CEdit	m_temperature_edit;
 	int		m_LaserPower;
 	int		m_CameraShutter;
-	CString	m_ROI_str;
 	HICON	m_hIcon;
-	CRect	m_ImageDisplayRect;
-
 
 	CMotionControl& m_motionControl;
 	CLaserControl& m_laserControl;
@@ -54,7 +49,6 @@ public:
 	afx_msg void OnReleasedcaptureLaserpowerSlider(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnReleasedcaptureShutterSlider(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnRoiButton();
-	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg LRESULT OnUserUpdateDialog(WPARAM, LPARAM);
 
 

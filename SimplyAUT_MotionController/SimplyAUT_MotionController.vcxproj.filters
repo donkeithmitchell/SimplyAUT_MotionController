@@ -93,6 +93,9 @@
     <ClInclude Include="LaserProfile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Misc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">

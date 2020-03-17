@@ -116,10 +116,8 @@ public:
 	CString m_szHomeDist;
 	CString m_szScanOverlap;
 
-	CString   m_szLaserHiLowUS;
-	CString   m_szLaserHiLowDS;
-	CString   m_szLaserHiLowDiff;
-	CString   m_szLaserCapHeight;
+	CString   m_szLaserEdge[3];
+	CString   m_szLaserJoint;
 
 	double m_fLROffset;
 	double m_fScanCirc;

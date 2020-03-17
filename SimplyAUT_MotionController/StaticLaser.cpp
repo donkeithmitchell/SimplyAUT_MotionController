@@ -9,7 +9,7 @@
 #include "afxdialogex.h"
 
 static double PI = 3.14159265358979323846;
-
+#define DISP_MARGIN 5
 
 // CStaticLaser dialog
 
@@ -27,9 +27,9 @@ CStaticLaser::CStaticLaser(CLaserControl& laser, CMagControl& mag)
 	m_fHomeAng = 0;
 	m_profile_count = 0;
 	m_image_count = 0;
-	m_valid_edges = FALSE;
-	m_valid_joint_pos = FALSE;
-
+	m_disp_width_factor = 1;
+	m_disp_height_factor = 1;
+	m_disp_rect = CRect(0, 0, 0, 0);
 }
 
 CStaticLaser::~CStaticLaser()
@@ -96,22 +96,20 @@ void CStaticLaser::OnPaint()
 
 void CStaticLaser::OnSize(UINT nFlag, int cx, int cy)
 {
-	CRect rect;
 	CWnd::OnSize(nFlag, cx, cy);
-	/*
-	if (!IsWindow(m_hWnd))
-		return;
-	if (!IsWindow(m_wndLaserProfile.m_hWnd))
-		return;
 
-	// positioon in the bottom half and in the centre half of that
-	GetClientRect(&rect);
-	int x1 = rect.left + rect.Width() / 6;
-	int x2 = rect.right - rect.Width() / 6;
-	int y1 = (rect.top + rect.bottom) / 2 + 8;
-	int y2 = rect.bottom - rect.Height() / 6;
-	m_wndLaserProfile.MoveWindow(x1, y1, x2 - x1, y2 - y1);
-	*/
+	GetLaserRect(&m_disp_rect);
+	m_disp_width_factor = ((double)m_disp_rect.Width() - 2 * DISP_MARGIN) / (double)SENSOR_WIDTH;
+	m_disp_height_factor = ((double)m_disp_rect.Height() - 2 * DISP_MARGIN) / (double)SENSOR_HEIGHT;
+}
+
+CPoint CStaticLaser::GetScreenPixel(double x, double y)
+{
+	CPoint ret;
+	ret.x = DISP_MARGIN + m_disp_rect.left + int(x * m_disp_width_factor + 0.5);
+	ret.y = DISP_MARGIN + m_disp_rect.top - int(y * m_disp_height_factor + 0.5);
+
+	return ret;
 }
 
 
@@ -222,33 +220,26 @@ void CStaticLaser::GetLaserRect(CRect* rect)
 // draw the profile returned by the laser within the above circle
 void CStaticLaser::DrawLaserProfile(CDC* pDC)
 {
-	int i, x, y;
-	CRect rect;
-
 	if (!m_laserControl.IsLaserOn())
 		return;
 
 	GetLaserProfile();
-	GetLaserRect(&rect);
 
-	CPen black(PS_SOLID, 0, RGB(0, 0, 0));
-	pDC->SelectObject(&black);
-	pDC->MoveTo(rect.left, rect.bottom);
-	pDC->LineTo(rect.right, rect.bottom);
+	CPen PenBlack(PS_SOLID, 0, RGB(0, 0, 0));
+	pDC->SelectObject(&PenBlack);
+	pDC->MoveTo(m_disp_rect.left, m_disp_rect.bottom);
+	pDC->LineTo(m_disp_rect.right, m_disp_rect.bottom);
 
 	// Draw the background of the laser display
-	CBrush black_brush;
 	CPen PenPrimaryEdge(PS_SOLID, 2, RGB(10, 10, 250));
 	CPen PenSecondaryEdge(PS_SOLID, 1, RGB(250, 250, 10));
 	CPen PenTrackingPoint(PS_SOLID, 2, RGB(10, 200, 10));
 
+	CBrush black_brush;
 	black_brush.CreateSolidBrush(::GetSysColor(COLOR_3DFACE));
-	pDC->FillRect(&rect, &black_brush);
-	pDC->SelectObject(&PenPrimaryEdge);
 
-	// Display Profile
-	double disp_width_factor = (double)rect.Width() / (double)FRAME_WIDTH;
-	double disp_height_factor = (double)rect.Height() / (double)FRAME_HEIGHT;
+	pDC->FillRect(&m_disp_rect, &black_brush);
+	pDC->SelectObject(&PenPrimaryEdge);
 
 	int init = 1;
 	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
@@ -256,38 +247,47 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
-		if (m_profile.hits[i].pos1 != 10000)
+		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1  < SENSOR_HEIGHT)
 		{
-			double x = rect.left + double(i) * disp_width_factor;
-			double y = rect.bottom - (double)(m_profile.hits[i].pos1) * disp_height_factor;
-			if (init) pDC->MoveTo((int)x, (int)y);
-			else pDC->LineTo((int)x, (int)y);
+			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
+
+			if (init) pDC->MoveTo(pt.x, pt.y);
+			else pDC->LineTo(pt.x, pt.y);
 			init = 0;
 		}
 	}
-	if (m_image_count)
+	if (m_edge_pos[0].IsSet())
 	{
 		pDC->SelectObject(&PenPrimaryEdge);
-		double x1 = rect.left + (double)(m_measure.mp[1].x) * disp_width_factor;
-		double y1 = rect.bottom - (double)(m_measure.mp[1].y) * disp_height_factor;
-		pDC->MoveTo((int)x1, (int)y1 - 3);
-		pDC->LineTo((int)x1, (int)y1 + 3);
+		CPoint pt = GetScreenPixel(m_measure.mp[1].x, m_measure.mp[1].y);
+		pDC->MoveTo(pt.x, pt.y - 3);
+		pDC->LineTo(pt.x, pt.y + 3);
+	}
 
-		double x2 = rect.left + (double)(m_measure.mp[2].x) * disp_width_factor;
-		double y2 = rect.bottom - (double)(m_measure.mp[2].y) * disp_height_factor;
-		pDC->MoveTo((int)x2, (int)y2 - 3);
-		pDC->LineTo((int)x2, (int)y2 + 3);
+	if( m_edge_pos[1].IsSet())
+	{
+		CPoint pt = GetScreenPixel(m_measure.mp[2].x, m_measure.mp[2].y);
+		pDC->MoveTo(pt.x, pt.y - 3);
+		pDC->LineTo(pt.x, pt.y + 3);
 	}
 	// Display Tracking Point
-	if (m_valid_joint_pos)
+	if (m_joint_pos.IsSet())
 	{
-		double x = rect.left + (double)(m_measure.mp[0].x) * disp_width_factor;
-		double y = rect.bottom - (double)(m_measure.mp[0].y) * disp_height_factor;
+		CPoint pt = GetScreenPixel(m_measure.mp[0].x, m_measure.mp[0].y);
 		pDC->SelectObject(&PenTrackingPoint);
-		pDC->MoveTo((int)x - 7, (int)y);
-		pDC->LineTo((int)x + 7, (int)y);
-		pDC->MoveTo((int)x, (int)y - 7);
-		pDC->LineTo((int)x, (int)y + 7);
+//		pDC->MoveTo(pt.x - 7, pt.y);
+//		pDC->LineTo(pt.x + 7, pt.y);
+//		pDC->MoveTo(pt.x, pt.y - 7);
+//		pDC->LineTo(pt.x, pt.y + 7);
+		pDC->MoveTo(pt.x, m_disp_rect.top);
+		pDC->LineTo(pt.x, m_disp_rect.bottom);
+
+		// also draw a line in the centre the full width of the view
+		CRect rect;
+		GetPipeRect(&rect);
+		pDC->SelectObject(&PenBlack);
+		pDC->MoveTo((rect.left + rect.right) / 2, rect.top);
+		pDC->LineTo((rect.left + rect.right) / 2, rect.bottom);
 	}
 
 }
@@ -320,30 +320,34 @@ void CStaticLaser::GetLaserProfile()
 		return;
 
 
-	if (m_laserControl.IsConnected() && m_laserControl.IsLaserOn() && m_laserControl.GetLaserMeasurment(m_measure))
+	// ASSUMING THAT the index values are for (mp)
+	// 0: weld cap position and height
+	// 1: down side start and height
+	// 2: up side start and height
+	// 3: 
+
+	// assuming that the index values for (mv)
+	// 0: gap value
+	// 1: mismatch
+	if ( m_laserControl.GetLaserMeasurment(m_measure))
 	{
 		if (m_measure.mp[0].status == 0)
-		{
-			m_laserControl.ConvPixelToMm((int)m_measure.mp[0].x, (int)m_measure.mp[0].y, h_mm, v_mm);
-//			m_jointPos_str.Format("(%.1f,%.1f)", h_mm, v_mm);
-			m_valid_joint_pos = true;
-		}
+			m_laserControl.ConvPixelToMm((int)m_measure.mp[0].x, (int)m_measure.mp[0].y, m_joint_pos.x, m_joint_pos.y);
 		else
-		{
-	//		m_jointPos_str = "-----";
-			m_valid_joint_pos = false;
-		}
+			m_joint_pos.Reset();
+
 		if ((m_measure.mp[1].status == 0) || (m_measure.mp[2].status == 0))
 		{
-			m_laserControl.ConvPixelToMm((int)m_measure.mp[1].x, (int)m_measure.mp[1].y, h_mm, v_mm);
-			m_laserControl.ConvPixelToMm((int)m_measure.mp[2].x, (int)m_measure.mp[2].y, h2_mm, v2_mm);
-	//		m_edgesPos_str.Format("%+5.1f,%+5.1f %+5.1f,%+5.1f", h_mm, v_mm, h2_mm, v2_mm);
-			m_image_count = true;
+			m_laserControl.ConvPixelToMm((int)m_measure.mp[1].x, (int)m_measure.mp[1].y, m_edge_pos[0].x, m_edge_pos[0].y);
+			m_laserControl.ConvPixelToMm((int)m_measure.mp[2].x, (int)m_measure.mp[2].y, m_edge_pos[1].x, m_edge_pos[1].y);
+			m_edge_pos[2].x = 0;
+			m_edge_pos[2].y = fabs(m_edge_pos[0].y - m_edge_pos[1].y);
 		}
 		else
 		{
-	//		m_edgesPos_str = "-----";
-			m_image_count = false;
+			m_edge_pos[0].Reset();
+			m_edge_pos[1].Reset();
+			m_edge_pos[2].Reset();
 		}
 		if (m_measure.mv[0].status == 0)
 		{
@@ -361,17 +365,16 @@ void CStaticLaser::GetLaserProfile()
 		{
 	//		m_mismVal_str = "-----";
 		}
-		if (m_laserControl.GetProfile(m_profile))
-		{
+		if ( m_laserControl.GetProfile(m_profile))
 			m_image_count++;
-		}
+
 		m_profile_count = m_image_count;
 
-		if (m_profile_count % 10 == 0)
-			m_pParent->PostMessageA(m_nMsg);
-	}
+//		if ( m_profile_count % 10 == 0)
+//			m_pParent->PostMessageA(m_nMsg, STATUS_SHOWLASERSTATUS, 0);
 
-	InvalidateRgn(NULL);
+//		InvalidateRgn(NULL);
+	}
 }
 
 void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)

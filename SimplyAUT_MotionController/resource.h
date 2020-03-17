@@ -85,7 +85,7 @@
 #define IDC_SPIN_OVERLAP                1049
 #define IDC_STATIC_SCANNEDDIST          1050
 #define IDC_CHECK_RETURNTOSTART         1051
-#define IDC_STATIC_CAP_HEIGHT           1052
+#define IDC_STATIC_JOINT_LOCN           1052
 #define IDC_STATIC_LASER_US             1053
 #define IDC_STATIC_LASER_DS             1054
 #define IDC_STATIC_LASER_DIFF           1055

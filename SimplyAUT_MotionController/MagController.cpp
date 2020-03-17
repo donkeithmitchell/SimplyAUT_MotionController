@@ -11,7 +11,11 @@ enum{MAG_REG_HW=1,
     MAG_REG_FW_DATE,
     MAG_REG_ENC_CNT=100,
     MAG_REG_LOCK_OUT=105,
-    MAG_REG_RGB_CNT=108
+    MAG_REG_RGB_CNT=108,
+    MAG_REG_RGB_RED = 110,
+    MAG_REG_RGB_GREEN = 111,
+    MAG_REG_RGB_BLUE = 112,
+    MAG_REG_RGB_ALL=116
 };
 
 enum {
@@ -22,6 +26,9 @@ enum {
     MAG_IND_ENC_CNT,            // EE (count)
     MAG_IND_MAG_LOCKOUT         // FF (1=locked out, 0=enabled)
 };
+
+#define SOCKET_RECV_DELAY 1
+#define SOCKET_RECV_TIMEOUT 500
 
 
 static UINT ThreadReadSocket(LPVOID param)
@@ -107,7 +114,8 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
 
     // now spin a thread to receive the bytes
     // recv() does not respond if no bytes to receive
-  //  m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
+    // this can lock up the code if done byu the start up threads
+ //   m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
 
     
     if( !ResetEncoderCount() )
@@ -130,16 +138,14 @@ int  CMagControl::GetMagStatus(int status[6])
     if (!IsConnected())
         return 0;
 
-    ResetMagBuffer();
     int nRecv = ::send(m_server, "ST\n", 4, 0);
-    Sleep(200);
+    Sleep(SOCKET_RECV_DELAY);
 
     // read one byte at a time until get a \r
     // unlike a request for a register value
     // this requests is only azppended by \r, not \r\n
     char buff[2048];
-  //  nRecv = ReadMagBuffer(buff, sizeof(buff), '\n');
-    nRecv = ReadMagBuffer(buff, sizeof(buff), '\r');
+    nRecv = ReadMagBuffer(buff, sizeof(buff));
 
     if (nRecv == 0)
         return 0;
@@ -159,76 +165,139 @@ int  CMagControl::GetMagStatus(int status[6])
 }
 
 
-BOOL CMagControl::LockoutMagSwitchControl(BOOL bLockout)
+BOOL CMagControl::EnableMagSwitchControl(BOOL bEnabled)
 {
     CString str;
     if (!IsConnected())
         return INT_MAX;
 
-    str.Format("RW %d,%d\n", MAG_REG_LOCK_OUT, bLockout);
-    ResetMagBuffer();
+    str.Format("RW %d,%d\n", MAG_REG_LOCK_OUT, !bEnabled);
     int nRecv = ::send(m_server, str, str.GetLength(), 0);
-    Sleep(200);
+    Sleep(SOCKET_RECV_DELAY);
 
     nRecv = GetMagRegister(MAG_REG_LOCK_OUT);
-    return TRUE;
+    return nRecv == !bEnabled;
+}
+
+// spin a thread to read the socket to avoid hanging up
+/*
+int CMagControl::ReadSocket(char* buffer, int nSize)
+{
+    int nRecv = ::recv(m_server, buffer, nSize, MSG_PARTIAL);
+    return nRecv;
+}
+*/
+
+// spin a thread to read the socket to avoid hanging up
+int CMagControl::ReadSocket(char* buffer, int nSize)
+{
+    m_eventSocket.ResetEvent();
+    m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
+    // int nRecv = ::recv(m_server, buffer, nSize, MSG_PARTIAL);
+    int ret = ::WaitForSingleObject(m_eventSocket, SOCKET_RECV_TIMEOUT);
+    if (ret != WAIT_OBJECT_0)
+    {
+        DWORD exit_code = NULL;
+        GetExitCodeThread(m_hTheadReadSocket, &exit_code);
+        if (exit_code == STILL_ACTIVE)
+        {
+            ::TerminateThread(m_hTheadReadSocket, 0);
+            CloseHandle(m_hTheadReadSocket);
+        }
+        return 0;
+    }
+    else
+    {
+        buffer[0] = m_byteSocket;
+        return 1;
+    }
 }
 
 UINT CMagControl::ThreadReadSocket()
 {
     char buffer[1];
+    m_byteSocket = 0;
+    int nRecv = ::recv(m_server, buffer, 1, MSG_PARTIAL);
+    m_byteSocket = (nRecv != SOCKET_ERROR) ? buffer[0] : 0;
+    m_eventSocket.SetEvent();
+    return 0;
+}
+
+/*
+UINT CMagControl::ThreadReadSocket()
+{
+    char buffer[1];
     while (m_server != INVALID_SOCKET && g_sensor_initialised )
     {
-        int nRecv = ::recv(m_server, buffer, 1, 0);
+        // only read one byte at a time
+        int nRecv = ReadSocket(buffer, 1);
         if (nRecv == SOCKET_ERROR )
             break;
 
         // get a critical section to append this to a buffer
+        // append to the buffer
         if (nRecv > 0)
         {
             m_critBuffer.Lock();
-            m_buffer.Add(buffer[0]);
+            m_magBuffer.Add(buffer[0]);
             m_critBuffer.Unlock();
         }
+        Sleep(1); // avoid a tight loop
+    }
+
+    return 0;
+}
+*/
+// pull a value off the start of the buffer
+/*
+char CMagControl::GetNextBufferValue()
+{
+    char  ret = 0;
+    for (int i = 0; i < 200; ++i)
+    {
+        m_critBuffer.Lock();
+        size_t nSize = m_magBuffer.GetSize();
+        if (nSize > 0)
+        {
+            ret = m_magBuffer[0];
+            m_magBuffer.RemoveAt(0, 1);
+        }
+
+        m_critBuffer.Unlock();
+
+        if( nSize > 0 )
+            return ret;
+
         Sleep(1);
     }
 
     return 0;
 }
-
-char CMagControl::GetNextBufferValue()
+*/
+size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 {
-    char  ret = 0;
-    m_critBuffer.Lock();
-    if (m_buffer.GetSize() > 0)
-    {
-        ret = m_buffer[0];
-        m_buffer.RemoveAt(0, 1);
-    }
-    m_critBuffer.Unlock();
-    return ret;
-}
+    char stop_char = '\n';
 
-size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize, char stop_char)
-{
-    for (size_t i = 0; i < nSize; ++i)
+    memset(buff, 0x0, nSize);
+    for (size_t i = 0; i < nSize-1; ++i)
     {
-        int nRecv = ::recv(m_server, buff + i, 1, 0);
+        // if the value is '0' then there is no data to be got
+        // GetNextBufferValue() will try up to 200 ms to gewt data
+        int nRecv = ReadSocket(buff + i, 1);
+        buff[i + 1] = 0;
+
         if ((nRecv == SOCKET_ERROR) || (nRecv == 0))
             return i;
+
+        // the request for status does not have an 'n'
+        if (strstr(buff, "$STA") != NULL)
+            stop_char = '\r';
+
         if (buff[i] == stop_char)
              return i;
     }
     return nSize;
 
-}
-
-
-void CMagControl::ResetMagBuffer()
-{
-    m_critBuffer.Unlock();
-    m_buffer.RemoveAll();
-    m_critBuffer.Lock();
 }
 /*
 size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize, char stop_char)
@@ -249,6 +318,7 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize, char stop_char)
 
 }
 */
+
 BOOL CMagControl::IsMagSwitchEnabled()
 {
     return TRUE;
@@ -262,13 +332,12 @@ int CMagControl::GetMagRegister(int reg)
         return INT_MAX;
 
     str.Format("RR %d\n", reg);
-    ResetMagBuffer();
     int nRecv = ::send(m_server, str, str.GetLength(), 0);
-    Sleep(200);
+    Sleep(SOCKET_RECV_DELAY);
 
     char buff[2048];
     memset(buff, 0x0, sizeof(buff));
-    nRecv = ReadMagBuffer(buff, sizeof(buff), '\n');
+    nRecv = ReadMagBuffer(buff, sizeof(buff));
     if (nRecv == 0)
         return INT_MAX;
 
@@ -307,25 +376,24 @@ int CMagControl::GetMagSwitchLockedOut()
 int CMagControl::GetEncoderCount()
 {
     int status[6];
-        if (GetMagStatus(status) <= MAG_IND_ENC_CNT)
+    if (GetMagStatus(status) <= MAG_IND_ENC_CNT)
         return -1;
     else
         return status[MAG_IND_ENC_CNT];
 }
 
-int CMagControl::GetRGBValues()
+BOOL CMagControl::GetRGBValues(int& red, int& green, int& blue)
 {
     CString str;
     if (!IsConnected())
-        return -1;
+        return FALSE;
 
-    str.Format("RR %d\n", MAG_REG_RGB_CNT);
-    ResetMagBuffer();
-    int nRecv = ::send(m_server, str, str.GetLength(), 0);
-    Sleep(200);
+    red = GetMagRegister(MAG_REG_RGB_RED);
+    green = GetMagRegister(MAG_REG_RGB_GREEN);
+    blue = GetMagRegister(MAG_REG_RGB_BLUE);
+    int colour = GetMagRegister(MAG_REG_RGB_ALL);
 
-    nRecv = GetMagRegister(MAG_REG_RGB_CNT);
-    return (nRecv == INT_MAX) ? -1 : nRecv;
+    return (red == INT_MAX || green == INT_MAX || blue == INT_MAX) ? FALSE : TRUE;
 }
 
 
@@ -336,9 +404,8 @@ BOOL CMagControl::ResetEncoderCount()
         return INT_MAX;
 
     str.Format("RW %d 0\n", MAG_REG_ENC_CNT);
-    ResetMagBuffer();
     int nRecv = ::send(m_server, str, str.GetLength(), 0);
-    Sleep(200);
+    Sleep(SOCKET_RECV_DELAY);
 
     nRecv = GetMagRegister(MAG_REG_ENC_CNT);
 

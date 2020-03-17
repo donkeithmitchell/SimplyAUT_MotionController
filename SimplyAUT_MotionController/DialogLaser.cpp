@@ -30,9 +30,6 @@ CDialogLaser::CDialogLaser(CMotionControl& motion, CLaserControl& laser, CWnd* p
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
 
-	m_ROI_stage = 0;
-	m_ROI_str = _T("");
-
 	m_LaserPower = 0;
 	m_CameraShutter = 0;
 	//}}AFX_DATA_INIT
@@ -76,7 +73,6 @@ BEGIN_MESSAGE_MAP(CDialogLaser, CDialogEx)
 	ON_NOTIFY(NM_RELEASEDCAPTURE, IDC_LASERPOWER_SLIDER, OnReleasedcaptureLaserpowerSlider)
 	ON_NOTIFY(NM_RELEASEDCAPTURE, IDC_SHUTTER_SLIDER, OnReleasedcaptureShutterSlider)
 	ON_BN_CLICKED(IDC_ROI_BUTTON, OnRoiButton)
-	ON_WM_LBUTTONDOWN()
 	ON_MESSAGE(WM_USER_UPDATE_DIALOG, OnUserUpdateDialog)
 END_MESSAGE_MAP()
 
@@ -106,9 +102,6 @@ BOOL CDialogLaser::OnInitDialog()
 
 	// TODO: Add extra initialization here
 	m_bAutoLaser = TRUE;
-
-	// Dimension of laser Display
-	m_ImageDisplayRect.SetRect(DISP_MARGIN_HEIGHT, DISP_MARGIN_VERT, DISP_MARGIN_HEIGHT + DISP_WIDTH, DISP_MARGIN_VERT + DISP_HEIGHT);
 
 	m_laser_power_sld.SetRange(1, 100);
 	m_laser_power_sld.SetTicFreq(10);
@@ -234,84 +227,11 @@ void CDialogLaser::OnReleasedcaptureShutterSlider(NMHDR* pNMHDR, LRESULT* pResul
 
 void CDialogLaser::OnRoiButton()
 {
-
-	if (m_ROI_stage == 0)
-	{
-		m_ROI_str = "Click on lower left corner";
-		m_ROI_stage = 1;
-	}
-	else
-	{
-		CRect rect_roi(0, 0, 1023, 1279);
-		m_laserControl.SetCameraRoi(rect_roi);
-//		SLSSetCameraRoi(rect_roi.left, rect_roi.top, rect_roi.right, rect_roi.bottom);
-		m_ROI_str.Format("%d,%d-%d,%d", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
-	}
-
-//	EnableControls();
-	GetDlgItem(IDC_ROI_EDIT)->SetWindowTextA(m_ROI_str);
+	m_wndProfile.OnRoiButton();
+	GetDlgItem(IDC_ROI_EDIT)->SetWindowTextA(m_wndProfile.m_ROI_str);
 }
 
 
-
-void CDialogLaser::OnLButtonDown(UINT nFlags, CPoint point)
-{
-
-	if ((point.x > DISP_MARGIN_HEIGHT) && (point.x < (DISP_MARGIN_HEIGHT + DISP_WIDTH)) &&
-		(point.y > DISP_MARGIN_VERT) && (point.y < (DISP_MARGIN_VERT + DISP_HEIGHT)))
-	{
-		int xpix, ypix;
-
-		xpix = (int)((float)(point.x - DISP_MARGIN_HEIGHT) / DISP_WIDTH_FACTOR);
-		ypix = (int)((float)(DISP_HEIGHT + DISP_MARGIN_VERT - point.y) / DISP_HEIGHT_FACTOR);
-
-		if (xpix < 0)
-			xpix = 0;
-		if (xpix > 1023)
-			xpix = 1023;
-		if (ypix < 0)
-			ypix = 0;
-		if (ypix > 1279)
-			ypix = 1279;
-
-		CRect rect_roi;
-		m_laserControl.GetCameraRoi(rect_roi);
-
-		if (m_ROI_stage == 1)
-		{
-			rect_roi.left = xpix;
-			rect_roi.top = ypix;
-			m_ROI_str = "Click on upper right corner";
-			m_ROI_stage = 2;
-
-		}
-		else
-			if (m_ROI_stage == 2)
-			{
-				if ((xpix > rect_roi.left) && (ypix > rect_roi.top))
-				{
-					rect_roi.right = xpix;
-					rect_roi.bottom = ypix;
-	//				SLSSetCameraRoi(rect_roi.left, rect_roi.top, rect_roi.right, rect_roi.bottom);
-					m_ROI_str.Format("%d,%d-%d,%d", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
-				}
-				else
-				{
-					rect_roi.left = rect_roi.top = 0;
-					rect_roi.right = 1023;
-					rect_roi.bottom = 1279;
-
-	//				SLSSetCameraRoi(rect_roi.left, rect_roi.top, rect_roi.right, rect_roi.bottom);
-					m_ROI_str.Format("%d,%d-%d,%d", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
-				}
-				m_ROI_stage = 0;
-			}
-		GetDlgItem(IDC_ROI_EDIT)->SetWindowTextA(m_ROI_str);
-		m_laserControl.SetCameraRoi(rect_roi);
-	}
-
-	CDialog::OnLButtonDown(nFlags, point);
-}
 
 // CDialogMotors message handlers
 // this dialog is sized to a tab, and not the size that designed into
@@ -327,7 +247,7 @@ void CDialogLaser::OnSize(UINT nFlag, int cx, int cy)
 	int cx1 = rect.Width();
 	int cy1 = rect.Height();
 
-	m_wndProfile.MoveWindow(0,0, cx,cy);
+	m_wndProfile.MoveWindow(0,0, cx1,cy1);
 }
 
 void CDialogLaser::EnableControls()
@@ -348,14 +268,14 @@ void CDialogLaser::EnableControls()
 		m_laserControl.GetCameraRoi(rect);
 
 	//	m_SerialNumber = m_laserControl.GetSerialNumber();
-		m_ROI_str.Format("%d,%d-%d,%d", rect.left, rect.top, rect.right, rect.bottom);
+		m_wndProfile.m_ROI_str.Format("%d,%d-%d,%d", rect.left, rect.top, rect.right, rect.bottom);
 
 		CString str;
 		unsigned short major, minor;
 		m_laserControl.GetLaserVersion(major, minor);
 		str.Format("%d.%d", (int)major, (int)minor);
 		m_sensor_version.SetWindowText(str);
-		GetDlgItem(IDC_ROI_EDIT)->SetWindowTextA(m_ROI_str);
+		GetDlgItem(IDC_ROI_EDIT)->SetWindowTextA(m_wndProfile.m_ROI_str);
 	}
 }
 

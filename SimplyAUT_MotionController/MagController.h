@@ -13,21 +13,20 @@ public:
     int     AreMagnetsEngaged();
     int     GetMagSwitchLockedOut();
     int     GetEncoderCount();
-    int     GetRGBValues();
+    BOOL    GetRGBValues(int& red, int& green, int& blue);
     BOOL    ResetEncoderCount();
-    BOOL    LockoutMagSwitchControl(BOOL);
+    BOOL    EnableMagSwitchControl(BOOL);
     int     GetMagRegister(int reg);
-    size_t  ReadMagBuffer(char* buff, size_t nSize, char );
-    void    ResetMagBuffer();
+    size_t  ReadMagBuffer(char* buff, size_t nSize );
     BOOL    IsMagSwitchEnabled();
     UINT    ThreadReadSocket();
-    char    GetNextBufferValue();
+    int     ReadSocket(char* buffer, int nSize);
 
 protected:
-    SOCKET m_server;
-    HANDLE m_hTheadReadSocket;
-    CCriticalSection m_critBuffer;
-    CArray<char, char> m_buffer;
+    SOCKET  m_server;
+    HANDLE  m_hTheadReadSocket;
+    char    m_byteSocket;
+    CEvent  m_eventSocket;
 
 };
 

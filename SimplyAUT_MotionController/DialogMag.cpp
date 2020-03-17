@@ -140,16 +140,17 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 			m_szEncoderCount.Format("***");
 		GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szEncoderCount);
 
-		int nRGB = m_magControl.GetRGBValues();
-		if (nRGB != -1)
+		int red, green, blue;
+		if( m_magControl.GetRGBValues(red,green,blue) )
 		{
-			BYTE red = (nRGB & 0xFF0000) >> 16;
-			BYTE green = (nRGB & 0x00FF00) >> 8;
-			BYTE blue = (nRGB & 0x0000FF) >> 0;
 			m_szRGBValue.Format("(%d,%d,%d)", red, green, blue);
 		}
 		else
 			m_szRGBValue.Format(_T(""));
+
+		int bLocked = m_magControl.GetMagSwitchLockedOut();
+		m_butMagEnable.SetCheck(bLocked == 0);
+
 
 		GetDlgItem(IDC_STATIC_MAG_RGB)->SetWindowText(m_szRGBValue);
 	}
@@ -193,6 +194,18 @@ void CDialogMag::OnSize(UINT nFlag, int cx, int cy)
 
 }
 
+static CString FormatVersionDate(int nDate)
+{
+	CString str;
+
+	int day = nDate % 100;
+	int month = (nDate / 100) % 100;
+	int year = (nDate / 10000);
+
+	str.Format("%d/%d/%d", year, month, day);
+	return str;
+}
+
 void CDialogMag::EnableControls()
 {
 	BOOL bConnected = m_magControl.IsConnected();
@@ -202,7 +215,7 @@ void CDialogMag::EnableControls()
 	int version[5];
 	if (m_magControl.GetMagVersion(version))
 	{
-		m_szMagVersion.Format("HW:%d, FW: %d.%d.%d, Date:%d", version[0], version[1], version[2], version[3], version[4]);
+		m_szMagVersion.Format("HW:%d, FW: %d.%d.%d, %s", version[0], version[1], version[2], version[3], FormatVersionDate(version[4]));
 		GetDlgItem(IDC_STATIC_MAG_VERSION)->SetWindowTextA(m_szMagVersion);
 	}
 
@@ -220,7 +233,7 @@ void CDialogMag::OnClickedCheckMagEnable()
 {
 	// TODO: Add your control notification handler code here
 	BOOL bEnabled = m_butMagEnable.GetCheck();
-	m_magControl.LockoutMagSwitchControl(bEnabled);
+	BOOL ret = m_magControl.EnableMagSwitchControl(bEnabled);
 }
 
 
