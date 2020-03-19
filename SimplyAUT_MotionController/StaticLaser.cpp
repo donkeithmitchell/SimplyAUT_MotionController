@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
+#include "SimplyAUT_MotionControllerDlg.h"
 #include "StaticLaser.h"
 #include "LaserControl.h"
 #include "MagController.h"
@@ -175,9 +176,9 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 
 		// draw a filled dot at this location
 		// red if magnets not engaged, else greenm
-		BOOL bMagOn = m_magControl.AreMagnetsEngaged();
-		CBrush brush2(bMagOn ? RGB(0, 255, 0) : RGB(255, 0, 0));
-		CPen pen2(PS_SOLID, 0, (bMagOn ? RGB(0, 255, 0) : RGB(255, 0, 0)));
+		int nMagOn = GetMagStatus(MAG_IND_MAG_ON);
+		CBrush brush2(nMagOn==1 ? RGB(0, 255, 0) : RGB(255, 0, 0));
+		CPen pen2(PS_SOLID, 0, (nMagOn==1 ? RGB(0, 255, 0) : RGB(255, 0, 0)));
 		CPen * pPen2 = pDC->SelectObject(&pen2);
 		CBrush* pBrush2 = pDC->SelectObject(&brush2);
 		pDC->Ellipse(x1 - 5, y1 - 5, x1 + 5, y1 + 5);
@@ -406,12 +407,25 @@ void CStaticLaser::OnMenu(UINT nID)
 	}
 }
 
+
+int CStaticLaser::GetMagStatus(int nStatus)
+{
+	if (m_pParent && ::IsWindow(m_pParent->m_hWnd))
+	{
+		int stat = INT_MAX;
+		m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::STATUS_MAG_STATUS + nStatus, (WPARAM)&stat);
+		return stat;
+	}
+	else
+		return INT_MAX;
+}
+
 double CStaticLaser::GetPipeCircumference()
 {
 	if (m_pParent && ::IsWindow(m_pParent->m_hWnd))
 	{
 		double circ = 0;
-		m_pParent->SendMessage(m_nMsg, STATUS_GET_CIRC, (WPARAM)&circ);
+		m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::STATUS_GET_CIRC, (WPARAM)&circ);
 		return circ;
 	}
 	else
@@ -423,7 +437,7 @@ double CStaticLaser::GetCrawlerLocation()
 	if (m_pParent && ::IsWindow(m_pParent->m_hWnd))
 	{
 		double loc = 0;
-		m_pParent->SendMessage(m_nMsg, STATUS_GETLOCATION, (WPARAM)&loc);
+		m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::STATUS_GETLOCATION, (WPARAM)&loc);
 		return loc;
 	}
 	else

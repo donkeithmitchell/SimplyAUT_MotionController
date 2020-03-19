@@ -146,8 +146,10 @@ LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 
 void CDialogLaser::OnLaserButton()
 {
-	m_laserControl.TurnLaserOn( !m_laserControl.IsLaserOn() );
-//	EnableControls();
+	BOOL bOn = !m_laserControl.IsLaserOn();
+	m_laserControl.TurnLaserOn( bOn );
+	GetDlgItem(IDC_LASER_BUTTON)->SetWindowText(bOn ? _T("Laser Off") : _T("LaserOn"));
+	//	EnableControls();
 }
 
 void CDialogLaser::OnTimer(UINT nIDEvent)

@@ -72,6 +72,9 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_dlgLaser.Init(this, WM_DEGUG_MSG);
 	m_dlgMag.Init(this, WM_DEGUG_MSG);
 	m_dlgStatus.Init(this, WM_DEGUG_MSG);
+
+	for (int i = 0; i < 6; ++i)
+		m_magStatus[i] = INT_MAX;
 }
 
 void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
@@ -87,6 +90,7 @@ BEGIN_MESSAGE_MAP(CSimplyAUTMotionControllerDlg, CDialogEx)
 	ON_WM_SIZE()
 	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB1, &CSimplyAUTMotionControllerDlg::OnSelchangeTab1)
 	ON_MESSAGE(WM_DEGUG_MSG, OnUserDebugMessage)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -139,11 +143,23 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
+	SetTimer(TIMER_GET_MAG_STATUS, 100, NULL);
 	OnSelchangeTab2();
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
+void CSimplyAUTMotionControllerDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	CDialogEx::OnTimer(nIDEvent);
+	switch (nIDEvent)
+	{
+	case TIMER_GET_MAG_STATUS:
+		if( m_magControl.IsConnected() )
+			m_magControl.GetMagStatus(m_magStatus);
+		break;
+	}
+}
 LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
 {
 	if( m_bInit )
@@ -181,6 +197,17 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 		case MSG_SHOW_MOTOR_SPEEDS:
 			m_dlgMotors.ShowMotorSpeeds();
 			break;
+		case MSG_GET_MAG_STATUS + 0:
+		case MSG_GET_MAG_STATUS + 1:
+		case MSG_GET_MAG_STATUS + 2:
+		case MSG_GET_MAG_STATUS + 3:
+		case MSG_GET_MAG_STATUS + 4:
+		case MSG_GET_MAG_STATUS + 5:
+		{
+			int* pEng = (int*)lParam;
+			*pEng = m_magStatus[wParam - MSG_GET_MAG_STATUS];
+			break;
+		}
 	}
 
 	return 0;

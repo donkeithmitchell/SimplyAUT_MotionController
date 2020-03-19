@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
+#include "SimplyAUT_MotionControllerDlg.h"
 #include "DialogGirthWeld.h"
 #include "afxdialogex.h"
 #include "MotionControl.h"
@@ -370,7 +371,8 @@ void CDialogGirthWeld::ShowLaserTemperature()
 
 void CDialogGirthWeld::ShowMotorSpeeds()
 {
-	m_pParent->SendMessage(m_nMsg, MSG_SHOW_MOTOR_SPEEDS, 0);
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SHOW_MOTOR_SPEEDS, 0);
 }
 
 double CDialogGirthWeld::GetMaximumMotorPosition()
@@ -514,11 +516,23 @@ void CDialogGirthWeld::OnDeltaposSpinScanOverlap(NMHDR* pNMHDR, LRESULT* pResult
 
 void CDialogGirthWeld::SendDebugMessage(CString msg)
 {
-	if (m_pParent && ::IsWindow(m_pParent->m_hWnd) && m_nMsg != 0)
-	{
-		m_pParent->SendMessage(m_nMsg, MSG_SEND_DEBUGMSG, (WPARAM)&msg);
-	}
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
 }
+
+
+int CDialogGirthWeld::GetMagStatus(int nStat)
+{
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+	{
+		int nStatus = INT_MAX;
+		m_pParent->SendMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_GET_MAG_STATUS + nStat, (WPARAM)(&nStatus));
+		return nStatus;
+	}
+	else
+		return INT_MAX;
+}
+
 
 void CDialogGirthWeld::SetButtonBitmaps()
 {
@@ -526,7 +540,7 @@ void CDialogGirthWeld::SetButtonBitmaps()
 //	SendDebugMessage("SetButtonBitmaps"); // happenbs toio often to auto put in statuys
 
 	BOOL bGalil = m_motionControl.IsConnected();
-	BOOL bMag = m_magControl.AreMagnetsEngaged();
+	BOOL bMag = GetMagStatus(MAG_IND_MAG_ON) == 1;
 
 	HBITMAP hBitmapRight = (HBITMAP)m_bitmapGoRight.GetSafeHandle();
 	HBITMAP hBitmapLeft = (HBITMAP)m_bitmapGoLeft.GetSafeHandle();
@@ -863,6 +877,23 @@ LRESULT CDialogGirthWeld::OnUserStaticParameter(WPARAM wParam, LPARAM lParam)
 	case STATUS_SHOWLASERSTATUS:
 	//	ShowLaserStatus();
 		break;
+	case STATUS_MAG_STATUS + 0:
+	case STATUS_MAG_STATUS + 1:
+	case STATUS_MAG_STATUS + 2:
+	case STATUS_MAG_STATUS + 3:
+	case STATUS_MAG_STATUS + 4:
+	case STATUS_MAG_STATUS + 5:
+		if (m_pParent && IsWindow(m_pParent->m_hWnd))
+		{
+			int nStatus = (wParam - STATUS_MAG_STATUS);
+			m_pParent->SendMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_GET_MAG_STATUS + nStatus, lParam);
+		}
+		else
+		{
+			int* pStat = (int*)lParam;
+			*pStat = INT_MAX;
+		}
+		break;
 	default:
 		*param = FLT_MAX;
 	}
@@ -899,8 +930,12 @@ LRESULT CDialogGirthWeld::OnUserMotorsStopped(WPARAM, LPARAM)
 double CDialogGirthWeld::GetMotorSpeed(double& rAccel)
 {
 	double speed=0;
-	m_pParent->SendMessage(m_nMsg, MSG_GETSCANSPEED, (LPARAM)(&speed));
-	m_pParent->SendMessage(m_nMsg, MSG_GETACCEL, (LPARAM)(&rAccel));
+	rAccel = 0;
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+	{
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_GETSCANSPEED, (LPARAM)(&speed));
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_GETACCEL, (LPARAM)(&rAccel));
+	}
 
 	return speed;
 }

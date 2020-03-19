@@ -46,10 +46,12 @@ public:
 	double  GetMaximumMotorPosition();
 	void    ShowLaserTemperature();
 	void    ShowLaserStatus();
+	int		GetMagStatus(int nStat);
 
 
 	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED, WM_USER_STATIC };
 	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS };
+	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_MAG_STATUS};
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME

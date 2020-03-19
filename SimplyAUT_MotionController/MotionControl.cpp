@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
+#include "SimplyAUT_MotionControllerDlg.h"
 #include "MotionControl.h"
 #include "Gclib2.h"
 
@@ -37,17 +38,17 @@ void CMotionControl::Init(CWnd* pParent, UINT nMsg)
 
 void CMotionControl::SendDebugMessage(CString msg)
 {
-    if (m_pParent && ::IsWindow(m_pParent->m_hWnd) && m_nMsg != 0)
+    if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, MSG_SEND_DEBUGMSG, (WPARAM)&msg);
+        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
     }
 }
 
 void CMotionControl::EnableControls()
 {
-    if (m_pParent && ::IsWindow(m_pParent->m_hWnd) && m_nMsg != 0)
+    if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, MSG_SETBITMAPS);
+        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
     }
 }
 

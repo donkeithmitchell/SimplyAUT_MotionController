@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
+#include "SimplyAUT_MotionControllerDlg.h"
 #include "CDialogConnect.h"
 #include "afxdialogex.h"
 #include "MotionControl.h"
@@ -116,7 +117,8 @@ void CDialogConnect::OnClickedButtonConnect()
 	}
 
 	// request the parent to enable all controls 
-	m_pParent->PostMessageA(m_nMsg, MSG_SETBITMAPS);
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
 
 //	SetButtonBitmaps(); // donwe in the above
 

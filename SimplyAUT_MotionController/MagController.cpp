@@ -3,6 +3,7 @@
 #include <Ws2tcpip.h>
 
 static BOOL g_sensor_initialised = FALSE;
+#define SOCKET_BUFF_LENGTH 256
 
 enum{MAG_REG_HW=1, 
     MAG_REG_FW_MAJ,
@@ -16,15 +17,6 @@ enum{MAG_REG_HW=1,
     MAG_REG_RGB_GREEN = 111,
     MAG_REG_RGB_BLUE = 112,
     MAG_REG_RGB_ALL=116
-};
-
-enum {
-    MAG_STAT_IND_SC = 0,        // AA 
-    MAG_IND_ENC_DIR,            // BB (1=forward, 0=reverse)
-    MAG_IND_RGB_STAT,           // CC (1=line present, 0=line not present)
-    MAG_IND_MAG_ON,             // DD (1=magnets on, 0=magnets off)
-    MAG_IND_ENC_CNT,            // EE (count)
-    MAG_IND_MAG_LOCKOUT         // FF (1=locked out, 0=enabled)
 };
 
 #define SOCKET_RECV_DELAY 1
@@ -144,7 +136,7 @@ int  CMagControl::GetMagStatus(int status[6])
     // read one byte at a time until get a \r
     // unlike a request for a register value
     // this requests is only azppended by \r, not \r\n
-    char buff[2048];
+    char buff[SOCKET_BUFF_LENGTH];
     nRecv = ReadMagBuffer(buff, sizeof(buff));
 
     if (nRecv == 0)
@@ -154,13 +146,18 @@ int  CMagControl::GetMagStatus(int status[6])
         return 0;
 
     memset(status, 0x0, 6 * sizeof(int));
-    int ret = sscanf_s(buff + 5, "%d,%d,%d,%d,%d,%d\n",
+    int ret = sscanf_s(buff + 5, "%d,%d,%d,%d,%d,%d",
         status + MAG_STAT_IND_SC,
         status + MAG_IND_ENC_DIR,
         status + MAG_IND_RGB_STAT,
         status + MAG_IND_MAG_ON,
         status + MAG_IND_ENC_CNT,
         status + MAG_IND_MAG_LOCKOUT);
+
+    // insure that unread values are invalidated
+    for (int i = ret; i < 6; ++i)
+        status[i] = INT_MAX;
+
     return ret;
 }
 
@@ -188,40 +185,7 @@ int CMagControl::ReadSocket(char* buffer, int nSize)
 }
 */
 
-// spin a thread to read the socket to avoid hanging up
-int CMagControl::ReadSocket(char* buffer, int nSize)
-{
-    m_eventSocket.ResetEvent();
-    m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
-    // int nRecv = ::recv(m_server, buffer, nSize, MSG_PARTIAL);
-    int ret = ::WaitForSingleObject(m_eventSocket, SOCKET_RECV_TIMEOUT);
-    if (ret != WAIT_OBJECT_0)
-    {
-        DWORD exit_code = NULL;
-        GetExitCodeThread(m_hTheadReadSocket, &exit_code);
-        if (exit_code == STILL_ACTIVE)
-        {
-            ::TerminateThread(m_hTheadReadSocket, 0);
-            CloseHandle(m_hTheadReadSocket);
-        }
-        return 0;
-    }
-    else
-    {
-        buffer[0] = m_byteSocket;
-        return 1;
-    }
-}
 
-UINT CMagControl::ThreadReadSocket()
-{
-    char buffer[1];
-    m_byteSocket = 0;
-    int nRecv = ::recv(m_server, buffer, 1, MSG_PARTIAL);
-    m_byteSocket = (nRecv != SOCKET_ERROR) ? buffer[0] : 0;
-    m_eventSocket.SetEvent();
-    return 0;
-}
 
 /*
 UINT CMagControl::ThreadReadSocket()
@@ -276,48 +240,78 @@ char CMagControl::GetNextBufferValue()
 */
 size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 {
-    char stop_char = '\n';
-
+    // spin a thread to read the MAG buffer
+    // the thread will read until find the terminating character
+    m_eventSocket.ResetEvent();
+    m_threadBuffer = _T("");
     memset(buff, 0x0, nSize);
-    for (size_t i = 0; i < nSize-1; ++i)
+    m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
+
+    // timeout if can't read the entire message
+    // by using a thread and a finite timeout
+    // avoid locking up code if don't find the tertminating character
+    time_t ltime1, ltime2;
+    time(&ltime1);
+    int ret = ::WaitForSingleObject(m_eventSocket, SOCKET_RECV_TIMEOUT);
+    time(&ltime2);
+
+    if (ret != WAIT_OBJECT_0)
     {
-        // if the value is '0' then there is no data to be got
-        // GetNextBufferValue() will try up to 200 ms to gewt data
-        int nRecv = ReadSocket(buff + i, 1);
-        buff[i + 1] = 0;
-
-        if ((nRecv == SOCKET_ERROR) || (nRecv == 0))
-            return i;
-
-        // the request for status does not have an 'n'
-        if (strstr(buff, "$STA") != NULL)
-            stop_char = '\r';
-
-        if (buff[i] == stop_char)
-             return i;
+        DWORD exit_code = 0;
+        GetExitCodeThread(m_hTheadReadSocket, &exit_code);
+        if (exit_code == STILL_ACTIVE)
+        {
+            ::TerminateThread(m_hTheadReadSocket, 0);
+            CloseHandle(m_hTheadReadSocket);
+        }
+        m_threadBuffer = _T("");
+        return 0;
     }
-    return nSize;
-
+    else
+    {
+        memcpy(buff, m_threadBuffer, min(m_threadBuffer.GetLength(), (int)nSize));
+        return min(m_threadBuffer.GetLength(), (int)nSize);
+    }
 }
-/*
-size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize, char stop_char)
+
+// read bytes from the socket until get the terminating character (\r)
+UINT CMagControl::ThreadReadSocket()
 {
-    memset(buff, 0x0, nSize);
+    char* buff = m_threadBuffer.GetBufferSetLength(SOCKET_BUFF_LENGTH);
+    memset(buff, 0x0, SOCKET_BUFF_LENGTH);
 
-    for (size_t i = 0; i < nSize; ++i)
+    char stop_char = '\n';
+    for (int i = 0; i < SOCKET_BUFF_LENGTH - 1; ++i)
     {
-        char temp = GetNextBufferValue();
-        if (temp == 0)
-            return i;
+        int nRecv = ::recv(m_server, buff + i, 1, 0);
+        if (nRecv == 0 || nRecv == SOCKET_ERROR)
+        {
+            // this should not happen, so clear the buffer
+            // don't assume that have valid data
+            buff[0] = 0;
+            break;
+        }
+        else
+        {
+            buff[i + 1] = 0; // terminate so can use string functions on
+            if (stop_char == '\n' && strstr(buff, "$STA") != NULL)
+                stop_char = '\r';
 
-        buff[i] = temp;
-        if (buff[i] == stop_char)
-            return i;
+            if (buff[i] == stop_char)
+            {
+                break;
+            }
+        }
     }
-    return nSize;
 
+    m_threadBuffer.ReleaseBuffer();
+    int len = m_threadBuffer.GetLength();
+    if (len > 0 && m_threadBuffer[0] == '\r')
+        m_threadBuffer.Delete(0, 1);
+
+    m_eventSocket.SetEvent();
+    return 0;
 }
-*/
 
 BOOL CMagControl::IsMagSwitchEnabled()
 {
@@ -350,10 +344,10 @@ int CMagControl::GetMagRegister(int reg)
         return 0;
 
     int version[2];
-    int ret = sscanf_s(ptr + 5, "%d,%d\r\n", version + 0, version + 1);
+    int ret = sscanf_s(ptr + 5, "%d,%d", version + 0, version + 1);
     return (version[0] == reg) ? version[1] : INT_MAX;
 }
-
+/*
 int CMagControl::AreMagnetsEngaged()
 {
     int status[6];
@@ -381,7 +375,7 @@ int CMagControl::GetEncoderCount()
     else
         return status[MAG_IND_ENC_CNT];
 }
-
+*/
 BOOL CMagControl::GetRGBValues(int& red, int& green, int& blue)
 {
     CString str;

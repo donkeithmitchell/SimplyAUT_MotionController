@@ -19,6 +19,7 @@ public:
 	void EnableControls();
 	void Init(CWnd* pParent, UINT nMsg);
 	BOOL CheckVisibleTab() { return TRUE; }
+	int  GetMagStatus(int nStat);
 
 	HICON	m_hIcon;
 	UINT  m_nMsg;

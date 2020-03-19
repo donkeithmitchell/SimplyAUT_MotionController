@@ -4,8 +4,6 @@
 #include "LaserControl.h"
 #include "Misc.h"
 
-enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS
-};
 
 // CStaticLaser dialog
 class CLaserControl;
@@ -25,6 +23,7 @@ public:
 	void SetCrawlerLocation(CPoint pt);
 	double GetPipeCircumference();
 	double GetCrawlerLocation();
+	int   GetMagStatus(int);
 	int GetPipeRect(CRect*);
 	void GetLaserProfile();
 	void  GetLaserRect(CRect*);

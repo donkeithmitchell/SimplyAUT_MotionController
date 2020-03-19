@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
+#include "SimplyAUT_MotionControllerDlg.h"
 #include "DialogMag.h"
 #include "laserControl.h"
 #include "magController.h"
@@ -125,57 +126,65 @@ LRESULT CDialogMag::OnUserUpdateDialog(WPARAM, LPARAM)
 
 }
 
+int CDialogMag::GetMagStatus(int nStat)
+{
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+	{
+		int nStatus = INT_MAX;
+		m_pParent->SendMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_GET_MAG_STATUS + nStat, (WPARAM)(&nStatus));
+		return nStatus;
+	}
+	else
+		return INT_MAX;
+}
+
 void CDialogMag::OnTimer(UINT nIDEvent)
 {
-	if (m_laserControl.IsConnected() && IsWindowVisible())
-	{
+	// get the status on a t6ime, then only reference this status
+	if (m_laserControl.IsConnected()&& IsWindowVisible())
+		{
 		BOOL bConnected = m_magControl.IsConnected();
 		GetDlgItem(IDC_CHECK_MAG_ENABLE)->EnableWindow(bConnected);
 		GetDlgItem(IDC_BUTTON_MAG_CLEAR)->EnableWindow(bConnected);
 
-		int nEncoderCount = m_magControl.GetEncoderCount();
-		if(nEncoderCount >= 0)
+
+		int nEncoderCount = GetMagStatus(MAG_IND_ENC_CNT);
+		if (nEncoderCount != INT_MAX)
 			m_szEncoderCount.Format("%d", nEncoderCount);
 		else
 			m_szEncoderCount.Format("***");
 		GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szEncoderCount);
 
 		int red, green, blue;
-		if( m_magControl.GetRGBValues(red,green,blue) )
+		if (m_magControl.GetRGBValues(red, green, blue))
 		{
 			m_szRGBValue.Format("(%d,%d,%d)", red, green, blue);
 		}
 		else
 			m_szRGBValue.Format(_T(""));
 
-		int bLocked = m_magControl.GetMagSwitchLockedOut();
+		int bLocked = GetMagStatus(MAG_IND_MAG_LOCKOUT) == 1;
 		m_butMagEnable.SetCheck(bLocked == 0);
 
-
 		GetDlgItem(IDC_STATIC_MAG_RGB)->SetWindowText(m_szRGBValue);
-	}
 
-	// if this changes from the last call, then pass on to the scan tab
-	if (m_laserControl.IsConnected() && IsWindowVisible() && m_pParent && IsWindow(m_pParent->m_hWnd))
-	{
-		static int sLastMagOn = INT_MAX;
+
+		// if this changes from the last call, then pass on to the scan tab
 		HBITMAP hBitmap1 = (HBITMAP)m_bitmapConnect.GetSafeHandle();
 		HBITMAP hBitmap2 = (HBITMAP)m_bitmapDisconnect.GetSafeHandle();
-		
-		int bMagOn = m_magControl.AreMagnetsEngaged();
+
+		int bMagOn = GetMagStatus(MAG_IND_MAG_ON) == 1;
 		m_butMagOn.SetBitmap((bMagOn == 1) ? hBitmap1 : hBitmap2);
 
 		// on a change this will cause the p[arenrt to update all tabs
-		if (bMagOn != sLastMagOn)
+		static int sLastMagOn = INT_MAX;
+		if (bMagOn != sLastMagOn && m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 		{
 			sLastMagOn = bMagOn;
-			m_pParent->PostMessageA(m_nMsg, MSG_SETBITMAPS);
+			m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
 		}
+
 	}
-
-
-
-
 
 	CDialog::OnTimer(nIDEvent);
 }
@@ -219,7 +228,7 @@ void CDialogMag::EnableControls()
 		GetDlgItem(IDC_STATIC_MAG_VERSION)->SetWindowTextA(m_szMagVersion);
 	}
 
-	int bLocked = m_magControl.GetMagSwitchLockedOut();
+	int bLocked = GetMagStatus(MAG_IND_MAG_LOCKOUT) == 1;
 	m_butMagEnable.SetCheck(bLocked == 0);
 }
 

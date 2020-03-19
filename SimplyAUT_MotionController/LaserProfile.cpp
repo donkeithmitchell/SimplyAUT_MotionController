@@ -254,6 +254,13 @@ BOOL CStaticLaserProfile::CalcLaserMeasures(LASSER_MEASURES& meas)
 void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 {
 	CRect rect;
+	if (!m_laserControl.IsLaserOn())
+		return;
+
+	if (!m_laserControl.GetProfile(m_profile))
+		return;
+
+	
 	GetClientRect(&rect);
 
 	// Draw the background of the laser display
@@ -265,12 +272,6 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	black_brush.CreateSolidBrush(m_bgColour);
 	pDC->FillRect(&rect, &black_brush);
 
-
-	if (!m_laserControl.IsLaserOn())
-		return;
-
-	if (!m_laserControl.GetProfile(m_profile))
-		return;
 
 	// get a measure of the lasewr
 	LASSER_MEASURES measures;
