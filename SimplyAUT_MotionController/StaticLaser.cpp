@@ -91,6 +91,7 @@ void CStaticLaser::OnPaint()
 	CBitmap* pBitmap = memDC.SelectObject(&bitmap);
 	DrawCrawlerLocation(&memDC);
 	DrawLaserProfile(&memDC);
+	DrawRGBProfile(&memDC);
 //	m_wndLaserProfile.InvalidateRgn(NULL);
 	dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
 }
@@ -100,15 +101,23 @@ void CStaticLaser::OnSize(UINT nFlag, int cx, int cy)
 	CWnd::OnSize(nFlag, cx, cy);
 
 	GetLaserRect(&m_disp_rect);
-	m_disp_width_factor = ((double)m_disp_rect.Width() - 2 * DISP_MARGIN) / (double)SENSOR_WIDTH;
-	m_disp_height_factor = ((double)m_disp_rect.Height() - 2 * DISP_MARGIN) / (double)SENSOR_HEIGHT;
+	if (m_laserControl.GetCameraRoi(m_roi_rect))
+	{
+		m_disp_width_factor = ((double)m_disp_rect.Width()) / (double)m_roi_rect.Width();
+		m_disp_height_factor = ((double)m_disp_rect.Height()) / (double)m_roi_rect.Height();
+	}
+	else
+	{
+		m_disp_width_factor = 1;
+		m_disp_height_factor = 1;
+	}
 }
 
 CPoint CStaticLaser::GetScreenPixel(double x, double y)
 {
 	CPoint ret;
-	ret.x = DISP_MARGIN + m_disp_rect.left + int(x * m_disp_width_factor + 0.5);
-	ret.y = DISP_MARGIN + m_disp_rect.top - int(y * m_disp_height_factor + 0.5);
+	ret.x = m_disp_rect.left + int((x- m_roi_rect.left) * m_disp_width_factor + 0.5);
+	ret.y = m_disp_rect.bottom - int((y-m_roi_rect.top) * m_disp_height_factor + 0.5);
 
 	return ret;
 }
@@ -185,8 +194,8 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 	}
 
 
-	pDC->SelectObject(pBrush1);
-	pDC->SelectObject(pPen);
+	//pDC->SelectObject(pBrush1);
+	//pDC->SelectObject(pPen);
 }
 
 
@@ -214,7 +223,78 @@ void CStaticLaser::GetLaserRect(CRect* rect)
 	int x2 = rect->right - rect->Width() / 6;
 	int y1 = rect->top + rect->Height() / 8;
 	int y2 = (rect->bottom + rect->top) / 2;
-	rect->SetRect(x1,y1, x2, y2);
+	rect->SetRect(x1, y1, x2, y2);
+}
+
+void CStaticLaser::GetRGBRect(CRect* rect)
+{
+	// positioon in the bottom half and in the centre half of that
+	GetClientRect(rect);
+	int x1 = rect->left + rect->Width() / 4;
+	int x2 = rect->right - rect->Width() / 4;
+	int y1 = (rect->bottom + rect->top) / 2;
+	int y2 = rect->bottom - rect->Height() / 8;
+	rect->SetRect(x1, y1, x2, y2);
+}
+
+void CStaticLaser::DrawRGBProfile(CDC* pDC)
+{
+	if (!m_magControl.IsConnected())
+		return;
+
+	CRect rect;
+	GetRGBRect(&rect);
+
+	CPen PenBlack(PS_SOLID, 0, RGB(0, 0, 0));
+	pDC->SelectObject(&PenBlack);
+	pDC->MoveTo(rect.left, rect.bottom);
+	pDC->LineTo(rect.right, rect.bottom);
+
+	pDC->MoveTo((rect.left + rect.right) / 2, rect.bottom);
+	pDC->LineTo((rect.left + rect.right) / 2, rect.top);
+
+	// draw the last 50 mm worth of colour data
+	// the data will have been set into this object 
+	int minVal = INT_MAX;
+	int maxVal = 5;
+	int len = (int)m_rgbData.GetSize();
+	if (len == 0)
+		return;
+
+	for (int i = 0; i < len; ++i)
+	{
+		minVal = min(minVal, m_rgbData[i]);
+		maxVal = max(maxVal, m_rgbData[i]);
+	}
+	if (maxVal <= 0)
+		return;
+
+	double scaleX = (double)rect.Width() / (double)len;
+	double scaleY = (double)rect.Height() / (double)maxVal;
+
+	int init = 1;
+	for (int i = 0; i < len; ++i)
+	{
+		int x = (int)(rect.left + i * scaleX + 0.5);
+		int y = (int)(rect.bottom - m_rgbData[i] * scaleY + 0.5);
+		(init) ? pDC->MoveTo(x,y) : pDC->LineTo(x, y);
+		init = 0;
+	}
+
+}
+
+int CStaticLaser::AddRGBData(int value)
+{
+	m_rgbData.Add(value);
+	while (m_rgbData.GetSize() > 25)
+		m_rgbData.RemoveAt(0, 1);
+
+	return (int)m_rgbData.GetSize();
+}
+
+void CStaticLaser::ResetRGBData()
+{
+	m_rgbData.SetSize(0);
 }
 
 
@@ -226,6 +306,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 	GetLaserProfile();
 
+
 	CPen PenBlack(PS_SOLID, 0, RGB(0, 0, 0));
 	pDC->SelectObject(&PenBlack);
 	pDC->MoveTo(m_disp_rect.left, m_disp_rect.bottom);
@@ -236,19 +317,15 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	CPen PenSecondaryEdge(PS_SOLID, 1, RGB(250, 250, 10));
 	CPen PenTrackingPoint(PS_SOLID, 2, RGB(10, 200, 10));
 
-	CBrush black_brush;
-	black_brush.CreateSolidBrush(::GetSysColor(COLOR_3DFACE));
-
-	pDC->FillRect(&m_disp_rect, &black_brush);
 	pDC->SelectObject(&PenPrimaryEdge);
 
 	int init = 1;
 	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
 	pDC->SelectObject(&hits);
 
-	for (int i = 0; i < SENSOR_WIDTH; i++)
+	for (int i = m_roi_rect.left; i <= m_roi_rect.right; i++)
 	{
-		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1  < SENSOR_HEIGHT)
+		if (m_profile.hits[i].pos1 >= m_roi_rect.top && m_profile.hits[i].pos1 <= m_roi_rect.bottom)
 		{
 			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
 
@@ -257,7 +334,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 			init = 0;
 		}
 	}
-	if (m_edge_pos[0].IsSet())
+	if ( m_edge_pos[0].IsSet())
 	{
 		pDC->SelectObject(&PenPrimaryEdge);
 		CPoint pt = GetScreenPixel(m_measure.mp[1].x, m_measure.mp[1].y);
@@ -265,21 +342,21 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 		pDC->LineTo(pt.x, pt.y + 3);
 	}
 
-	if( m_edge_pos[1].IsSet())
+	if ( m_edge_pos[1].IsSet())
 	{
 		CPoint pt = GetScreenPixel(m_measure.mp[2].x, m_measure.mp[2].y);
 		pDC->MoveTo(pt.x, pt.y - 3);
 		pDC->LineTo(pt.x, pt.y + 3);
 	}
 	// Display Tracking Point
-	if (m_joint_pos.IsSet())
+	if ( m_joint_pos.IsSet())
 	{
 		CPoint pt = GetScreenPixel(m_measure.mp[0].x, m_measure.mp[0].y);
 		pDC->SelectObject(&PenTrackingPoint);
-//		pDC->MoveTo(pt.x - 7, pt.y);
-//		pDC->LineTo(pt.x + 7, pt.y);
-//		pDC->MoveTo(pt.x, pt.y - 7);
-//		pDC->LineTo(pt.x, pt.y + 7);
+		//		pDC->MoveTo(pt.x - 7, pt.y);
+		//		pDC->LineTo(pt.x + 7, pt.y);
+		//		pDC->MoveTo(pt.x, pt.y - 7);
+		//		pDC->LineTo(pt.x, pt.y + 7);
 		pDC->MoveTo(pt.x, m_disp_rect.top);
 		pDC->LineTo(pt.x, m_disp_rect.bottom);
 
@@ -290,7 +367,6 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 		pDC->MoveTo((rect.left + rect.right) / 2, rect.top);
 		pDC->LineTo((rect.left + rect.right) / 2, rect.bottom);
 	}
-
 }
 
 

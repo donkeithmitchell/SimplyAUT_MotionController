@@ -39,6 +39,8 @@ public:
 	CPoint GetDataPoint(CPoint);
 	CPoint GetScreenPixel(double x, double y);
 	BOOL   CalcLaserMeasures(LASSER_MEASURES& meas);
+	void	ResetROI();
+
 
 	CWnd* m_pParent;
 	UINT	m_nMsg;

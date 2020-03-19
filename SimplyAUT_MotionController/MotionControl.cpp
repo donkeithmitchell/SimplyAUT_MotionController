@@ -5,7 +5,8 @@
 #include "Gclib2.h"
 
 static double PI = 3.14159265358979323846;
-static const  double COUNTS_PER_TURN = 768000.0;
+//static const  double COUNTS_PER_TURN = 768000.0;
+static const  double COUNTS_PER_TURN = (768000.0 / 0.68);
 static const double WHEEL_DIAMETER = 50.0; // MM
 
 
@@ -197,7 +198,7 @@ double CMotionControl::GetMotorSpeed(GCStringIn axis, double& rAccel)
     int accel, speed = m_pGclib->GetMotorSpeed(axis, accel); // thjis is in counts, want the speed in mm/sec
     rAccel = EncoderCountToDistancePerSecond(accel);
     double fSpeed = EncoderCountToDistancePerSecond(speed);
-    return (speed == FLT_MAX) ? FLT_MAX : AxisDirection(axis) * speed;
+    return (fSpeed == FLT_MAX) ? FLT_MAX : AxisDirection(axis) * fSpeed;
 }
 
 double CMotionControl::GetMotorPosition(GCStringIn axis)
@@ -282,19 +283,24 @@ int CMotionControl::DistancePerSecondToEncoderCount(double DistancePerSecond)con
     return encoderCount;
 }
 
+void CMotionControl::SetSlewSpeed(double A_mm_sec, double B_mm_sec, double C_mm_sec, double D_mm_sec)
+{
+    int A = AxisDirection("A") * DistancePerSecondToEncoderCount(A_mm_sec);
+    int B = AxisDirection("B") * DistancePerSecondToEncoderCount(B_mm_sec);
+    int C = AxisDirection("C") * DistancePerSecondToEncoderCount(C_mm_sec);
+    int D = AxisDirection("D") * DistancePerSecondToEncoderCount(D_mm_sec);
+    m_pGclib->SetSlewSpeed(A, B, C, D);
+}
+
 void CMotionControl::SetSlewSpeed(double speed_mm_sec)
 {
-    int A = AxisDirection("A") * DistancePerSecondToEncoderCount(speed_mm_sec);
-    int B = AxisDirection("B") * DistancePerSecondToEncoderCount(speed_mm_sec);
-    int C = AxisDirection("C") * DistancePerSecondToEncoderCount(speed_mm_sec);
-    int D = AxisDirection("D") * DistancePerSecondToEncoderCount(speed_mm_sec);
-    m_pGclib->SetSlewSpeed(A,B,C,D);
+    SetSlewSpeed(speed_mm_sec, speed_mm_sec, speed_mm_sec, speed_mm_sec);
 }
 
 // steer to the right (TRUE0 or left (FALSE)
 // if (bMouseDown) slow the wheels to one side by about 10%
 // else return both sides to the same speed
-BOOL CMotionControl::SteerMotors(BOOL bRight, BOOL bMouseDown)
+BOOL CMotionControl::SteerMotors(double fSpeed, BOOL bRight, double rate)
 {
     double accelA, spA = GetMotorSpeed("A", accelA);
     double accelB, spB = GetMotorSpeed("B", accelB);
@@ -302,25 +308,21 @@ BOOL CMotionControl::SteerMotors(BOOL bRight, BOOL bMouseDown)
     double accelD, spD = GetMotorSpeed("D", accelD);
 
     // the otors must be running in order to steer
-    if (spA == 0 && spB == 0 && spC == 0 && spD == 0)
-        return FALSE;
+//    if (spA == 0 && spB == 0 && spC == 0 && spD == 0)
+//        return FALSE;
+    spA = fSpeed;
+    spB = fSpeed;
+    spC = fSpeed;
+    spD = fSpeed;
 
-    if (bMouseDown)
-    {
-        // slow down the right hand motors ("B", "C")
-        if (bRight)
-            spB = spC = 0.5 * spA;
-        // slow down the left hand motors
-        else
-            spA = spD = 0.5 * spC;
-    }
+ 
+    // slow down the right hand motors ("B", "C")
+    // if ending the turn, then rate=1
+    if (bRight)
+        spB = spC = rate * spA;
+    // slow down the left hand motors
     else
-    {
-        if (bRight)
-            spB = spC = spA;
-        else
-            spA = spD = spC;
-    }
+        spA = spD = rate * spC;
 
     return SetMotorJogging(spA, spB, spC, spD, accelA);
 }

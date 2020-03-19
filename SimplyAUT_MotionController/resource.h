@@ -102,6 +102,7 @@
 #define IDC_CHECK_MAG_ENGAGED           1061
 #define IDC_STATIC_TEMP_SENSOR          1061
 #define IDC_INITIALISE_BUTTON           1062
+#define IDC_STATIC_RUN_TIME             1062
 #define IDC_SERIALNUMBER_EDIT           1063
 #define IDC_LASER_BUTTON                1064
 #define IDC_TEMPERATURE_EDIT            1065
@@ -131,6 +132,14 @@
 #define IDC_STATIC_MAG_ENCODER2         1089
 #define IDC_STATIC_MAG_RGB              1089
 #define IDC_BUTTON_MAG_ON               1090
+#define IDC_BUTTON_ROI_RESET            1091
+#define IDC_EDIT_RGB_CAL                1092
+#define IDC_BUTTON1                     1093
+#define IDC_STATIC_MAG_RGB_CAL          1094
+#define IDC_STATIC_MAG_RGB_LINE         1095
+#define IDC_STATIC_FEFT                 1096
+#define IDC_STATIC_LEFT                 1096
+#define IDC_STATIC_RIGHT                1097
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
@@ -139,7 +148,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1091
+#define _APS_NEXT_CONTROL_VALUE         1098
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

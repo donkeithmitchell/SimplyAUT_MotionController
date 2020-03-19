@@ -28,6 +28,9 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	, m_szMagVersion(_T(""))
 	, m_szEncoderCount(_T(""))
 	, m_szRGBValue(_T(""))
+	, m_szRGBCalValue(_T(""))
+	, m_szRGBCalValueSet(_T(""))
+	, m_szRGBLinePresent(_T(""))
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -59,6 +62,9 @@ void CDialogMag::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON_MAG_ON, m_butMagOn);
 	DDX_Text(pDX, IDC_STATIC_MAG_ENCODER, m_szEncoderCount);
 	DDX_Text(pDX, IDC_STATIC_MAG_RGB, m_szRGBValue);
+	DDX_Text(pDX, IDC_STATIC_MAG_RGB_CAL, m_szRGBCalValue);
+	DDX_Text(pDX, IDC_EDIT_RGB_CAL, m_szRGBCalValueSet);
+	DDX_Text(pDX, IDC_STATIC_MAG_RGB_LINE, m_szRGBLinePresent);
 }
 
 
@@ -70,6 +76,7 @@ BEGIN_MESSAGE_MAP(CDialogMag, CDialogEx)
 	ON_MESSAGE(WM_USER_UPDATE_DIALOG, OnUserUpdateDialog)
 	ON_BN_CLICKED(IDC_CHECK_MAG_ENABLE, &CDialogMag::OnClickedCheckMagEnable)
 	ON_BN_CLICKED(IDC_BUTTON_MAG_CLEAR, &CDialogMag::OnClickedButtonEncoderClear)
+	ON_BN_CLICKED(IDC_BUTTON1, &CDialogMag::OnClickedButtonSetCalValue)
 END_MESSAGE_MAP()
 
 
@@ -147,6 +154,12 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 		GetDlgItem(IDC_CHECK_MAG_ENABLE)->EnableWindow(bConnected);
 		GetDlgItem(IDC_BUTTON_MAG_CLEAR)->EnableWindow(bConnected);
 
+		int nCal = m_magControl.GetMagRGBCalibration();
+		if (nCal != INT_MAX)
+			m_szRGBCalValue.Format("%d", nCal);
+		else
+			m_szRGBCalValue.Format("***");
+		GetDlgItem(IDC_STATIC_MAG_RGB_CAL)->SetWindowText(m_szRGBCalValue);
 
 		int nEncoderCount = GetMagStatus(MAG_IND_ENC_CNT);
 		if (nEncoderCount != INT_MAX)
@@ -156,12 +169,18 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 		GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szEncoderCount);
 
 		int red, green, blue;
-		if (m_magControl.GetRGBValues(red, green, blue))
+		int colour = m_magControl.GetRGBValues(red, green, blue);
+		if( colour != INT_MAX )
 		{
-			m_szRGBValue.Format("(%d,%d,%d)", red, green, blue);
+			m_szRGBValue.Format("(%d,%d,%d) %d", red, green, blue, colour);
 		}
 		else
 			m_szRGBValue.Format(_T(""));
+
+		// chevck if the line is presdent
+		int bPresent = GetMagStatus(MAG_IND_RGB_LINE) == 1;
+		m_szRGBLinePresent.Format(bPresent ? _T("Present") : _T(""));
+		GetDlgItem(IDC_STATIC_MAG_RGB_LINE)->SetWindowText(m_szRGBLinePresent);
 
 		int bLocked = GetMagStatus(MAG_IND_MAG_LOCKOUT) == 1;
 		m_butMagEnable.SetCheck(bLocked == 0);
@@ -250,4 +269,14 @@ void CDialogMag::OnClickedButtonEncoderClear()
 {
 	// TODO: Add your control notification handler code here
 	m_magControl.ResetEncoderCount();
+}
+
+
+void CDialogMag::OnClickedButtonSetCalValue()
+{
+	// TODO: Add your control notification handler code here
+	UpdateData(TRUE);
+	int nCalValue = atoi(m_szRGBCalValueSet);
+	m_magControl.SetMagRGBCalibration(nCalValue);
+	UpdateData(FALSE);
 }

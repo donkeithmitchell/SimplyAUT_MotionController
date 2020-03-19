@@ -182,10 +182,10 @@ BOOL CLaserControl::GetCameraRoi(CRect& rect)
 	SensorStatus SensorStatus;
 	if (GetLaserStatus(SensorStatus))
 	{
-		rect.left = SensorStatus.roi_x1;
-		rect.right = SensorStatus.roi_x2;
-		rect.top = SensorStatus.roi_y1;
-		rect.bottom = SensorStatus.roi_y2;
+		rect.left = min(max(SensorStatus.roi_x1, 0), SENSOR_WIDTH - 1);
+		rect.right = min(max(SensorStatus.roi_x2, 0), SENSOR_WIDTH - 1);
+		rect.top = min(max(SensorStatus.roi_y1, 0), SENSOR_HEIGHT - 1);
+		rect.bottom = min(max(SensorStatus.roi_y2, 0), SENSOR_HEIGHT - 1);
 		return TRUE;
 	}
 	else

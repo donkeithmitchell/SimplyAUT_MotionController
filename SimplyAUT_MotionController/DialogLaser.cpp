@@ -74,6 +74,7 @@ BEGIN_MESSAGE_MAP(CDialogLaser, CDialogEx)
 	ON_NOTIFY(NM_RELEASEDCAPTURE, IDC_SHUTTER_SLIDER, OnReleasedcaptureShutterSlider)
 	ON_BN_CLICKED(IDC_ROI_BUTTON, OnRoiButton)
 	ON_MESSAGE(WM_USER_UPDATE_DIALOG, OnUserUpdateDialog)
+	ON_BN_CLICKED(IDC_BUTTON_ROI_RESET, &CDialogLaser::OnClickedButtonRoiReset)
 END_MESSAGE_MAP()
 
 
@@ -148,8 +149,8 @@ void CDialogLaser::OnLaserButton()
 {
 	BOOL bOn = !m_laserControl.IsLaserOn();
 	m_laserControl.TurnLaserOn( bOn );
-	GetDlgItem(IDC_LASER_BUTTON)->SetWindowText(bOn ? _T("Laser Off") : _T("LaserOn"));
-	//	EnableControls();
+//	m_wndProfile.ResetROI();
+	EnableControls();
 }
 
 void CDialogLaser::OnTimer(UINT nIDEvent)
@@ -259,9 +260,11 @@ void CDialogLaser::EnableControls()
 
 	BOOL bLaserOn = m_laserControl.IsLaserOn();
 	GetDlgItem(IDC_ROI_BUTTON)->EnableWindow(bLaserOn);
+	GetDlgItem(IDC_BUTTON_ROI_RESET)->EnableWindow(bLaserOn);
 	GetDlgItem(IDC_AUTOLASER_CHECK)->EnableWindow(bLaserOn);
 	GetDlgItem(IDC_LASERPOWER_SLIDER)->EnableWindow(bLaserOn && !m_bAutoLaser);
 	GetDlgItem(IDC_SHUTTER_SLIDER)->EnableWindow(bLaserOn && !m_bAutoLaser);
+	GetDlgItem(IDC_LASER_BUTTON)->SetWindowText(bLaserOn ? _T("Laser Off") : _T("LaserOn"));
 
 
 	if (bConnected)
@@ -270,7 +273,9 @@ void CDialogLaser::EnableControls()
 		m_laserControl.GetCameraRoi(rect);
 
 	//	m_SerialNumber = m_laserControl.GetSerialNumber();
-		m_wndProfile.m_ROI_str.Format("%d,%d-%d,%d", rect.left, rect.top, rect.right, rect.bottom);
+	//	m_wndProfile.m_ROI_str.Format("%d,%d-%d,%d", rect.left, rect.top, rect.right, rect.bottom);
+
+
 
 		CString str;
 		unsigned short major, minor;
@@ -284,3 +289,18 @@ void CDialogLaser::EnableControls()
 
 
 
+
+
+void CDialogLaser::OnClickedButtonRoiReset()
+{
+	// TODO: Add your control notification handler code here
+	CRect rect_roi;
+	rect_roi.left = rect_roi.top = 0;
+	rect_roi.right = SENSOR_WIDTH - 1;
+	rect_roi.bottom = SENSOR_HEIGHT - 1;
+
+	UpdateData(TRUE);
+	m_wndProfile.m_ROI_str.Format("(%d,%d)(%d,%d)", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
+	m_laserControl.SetCameraRoi(rect_roi);
+	UpdateData(FALSE);
+}

@@ -128,9 +128,9 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	// TODO: Add extra initialization here
 	m_tabControl.InsertItem(TAB_CONNECT, CString("Connect"));
 	m_tabControl.InsertItem(TAB_MOTORS, CString("Motors"));
-	m_tabControl.InsertItem(TAB_SCAN, CString("Scan"));
 	m_tabControl.InsertItem(TAB_LASER, CString("Laser"));
 	m_tabControl.InsertItem(TAB_MAG, CString("Mag"));
+	m_tabControl.InsertItem(TAB_SCAN, CString("Scan"));
 	m_tabControl.InsertItem(TAB_STATUS, CString("Status"));
 	m_tabControl.SetCurSel(m_nSel);
 
@@ -345,4 +345,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	m_dlgLaser.ShowWindow(m_nSel == TAB_LASER ? SW_SHOW : SW_HIDE);
 	m_dlgMag.ShowWindow(m_nSel == TAB_MAG ? SW_SHOW : SW_HIDE);
 	m_dlgStatus.ShowWindow(m_nSel == TAB_STATUS ? SW_SHOW : SW_HIDE);
+
+	// this will causew the sdizing of the laser to be adjusted
+	m_dlgGirthWeld.PostMessage(WM_SIZE);
 }

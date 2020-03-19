@@ -24,7 +24,8 @@ public:
 	int    AxisDirection(GCStringIn axis)const;
 	void   ZeroPositions();
 	void   GoToPosition(double pos, double fSpeed, double fAccel);
-	BOOL   SteerMotors(BOOL bRight, BOOL bDown);
+	BOOL   SteerMotors(double fSpeed, BOOL bRight, double rate);
+	void   SetSlewSpeed(double A, double B, double C, double D);
 	void   SetSlewSpeed(double speed);
 	void   GoToHomePosition();
 

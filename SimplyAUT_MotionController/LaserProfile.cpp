@@ -101,7 +101,7 @@ void CStaticLaserProfile::OnRoiButton()
 {
 	if (m_ROI_stage == 0)
 	{
-		m_ROI_str = "Click on lower left corner";
+		m_ROI_str = "Lower Left";
 		m_ROI_stage = 1;
 	}
 	else
@@ -109,8 +109,19 @@ void CStaticLaserProfile::OnRoiButton()
 		CRect rect_roi(0, 0, SENSOR_WIDTH-1, SENSOR_HEIGHT-1);
 		m_laserControl.SetCameraRoi(rect_roi);
 		//		SLSSetCameraRoi(rect_roi.left, rect_roi.top, rect_roi.right, rect_roi.bottom);
-		m_ROI_str.Format("%d,%d-%d,%d", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
+		m_ROI_str.Format("(%d,%d)(%d,%d)", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
 	}
+	m_pParent->UpdateData(FALSE);
+}
+
+void CStaticLaserProfile::ResetROI()
+{
+	m_ROI_stage = 0;
+
+	CRect rect_roi(0, 0, SENSOR_WIDTH - 1, SENSOR_HEIGHT - 1);
+	m_laserControl.SetCameraRoi(rect_roi);
+	m_ROI_str.Format("(%d,%d)(%d,%d)", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
+	m_pParent->UpdateData(FALSE);
 }
 
 CPoint CStaticLaserProfile::GetDataPoint(CPoint pixel)
@@ -165,7 +176,7 @@ void CStaticLaserProfile::OnLButtonDown(UINT nFlags, CPoint point)
 		{
 			rect_roi.left = pixel.x;
 			rect_roi.top  = pixel.y;
-			m_ROI_str = "Click on upper right corner";
+			m_ROI_str = "Upper Right";
 			m_ROI_stage = 2;
 
 		}
@@ -176,22 +187,19 @@ void CStaticLaserProfile::OnLButtonDown(UINT nFlags, CPoint point)
 				{
 					rect_roi.right = pixel.x;
 					rect_roi.bottom = pixel.y;
-					//				SLSSetCameraRoi(rect_roi.left, rect_roi.top, rect_roi.right, rect_roi.bottom);
-					m_ROI_str.Format("%d,%d-%d,%d", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
 				}
+				// resst to the default
 				else
 				{
 					rect_roi.left = rect_roi.top = 0;
 					rect_roi.right = SENSOR_WIDTH-1;
 					rect_roi.bottom = SENSOR_HEIGHT-1;
-
-					//				SLSSetCameraRoi(rect_roi.left, rect_roi.top, rect_roi.right, rect_roi.bottom);
-					m_ROI_str.Format("%d,%d-%d,%d", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
 				}
+				m_ROI_str.Format("(%d,%d)(%d,%d)", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
 				m_ROI_stage = 0;
+				m_laserControl.SetCameraRoi(rect_roi);
 			}
 		m_pParent->UpdateData(FALSE);
-		m_laserControl.SetCameraRoi(rect_roi);
 	}
 
 	CWnd::OnLButtonDown(nFlags, point);
@@ -257,10 +265,6 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	if (!m_laserControl.IsLaserOn())
 		return;
 
-	if (!m_laserControl.GetProfile(m_profile))
-		return;
-
-	
 	GetClientRect(&rect);
 
 	// Draw the background of the laser display
@@ -311,6 +315,24 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 		pDC->LineTo(pt.x + 7, pt.y);
 		pDC->MoveTo(pt.x, pt.y - 7);
 		pDC->LineTo(pt.x, pt.y + 7);
+	}
+	// while waiting for the 2nd clicki, draw a rectangle
+	if (m_ROI_stage == 2)
+	{
+		CPen penROI(PS_DOT, 0, RGB(255, 255, 255));
+		pDC->SelectStockObject(HOLLOW_BRUSH);
+		pDC->SelectObject(&penROI);
+
+		// get the lower left position as saved
+		CRect rect_roi;
+		m_laserControl.GetCameraRoi(rect_roi);
+		CPoint bott_left = GetScreenPixel(rect_roi.left, rect_roi.top);
+
+		CPoint top_right;
+		GetCursorPos(&top_right); // screen position
+		ScreenToClient(&top_right);
+
+		pDC->Rectangle(bott_left.x, bott_left.y, top_right.x, top_right.y);
 	}
 }
 

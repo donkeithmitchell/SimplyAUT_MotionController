@@ -59,4 +59,8 @@ public:
 	CString m_szEncoderCount;
 	CString m_szRGBValue;
 	afx_msg void OnClickedButtonEncoderClear();
+	CString m_szRGBCalValue;
+	CString m_szRGBCalValueSet;
+	afx_msg void OnClickedButtonSetCalValue();
+	CString m_szRGBLinePresent;
 };

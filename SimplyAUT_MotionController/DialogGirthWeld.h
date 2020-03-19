@@ -47,10 +47,12 @@ public:
 	void    ShowLaserTemperature();
 	void    ShowLaserStatus();
 	int		GetMagStatus(int nStat);
+	void	SetRunTime(int);
+	double  GetFilteredLaserPosition();
 
-
-	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_MOTORSSTOPPED, WM_USER_STATIC };
-	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS };
+	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC };
+	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_STEERMOTORS, TIMER_NOTE_RGB
+	};
 	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_MAG_STATUS};
 
 	// Dialog Data
@@ -67,7 +69,7 @@ public:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	afx_msg LRESULT OnUserSteerLeft(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserSteerRight(WPARAM, LPARAM);
-	afx_msg LRESULT OnUserMotorsStopped(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserStopMotorFinished(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserStaticParameter(WPARAM, LPARAM);
 
 	GALIL_STATE&	m_nGalilState;
@@ -86,6 +88,8 @@ public:
 	int     m_nTimerCount;
 	double  m_fMotorSpeed;
 	double  m_fMotorAccel;
+	clock_t	m_nRunStart;
+	CArray<double, double> m_posLaserRaw;
 
 	CBitmap	m_bitmapPause;
 	CBitmap	m_bitmapGoRight;
@@ -173,4 +177,5 @@ public:
 	CString m_szTempBoard;
 	CString m_szTempLaser;
 	CString m_szTempSensor;
+	CString m_szRunTime;
 };

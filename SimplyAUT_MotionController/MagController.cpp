@@ -3,7 +3,6 @@
 #include <Ws2tcpip.h>
 
 static BOOL g_sensor_initialised = FALSE;
-#define SOCKET_BUFF_LENGTH 256
 
 enum{MAG_REG_HW=1, 
     MAG_REG_FW_MAJ,
@@ -12,7 +11,7 @@ enum{MAG_REG_HW=1,
     MAG_REG_FW_DATE,
     MAG_REG_ENC_CNT=100,
     MAG_REG_LOCK_OUT=105,
-    MAG_REG_RGB_CNT=108,
+    MAG_REG_RGB_CAL=108,
     MAG_REG_RGB_RED = 110,
     MAG_REG_RGB_GREEN = 111,
     MAG_REG_RGB_BLUE = 112,
@@ -20,7 +19,7 @@ enum{MAG_REG_HW=1,
 };
 
 #define SOCKET_RECV_DELAY 1
-#define SOCKET_RECV_TIMEOUT 500
+#define SOCKET_RECV_TIMEOUT 2000
 
 
 static UINT ThreadReadSocket(LPVOID param)
@@ -125,6 +124,27 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
 	return TRUE;
 }
 
+int CMagControl::GetMagRGBCalibration()
+{
+    int nValue = GetMagRegister(MAG_REG_RGB_CAL);
+    return nValue;
+
+}
+
+BOOL CMagControl::SetMagRGBCalibration(int nCal)
+{
+    CString str;
+    if (!IsConnected())
+        return FALSE;
+
+    str.Format("RW %d %d\n", MAG_REG_RGB_CAL, nCal);
+    int nRecv = ::send(m_server, str, str.GetLength(), 0);
+    Sleep(SOCKET_RECV_DELAY);
+
+    nRecv = GetMagRegister(MAG_REG_RGB_CAL);
+    return nRecv == nCal;
+}
+
 int  CMagControl::GetMagStatus(int status[6])
 {
     if (!IsConnected())
@@ -149,7 +169,7 @@ int  CMagControl::GetMagStatus(int status[6])
     int ret = sscanf_s(buff + 5, "%d,%d,%d,%d,%d,%d",
         status + MAG_STAT_IND_SC,
         status + MAG_IND_ENC_DIR,
-        status + MAG_IND_RGB_STAT,
+        status + MAG_IND_RGB_LINE,
         status + MAG_IND_MAG_ON,
         status + MAG_IND_ENC_CNT,
         status + MAG_IND_MAG_LOCKOUT);
@@ -168,7 +188,7 @@ BOOL CMagControl::EnableMagSwitchControl(BOOL bEnabled)
     if (!IsConnected())
         return INT_MAX;
 
-    str.Format("RW %d,%d\n", MAG_REG_LOCK_OUT, !bEnabled);
+    str.Format("RW %d %d\n", MAG_REG_LOCK_OUT, !bEnabled);
     int nRecv = ::send(m_server, str, str.GetLength(), 0);
     Sleep(SOCKET_RECV_DELAY);
 
@@ -187,63 +207,15 @@ int CMagControl::ReadSocket(char* buffer, int nSize)
 
 
 
-/*
-UINT CMagControl::ThreadReadSocket()
-{
-    char buffer[1];
-    while (m_server != INVALID_SOCKET && g_sensor_initialised )
-    {
-        // only read one byte at a time
-        int nRecv = ReadSocket(buffer, 1);
-        if (nRecv == SOCKET_ERROR )
-            break;
 
-        // get a critical section to append this to a buffer
-        // append to the buffer
-        if (nRecv > 0)
-        {
-            m_critBuffer.Lock();
-            m_magBuffer.Add(buffer[0]);
-            m_critBuffer.Unlock();
-        }
-        Sleep(1); // avoid a tight loop
-    }
 
-    return 0;
-}
-*/
-// pull a value off the start of the buffer
-/*
-char CMagControl::GetNextBufferValue()
-{
-    char  ret = 0;
-    for (int i = 0; i < 200; ++i)
-    {
-        m_critBuffer.Lock();
-        size_t nSize = m_magBuffer.GetSize();
-        if (nSize > 0)
-        {
-            ret = m_magBuffer[0];
-            m_magBuffer.RemoveAt(0, 1);
-        }
-
-        m_critBuffer.Unlock();
-
-        if( nSize > 0 )
-            return ret;
-
-        Sleep(1);
-    }
-
-    return 0;
-}
-*/
 size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 {
     // spin a thread to read the MAG buffer
     // the thread will read until find the terminating character
     m_eventSocket.ResetEvent();
-    m_threadBuffer = _T("");
+    m_strBuffer[0] = 0;
+
     memset(buff, 0x0, nSize);
     m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
 
@@ -259,55 +231,58 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
     {
         DWORD exit_code = 0;
         GetExitCodeThread(m_hTheadReadSocket, &exit_code);
-        if (exit_code == STILL_ACTIVE)
+ //       if (exit_code == STILL_ACTIVE)
         {
             ::TerminateThread(m_hTheadReadSocket, 0);
-            CloseHandle(m_hTheadReadSocket);
+//            CloseHandle(m_hTheadReadSocket);
         }
-        m_threadBuffer = _T("");
+        m_strBuffer[0] = 0;
         return 0;
     }
     else
     {
-        memcpy(buff, m_threadBuffer, min(m_threadBuffer.GetLength(), (int)nSize));
-        return min(m_threadBuffer.GetLength(), (int)nSize);
+        strcpy_s(buff, SOCKET_BUFF_LENGTH, m_strBuffer);
+        int ret = (int)strlen(m_strBuffer);
+        return ret;
     }
 }
 
 // read bytes from the socket until get the terminating character (\r)
 UINT CMagControl::ThreadReadSocket()
 {
-    char* buff = m_threadBuffer.GetBufferSetLength(SOCKET_BUFF_LENGTH);
-    memset(buff, 0x0, SOCKET_BUFF_LENGTH);
+    memset(m_strBuffer, 0x0, SOCKET_BUFF_LENGTH);
 
     char stop_char = '\n';
     for (int i = 0; i < SOCKET_BUFF_LENGTH - 1; ++i)
     {
-        int nRecv = ::recv(m_server, buff + i, 1, 0);
+        int nRecv = ::recv(m_server, m_strBuffer + i, 1, 0);
         if (nRecv == 0 || nRecv == SOCKET_ERROR)
         {
             // this should not happen, so clear the buffer
             // don't assume that have valid data
-            buff[0] = 0;
+            memset(m_strBuffer, 0x0, SOCKET_BUFF_LENGTH);
             break;
         }
         else
         {
-            buff[i + 1] = 0; // terminate so can use string functions on
-            if (stop_char == '\n' && strstr(buff, "$STA") != NULL)
+            m_strBuffer[i + 1] = 0; // terminate so can use string functions on
+            if (stop_char == '\n' && strstr(m_strBuffer, "$STA") != NULL)
                 stop_char = '\r';
 
-            if (buff[i] == stop_char)
+            if (m_strBuffer[i] == stop_char)
             {
                 break;
             }
         }
     }
 
-    m_threadBuffer.ReleaseBuffer();
-    int len = m_threadBuffer.GetLength();
-    if (len > 0 && m_threadBuffer[0] == '\r')
-        m_threadBuffer.Delete(0, 1);
+    size_t len = strlen(m_strBuffer);
+    if (len > 0 && m_strBuffer[0] == '\r')
+    {
+        for (int i = 1; i < (int)len; ++i)
+            m_strBuffer[i - 1] = m_strBuffer[i];
+        m_strBuffer[len - 1] = 0;
+    }
 
     m_eventSocket.SetEvent();
     return 0;
@@ -376,18 +351,18 @@ int CMagControl::GetEncoderCount()
         return status[MAG_IND_ENC_CNT];
 }
 */
-BOOL CMagControl::GetRGBValues(int& red, int& green, int& blue)
+int CMagControl::GetRGBValues(int& red, int& green, int& blue)
 {
     CString str;
     if (!IsConnected())
-        return FALSE;
+        return INT_MAX;
 
     red = GetMagRegister(MAG_REG_RGB_RED);
     green = GetMagRegister(MAG_REG_RGB_GREEN);
     blue = GetMagRegister(MAG_REG_RGB_BLUE);
     int colour = GetMagRegister(MAG_REG_RGB_ALL);
 
-    return (red == INT_MAX || green == INT_MAX || blue == INT_MAX) ? FALSE : TRUE;
+    return (red == INT_MAX || green == INT_MAX || blue == INT_MAX || colour == INT_MAX) ? INT_MAX : colour;
 }
 
 

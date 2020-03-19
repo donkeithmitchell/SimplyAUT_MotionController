@@ -19,6 +19,7 @@ public:
 
 	void Create(CWnd* pParent);
 	void DrawLaserProfile(CDC*);
+	void DrawRGBProfile(CDC*);
 	void DrawCrawlerLocation(CDC*);
 	void SetCrawlerLocation(CPoint pt);
 	double GetPipeCircumference();
@@ -27,9 +28,12 @@ public:
 	int GetPipeRect(CRect*);
 	void GetLaserProfile();
 	void  GetLaserRect(CRect*);
+	void  GetRGBRect(CRect*);
 	CDoublePoint GetJointPos() { return m_joint_pos; }
 	CDoublePoint GetEdgePos(int ind) { return m_edge_pos[ind]; }
 	CPoint GetScreenPixel(double x, double y);
+	int    AddRGBData(int);
+	void   ResetRGBData();
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
@@ -46,6 +50,8 @@ public:
 	double			m_disp_width_factor;
 	double			m_disp_height_factor;
 	CRect			m_disp_rect;
+	CRect			m_roi_rect;
+	CArray<int, int> m_rgbData;
 
 //	CStaticLaserProfile m_wndLaserProfile;
 	CLaserControl& m_laserControl;

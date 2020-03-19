@@ -10,6 +10,7 @@
 #include "LaserControl.h"
 #include "MagController.h"
 #include "resource.h"
+#include "time.h"
 
 static const int LASER_BLINK = 500;
 
@@ -50,14 +51,14 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_nGalilState(nState)
 
 	, m_szLROffset(_T("0.0"))
-	, m_szScanCirc(_T("100.0"))
-	, m_szDistToScan(_T("100.0"))
+	, m_szScanCirc(_T("1000.0"))
+	, m_szDistToScan(_T("1000.0"))
 	, m_szScanOverlap(_T("50.0"))
 
 	, m_fLROffset(0.0)
-	, m_fScanCirc(100.0)
-	, m_fDistToScan(100.0)
-	, m_fDistScanned(100.0)
+	, m_fScanCirc(1000.0)
+	, m_fDistToScan(1000.0)
+	, m_fDistScanned(10.0)
 	, m_fScanOverlap(50.0)
 
 	, m_nScanType(FALSE)
@@ -70,6 +71,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_szTempBoard(_T(""))
 	, m_szTempLaser(_T(""))
 	, m_szTempSensor(_T(""))
+	, m_szRunTime(_T(""))
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -165,6 +167,7 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_STATIC_TEMP_BOARD, m_szTempBoard);
 	DDX_Text(pDX, IDC_STATIC_TEMP_LASER, m_szTempLaser);
 	DDX_Text(pDX, IDC_STATIC_TEMP_SENSOR, m_szTempSensor);
+	DDX_Text(pDX, IDC_STATIC_RUN_TIME, m_szRunTime);
 }
 
 
@@ -195,7 +198,7 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_COMMAND(IDC_RADIO_DIST,				&CDialogGirthWeld::OnRadioScanType)
 	ON_MESSAGE(WM_STEER_LEFT,				&CDialogGirthWeld::OnUserSteerLeft)
 	ON_MESSAGE(WM_STEER_RIGHT,				&CDialogGirthWeld::OnUserSteerRight)
-	ON_MESSAGE(WM_MOTORSSTOPPED,			&CDialogGirthWeld::OnUserMotorsStopped)
+	ON_MESSAGE(WM_STOPMOTOR_FINISHED,		&CDialogGirthWeld::OnUserStopMotorFinished)
 	ON_MESSAGE(WM_USER_STATIC,				&CDialogGirthWeld::OnUserStaticParameter)
 END_MESSAGE_MAP()
 
@@ -257,7 +260,8 @@ LRESULT CDialogGirthWeld::OnUserSteerRight(WPARAM wParam, LPARAM)
 }
 LRESULT CDialogGirthWeld::UserSteer(BOOL bRight, BOOL bDown)
 {
-	m_motionControl.SteerMotors(bRight, bDown);
+	double rate = (bDown) ? 0.99 : 1.00;
+	m_motionControl.SteerMotors(m_fMotorSpeed, bDown, rate);
 	return 0L;
 }
 
@@ -266,6 +270,41 @@ void CDialogGirthWeld::Create(CWnd* pParent)
 	CDialogEx::Create(IDD_DIALOG_GIRTHWELD, pParent);
 	ShowWindow(SW_HIDE);
 }
+
+// only need to L/P filter the last value
+// for now ghet the average of the last 5 values
+static double LowPassFilter(const double* buff1, int nSize)
+{
+	double sum = 0;
+	int count = 0;
+	for (int i = nSize - 1; i >= max(nSize - 5, 0); --i)
+	{
+		sum += buff1[i];
+		count++;
+	}
+
+	return (count > 0) ? sum / count : 0;
+}
+
+// this will be called approximately every mm
+// so add the next location on each call to a buffer
+// preset the length of the buffer for the distance being run
+double CDialogGirthWeld::GetFilteredLaserPosition()
+{
+	// assume will be rtunning abour 1 M
+	int nSize = (int)m_posLaserRaw.GetSize();
+	CDoublePoint pt = m_wndLaser.GetJointPos();
+	if (pt.IsSet())
+	{
+		m_posLaserRaw.SetSize(++nSize, 1028);
+		m_posLaserRaw[nSize-1] = pt.x;
+	}
+
+		// now LP filter to a seperate buffer
+	double lp = (nSize > 0) ? LowPassFilter(m_posLaserRaw.GetData(), nSize) : 0;
+	return lp;
+}
+
 /*
 void CDialogGirthWeld::SetLaserStatus(LASER_STATUS nStatus)
 {
@@ -292,6 +331,64 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 //		break;
 //	case TIMER_STEER_RIGHT:
 //		break;
+
+	case TIMER_RUN_TIME:
+	{
+		clock_t t2 = clock();
+		long elapsed = (long)(t2 - m_nRunStart);
+		m_szRunTime.Format("%d.%d sec", elapsed/1000, elapsed%10);
+
+		GetDlgItem(IDC_STATIC_RUN_TIME)->SetWindowText(m_szRunTime);
+		break;
+	}
+	case TIMER_NOTE_RGB:
+	{
+		int red, green, blue, rgb = m_magControl.GetRGBValues(red, green, blue);
+		m_wndLaser.AddRGBData(rgb);
+		break;
+	}
+	case TIMER_STEERMOTORS:
+		if (m_laserControl.IsLaserOn())
+		{
+			// distance (Joint.x) to left (+Ve) or rigtht (-Ve)
+			// low-pass fgilter the location
+			double pos = GetFilteredLaserPosition();
+
+			// adjust the rate to steer based on how far away from 0.95 (10 mm) -> 0.99 (1 mm)
+			double rate = 1;
+			if (pos == FLT_MAX)
+				rate = 1;
+			else if (pos < 0.25)
+				rate = 0.999;
+			else if (pos > 10.0)
+				rate = 0.900;
+			else
+				rate = 0.900 + (10.0 - pos) / (10 - 0.25) * (0.999 - 0.900);
+
+			CString str;
+			str.Format("%.3f", rate);
+
+			// only adjust if off by more than 1/4 mm
+			if (pos < 0.25) // to tyhe right, slow down B & C
+			{
+				GetDlgItem(IDC_STATIC_LEFT)->SetWindowText(str);
+				GetDlgItem(IDC_STATIC_RIGHT)->SetWindowText("Right");
+				m_motionControl.SetSlewSpeed(m_fMotorSpeed / rate, m_fMotorSpeed * rate, m_fMotorSpeed * rate, m_fMotorSpeed / rate);
+			}
+			else if (pos > 0.25) // slow down A & D
+			{
+				GetDlgItem(IDC_STATIC_LEFT)->SetWindowText("Left");
+				GetDlgItem(IDC_STATIC_RIGHT)->SetWindowText(str);
+				m_motionControl.SetSlewSpeed(m_fMotorSpeed * rate, m_fMotorSpeed / rate, m_fMotorSpeed / rate, m_fMotorSpeed * rate);
+			}
+			else // all the same
+			{
+				GetDlgItem(IDC_STATIC_LEFT)->SetWindowText("Left");
+				GetDlgItem(IDC_STATIC_RIGHT)->SetWindowText("Right");
+				m_motionControl.SetSlewSpeed(m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed);
+			}
+		}
+		break;
 	default:
 		return;
 	}
@@ -609,8 +706,9 @@ void CDialogGirthWeld::OnClickedButtonPause()
 		SetButtonBitmaps();
 		m_motionControl.StopMotors();
 		m_laserControl.TurnLaserOn(FALSE);
-		m_magControl.EnableMagSwitchControl(TRUE);
+//		m_magControl.EnableMagSwitchControl(TRUE); // not on a pause
 		KillTimer(TIMER_SHOW_MOTOR_SPEEDS);
+		KillTimer(TIMER_NOTE_RGB);
 	}
 	// resume the motors
 	// this is similar to OnClickedButtonManual
@@ -619,7 +717,10 @@ void CDialogGirthWeld::OnClickedButtonPause()
 	{
 		m_bResumed = TRUE;
 		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
+		m_laserControl.TurnLaserOn(TRUE);
 		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+		int delay2 = (int)(1000.0 / m_fMotorSpeed + 0.5); // every mm
+		SetTimer(TIMER_NOTE_RGB, delay2, NULL);
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunRestart, (LPVOID)this)->m_hThread;
 	}
 	SetButtonBitmaps();
@@ -656,7 +757,16 @@ void CDialogGirthWeld::OnClickedButtonManual()
 
 		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+		m_laserControl.TurnLaserOn(TRUE);
+		m_magControl.EnableMagSwitchControl(FALSE);
 
+		SetRunTime(0);
+		// set a time to manage the steering
+		// adjust the location every ( 10 mm)
+		int delay1 = (int)(10 * 1000.0 / m_fMotorSpeed + 0.5);
+		int delay2 = (int)(1000.0 / m_fMotorSpeed + 0.5); // every mm
+		SetTimer(TIMER_STEERMOTORS, delay1, NULL);
+		SetTimer(TIMER_NOTE_RGB, delay2, NULL);
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunManual, (LPVOID)this)->m_hThread;
 	}
 }
@@ -681,7 +791,11 @@ void CDialogGirthWeld::OnClickedButtonGoHome()
 		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_GOHOME : GALIL_IDLE;
 		SetButtonBitmaps();
 		SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
+		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
+		m_laserControl.TurnLaserOn(TRUE);
+		m_magControl.EnableMagSwitchControl(FALSE);
 		m_fMotorSpeed = GetMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadGoToHome, (LPVOID)this)->m_hThread;
 	}
 }
@@ -700,8 +814,9 @@ UINT CDialogGirthWeld::ThreadRunManual(BOOL reset_pos)
 	if (m_nGalilState == GALIL_MANUAL)
 	{
 		// check that the laser is on
-		m_laserControl.TurnLaserOn(TRUE);
-		m_magControl.EnableMagSwitchControl(FALSE);
+		// alreadyn done in the start up thread
+//		m_laserControl.TurnLaserOn(TRUE);
+//		m_magControl.EnableMagSwitchControl(FALSE);
 
 		// set the current location as zero
 		if (reset_pos)
@@ -722,21 +837,23 @@ UINT CDialogGirthWeld::ThreadRunManual(BOOL reset_pos)
 		if( !m_bResumed )
 			m_fScanStart = atof(m_szHomeDist);
 		m_motionControl.GoToPosition(pos, m_fMotorSpeed, m_fMotorAccel);
-		m_laserControl.TurnLaserOn(FALSE);
-		m_magControl.EnableMagSwitchControl(TRUE);
+
+		// this wilkl be done in the callback function
+//		m_laserControl.TurnLaserOn(FALSE);
+//		m_magControl.EnableMagSwitchControl(TRUE);
 	}
 	else
 	{
 		m_bResumed = FALSE;
 		m_motionControl.StopMotors();
-		m_laserControl.TurnLaserOn(FALSE);
-		m_magControl.EnableMagSwitchControl(TRUE);
+//		m_laserControl.TurnLaserOn(FALSE);
+//		m_magControl.EnableMagSwitchControl(TRUE);
 	}
 
 	// if click pause, this thread will end
 	// howev er, do not call the call back
 	if( !m_bPaused )
-		PostMessage(WM_MOTORSSTOPPED);
+		PostMessage(WM_STOPMOTOR_FINISHED);
 
 	return 0L;
 }
@@ -747,19 +864,20 @@ UINT CDialogGirthWeld::ThreadGoToHome()
 {
 	if (m_nGalilState == GALIL_GOHOME)
 	{
-		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
-		m_laserControl.TurnLaserOn(TRUE);
-		m_magControl.EnableMagSwitchControl(FALSE);
+//		m_motionControl.SetSlewSpeed(m_fMotorSpeed); // do all this in the startup thread
+//		m_laserControl.TurnLaserOn(TRUE);
+//		m_magControl.EnableMagSwitchControl(FALSE);
 		m_motionControl.GoToPosition(0.0, m_fMotorSpeed, m_fMotorAccel);
 	}
 	else
 	{
 		m_motionControl.StopMotors();
-		m_laserControl.TurnLaserOn(FALSE);
-		m_magControl.EnableMagSwitchControl(TRUE);
+//		m_laserControl.TurnLaserOn(FALSE);
+//		m_magControl.EnableMagSwitchControl(TRUE);
 	}
 
-	PostMessage(WM_MOTORSSTOPPED);
+	// no difference in response if just ending a motor run or got to hoime
+	PostMessage(WM_STOPMOTOR_FINISHED);
 	return 0;
 }
 
@@ -819,6 +937,7 @@ void CDialogGirthWeld::RunMotors()
 {
 	double accel = 0;
 	double speed = GetMotorSpeed(accel);
+	int delay2 = (int)(1000.0 / speed + 0.5); // every mm
 
 	if (m_nGalilState == GALIL_IDLE)
 	{
@@ -834,10 +953,13 @@ void CDialogGirthWeld::RunMotors()
 	{
 		if (speed != FLT_MAX && accel != FLT_MAX)
 		{
-			m_laserControl.TurnLaserOn(TRUE);
+//			m_laserControl.TurnLaserOn(TRUE); // not in this case
 			m_magControl.EnableMagSwitchControl(FALSE);
+			SetRunTime(0);
 			m_motionControl.SetMotorJogging(speed, accel);
 			SetButtonBitmaps();
+			m_wndLaser.ResetRGBData();
+			SetTimer(TIMER_NOTE_RGB, delay2, NULL);
 			SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		}
 	}
@@ -845,10 +967,13 @@ void CDialogGirthWeld::RunMotors()
 	{
 		if (speed != FLT_MAX && accel != FLT_MAX)
 		{
-			m_laserControl.TurnLaserOn(TRUE);
+	//		m_laserControl.TurnLaserOn(TRUE);
 			m_magControl.EnableMagSwitchControl(FALSE);
+			SetRunTime(0);
 			m_motionControl.SetMotorJogging(-speed, accel);
 			SetButtonBitmaps();
+			m_wndLaser.ResetRGBData();
+			SetTimer(TIMER_NOTE_RGB, delay2, NULL);
 			SetTimer(TIMER_SHOW_MOTOR_SPEEDS, 500, NULL);
 		}
 	}
@@ -857,9 +982,9 @@ void CDialogGirthWeld::RunMotors()
 UINT CDialogGirthWeld::ThreadStopMotors()
 {
 	m_motionControl.StopMotors();
-	m_laserControl.TurnLaserOn(FALSE);
-	m_magControl.EnableMagSwitchControl(TRUE);
-	PostMessage(WM_MOTORSSTOPPED);
+//	m_laserControl.TurnLaserOn(FALSE);				// do not call thesae from a thread
+//	m_magControl.EnableMagSwitchControl(TRUE);		// call, them in the finish up call-back
+	PostMessage(WM_STOPMOTOR_FINISHED);
 	return 0;
 }
 
@@ -901,13 +1026,18 @@ LRESULT CDialogGirthWeld::OnUserStaticParameter(WPARAM wParam, LPARAM lParam)
 	return 0L;
 }
 
-LRESULT CDialogGirthWeld::OnUserMotorsStopped(WPARAM, LPARAM)
+// this is called at the end of the tread which was qwaiting for the 
+// manual run of the motors to stop
+LRESULT CDialogGirthWeld::OnUserStopMotorFinished(WPARAM, LPARAM)
 {
 	int ret = ::WaitForSingleObject(m_hThreadRunMotors, 1000);
-	if (ret != WAIT_OBJECT_0 && m_hThreadRunMotors != NULL )
+	if (ret != WAIT_OBJECT_0 && m_hThreadRunMotors != NULL)
 	{
 		::TerminateThread(m_hThreadRunMotors, 0);
 	}
+
+	m_laserControl.TurnLaserOn(FALSE); 
+	m_magControl.EnableMagSwitchControl(TRUE); // the magnet servo is always disdabled during a run
 
 	m_hThreadRunMotors = NULL;
 	if (!m_bPaused)
@@ -919,13 +1049,31 @@ LRESULT CDialogGirthWeld::OnUserMotorsStopped(WPARAM, LPARAM)
 		m_nGalilState = m_nGaililStateBackup;
 
 	// dont reset if paused, as will mcontinue scan
-	if( !m_bPaused)
+	if (!m_bPaused)
 		m_fScanStart = FLT_MAX;
 
+	KillTimer(TIMER_STEERMOTORS);
+	KillTimer(TIMER_NOTE_RGB);
+	
+	SetRunTime(INT_MAX); // an invalid value ends it
 	SetButtonBitmaps();
 	return 0L;
 }
 
+void CDialogGirthWeld::SetRunTime(int val)
+{
+	switch( val )
+	{
+	case 0:
+		m_nRunStart = clock();
+		SetTimer(TIMER_RUN_TIME, 100, NULL);
+		break;
+	case INT_MAX:
+		KillTimer(TIMER_RUN_TIME);
+		break;
+	}
+
+}
 
 double CDialogGirthWeld::GetMotorSpeed(double& rAccel)
 {

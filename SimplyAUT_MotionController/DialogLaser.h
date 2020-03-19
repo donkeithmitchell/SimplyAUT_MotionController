@@ -63,4 +63,6 @@ protected:
 	virtual BOOL OnInitDialog();
 
 	DECLARE_MESSAGE_MAP()
+public:
+	afx_msg void OnClickedButtonRoiReset();
 };
