@@ -104,9 +104,14 @@
 #define IDC_INITIALISE_BUTTON           1062
 #define IDC_STATIC_RUN_TIME             1062
 #define IDC_SERIALNUMBER_EDIT           1063
+#define IDC_STATIC_STEERING_GAP         1063
 #define IDC_LASER_BUTTON                1064
+#define IDC_STATIC_STEERING_GAP_VEL     1064
 #define IDC_TEMPERATURE_EDIT            1065
+#define IDC_STATIC_STEERING_LR_DIFF     1065
 #define IDC_MSG_EDIT                    1066
+#define IDC_STATIC_STEERING_GAP_VEL2    1066
+#define IDC_STATIC_STEERING_GAP_ACCEL   1066
 #define IDC_LASERPOWER_BUTTON           1067
 #define IDC_LASERPOWER_EDIT             1068
 #define IDC_SENSORVERSION_EDIT          1069
@@ -137,7 +142,6 @@
 #define IDC_BUTTON1                     1093
 #define IDC_STATIC_MAG_RGB_CAL          1094
 #define IDC_STATIC_MAG_RGB_LINE         1095
-#define IDC_STATIC_FEFT                 1096
 #define IDC_STATIC_LEFT                 1096
 #define IDC_STATIC_RIGHT                1097
 #define ID_POPUP_SETLOCATION            32771

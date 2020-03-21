@@ -37,20 +37,20 @@ public:
 	CString GVersion();
 	GReturn GMotionComplete(GCStringIn axes);
 
-	void    StopMotors();
-	void    MotorsOff();
-	void    WaitForMotorsToStop();
-	void    BeginMotors();
-	void    SetSlewSpeed(int speed);
-	void    SetSlewSpeed(int A, int B, int C, int D);
-	void    SetJogSpeed(GCStringIn, int speed);
-	void    SetJogSpeed(int speed);
-	void    SetAcceleration(int accel);
-	void    SetDeceleration(int accel);
-	void    DefinePosition(int pos);
-	void    GoToPosition(int pos);
-	void    GoToPosition(int A, int B, int C, int D);
-	void    SetServoHere();
+	BOOL    StopMotors();
+	BOOL    MotorsOff();
+	BOOL    WaitForMotorsToStop();
+	BOOL    BeginMotors();
+	BOOL    SetSlewSpeed(int speed);
+	BOOL    SetSlewSpeed(int A, int B, int C, int D);
+	BOOL    SetJogSpeed(GCStringIn, int speed);
+	BOOL    SetJogSpeed(int speed);
+	BOOL    SetAcceleration(int accel);
+	BOOL    SetDeceleration(int accel);
+	BOOL    DefinePosition(int pos);
+	BOOL    GoToPosition(int pos);
+	BOOL    GoToPosition(int A, int B, int C, int D);
+	BOOL    SetServoHere();
 
 private:
 	CString GError(GReturn ErrorCode);

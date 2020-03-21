@@ -55,7 +55,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     int nRecv = InetPton(AF_INET, ip_address, (void*)&ip);
     if(nRecv != 1)
     {
-        AfxMessageBox("InetPton error occured");
+        AfxMessageBox("[ Error ]\nInetPton Error");
         return FALSE;
     }
 
@@ -66,7 +66,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     if(nRecv != NO_ERROR)
     {
         int nRec2 = WSAGetLastError();
-        str.Format("WSAStartup error (%d) occured", nRec2);
+        str.Format("[ Error ]\nWSAStartup Error (%d)", nRec2);
         :: AfxMessageBox(str);
         return FALSE;
     }
@@ -74,7 +74,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     if (m_server == INVALID_SOCKET)
     {
         int nRec2 = WSAGetLastError();
-        str.Format("socket error (%d) occured", nRec2);
+        str.Format("[ Error ]\nSocket Error (%d)", nRec2);
         ::closesocket(m_server);
         m_server = INVALID_SOCKET;
         ::WSACleanup();
@@ -93,7 +93,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     if(nRecv == SOCKET_ERROR)
     {
         int nRec2 = WSAGetLastError();
-        str.Format("connect error (%d) occured", nRec2);
+        str.Format("[ Error ]\nConnect Error (%d)", nRec2);
         ::AfxMessageBox(str);
         ::closesocket(m_server);
         m_server = INVALID_SOCKET;
@@ -111,7 +111,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     
     if( !ResetEncoderCount() )
     {
-        ::AfxMessageBox("Disconnected from the server.");
+        ::AfxMessageBox("[ Error ]\nDisconnected from the Server.");
         ::closesocket(m_server);
         m_server = INVALID_SOCKET;
         ::WSACleanup();

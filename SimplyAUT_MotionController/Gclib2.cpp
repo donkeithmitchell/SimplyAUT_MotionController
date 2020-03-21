@@ -106,7 +106,7 @@ BOOL Gclib::GOpen(GCStringIn address)
 
     if (m_ConnectionHandle == NULL)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc) );
+        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc) + _T("\nCheck if Power On")  );
         return FALSE;
     }
     if (rc != G_NO_ERROR)
@@ -128,7 +128,7 @@ CString Gclib::GInfo()
 
     delete[] info;
     if (rc != G_NO_ERROR)
-        return _T("");
+        return _T("ERR");
 
     else
         return str;
@@ -138,7 +138,7 @@ CString Gclib::GInfo()
 CString Gclib::GVersion()
 {
     if (this == NULL || !IsConnected())
-        return _T("");
+        return _T("ERR");
 
     GSize info_len = 256;
     GCStringOut info = new char[info_len];
@@ -148,7 +148,7 @@ CString Gclib::GVersion()
 
     delete[] info;
     if (rc != G_NO_ERROR)
-        return _T("");
+        return _T("ERR");
 
     else
         return str;
@@ -166,91 +166,95 @@ GReturn Gclib::GMotionComplete(GCStringIn axes)
 }
 
 // The SH commands tells the controller to use the current motor position as the command position and to enable servo control at the current position.
-void Gclib::SetServoHere()
+BOOL Gclib::SetServoHere()
 {
-    GCommand("SH"); 
+    return GCommand("SH") != _T("ERR");
 }
 
-void Gclib::MotorsOff()
+BOOL Gclib::MotorsOff()
 {
-    GCommand("MO"); 
+    return GCommand("MO") != _T("ERR");
 }
 
-void Gclib::StopMotors()
+BOOL Gclib::StopMotors()
 {
-    GCommand("ST"); //stop all motion and programs
+    return GCommand("ST") != _T("ERR");; //stop all motion and programs
 }
 
-void Gclib::BeginMotors()
+BOOL Gclib::BeginMotors()
 {
-    GCommand("BG*"); //stop all motion and programs
+    return GCommand("BG*") != _T("ERR"); //stop all motion and programs
 }
 
-void Gclib::SetSlewSpeed(int speed)
+BOOL Gclib::SetSlewSpeed(int speed)
 {
-    SetSlewSpeed(speed, speed, speed, speed);
+    return SetSlewSpeed(speed, speed, speed, speed);
 }
-void Gclib::SetSlewSpeed(int A, int B, int C, int D)
+BOOL Gclib::SetSlewSpeed(int A, int B, int C, int D)
 {
     CString str;
     str.Format("SP %d,%d,%d,%d", A, B, C, D);
-    GCommand(str);
+    return GCommand(str) != _T("ERR");
 }
 
-void Gclib::SetJogSpeed(int speed)
+BOOL Gclib::SetJogSpeed(int speed)
 {
-    SetJogSpeed("A", speed);
-    SetJogSpeed("B", speed);
-    SetJogSpeed("C", speed);
-    SetJogSpeed("D", speed);
+    BOOL ret1 = SetJogSpeed("A", speed);
+    BOOL ret2 = SetJogSpeed("B", speed);
+    BOOL ret3 = SetJogSpeed("C", speed);
+    BOOL ret4 = SetJogSpeed("D", speed);
+
+    return ret1 && ret2 && ret3 && ret4;
 }
-void Gclib::SetJogSpeed(GCStringIn axis, int speed)
+BOOL Gclib::SetJogSpeed(GCStringIn axis, int speed)
 {
     CString str;
     str.Format("JG%s=%d", axis, speed);
-    GCommand(str);
+    return GCommand(str) != _T("ERR");
 }
 
-void Gclib::SetAcceleration(int accel)
+BOOL Gclib::SetAcceleration(int accel)
 {
     CString str;
     str.Format("AC*=%d", accel);
-    GCommand(str);
+    return GCommand(str) != _T("ERR");
 }
-void Gclib::SetDeceleration(int accel)
+BOOL Gclib::SetDeceleration(int accel)
 {
     CString str;
     str.Format("DC*=%d", accel);
-    GCommand(str);
+    return GCommand(str) != _T("ERR");
 }
 
 // used to define where the zero is
-void Gclib::DefinePosition(int pos)
+BOOL Gclib::DefinePosition(int pos)
 {
     CString str;
     str.Format("DP*=%d", pos);
-    GCommand(str);
+    return GCommand(str) != _T("ERR");
 }
 
-void Gclib::GoToPosition(int pos)
+BOOL Gclib::GoToPosition(int pos)
 {
-    GoToPosition(pos, pos, pos, pos);
+    return GoToPosition(pos, pos, pos, pos);
 }
 
-void Gclib::GoToPosition(int A, int B, int C, int D)
+BOOL Gclib::GoToPosition(int A, int B, int C, int D)
 {
     CString str;
     str.Format("PA=%d,%d,%d,%d", A, B, C, D);
-    GCommand(str);
+    return GCommand(str) != _T("ERR");
 }
 
 
-void Gclib::WaitForMotorsToStop()
+BOOL Gclib::WaitForMotorsToStop()
 {
-    GMotionComplete("A"); 
-    GMotionComplete("B"); 
-    GMotionComplete("C"); 
-    GMotionComplete("D"); 
+    GReturn ret1 = GMotionComplete("A");
+    GReturn ret2 = GMotionComplete("B");
+    GReturn ret3 = GMotionComplete("C");
+    GReturn ret4 = GMotionComplete("D");
+
+    return ret1 == G_NO_ERROR && ret2 == G_NO_ERROR && ret3 == G_NO_ERROR && ret4 == G_NO_ERROR;
 }
 
 
@@ -295,7 +299,7 @@ CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
 {
     GSize bytes_read = 0;
     if (this == NULL || !IsConnected())
-        return _T("");
+        return _T("ERR");
 
     SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
     
@@ -305,7 +309,7 @@ CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
         GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
         ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCommand(") + _T(Command) 
             + _T(")\n") + GError(rc) + _T("\n") + Trim(_T(m_Buffer)) );
-        return _T("");
+        return _T("ERR");
     }
     else if (bytes_read > 0)
     {
@@ -332,7 +336,7 @@ CString Gclib::Trim(CString str)
 CString Gclib::GCmdT(GCStringIn command)
 {
     if (this == NULL || !IsConnected())
-        return _T("");
+        return _T("ERR");
     
     GSize response_len = 256;
     GCStringOut trimmed_response = new char[response_len];
@@ -345,13 +349,13 @@ CString Gclib::GCmdT(GCStringIn command)
         GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
         ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmdT(") + _T(command)
             + _T(")\n") + GError(rc) + _T("\n") + _T(m_Buffer));
-        return _T("");
+        return _T("ERR");
     }
     
     CString str(trimmed_response);
     delete[] trimmed_response;
 
-    return (rc == G_NO_ERROR) ? str : _T("");
+    return (rc == G_NO_ERROR) ? str : _T("ERR");
 }
 
 GReturn Gclib::GCmd(GCStringIn command)
@@ -532,9 +536,12 @@ GReturn Gclib::GUtility(GOption request, GMemory memory1, GMemory memory2)
 
 CString Gclib::GError(GReturn ErrorCode)
 {
+    if (this == NULL)
+        return _T("ERR");
+
     if (this == NULL || !IsConnected())
-        return _T("");
-    
+        return _T("Not Connected");
+
     GSize error_len = 256;
     GCStringOut error = new char[error_len];
     ::GError(ErrorCode, error, error_len);

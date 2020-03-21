@@ -237,6 +237,26 @@ void CStaticLaser::GetRGBRect(CRect* rect)
 	rect->SetRect(x1, y1, x2, y2);
 }
 
+static int MinMaxI4(const void* i1, const void* i2)
+{
+	int val1 = *((int*)i1);
+	int val2 = *((int*)i2);
+
+	return val1 - val2;
+}
+static int GetMedianSumValue(const CArray<RGB_DATA, RGB_DATA>& rgbData)
+{
+	static CArray<int,int> temp;
+	temp.SetSize(rgbData.GetSize());
+
+	for (int i = 0; i < rgbData.GetSize(); ++i)
+		temp[i] = rgbData[i].sum;
+
+	qsort(temp.GetData(), temp.GetSize(), sizeof(int), ::MinMaxI4);
+	int median = temp[temp.GetSize() / 2];
+	return  median;
+}
+
 void CStaticLaser::DrawRGBProfile(CDC* pDC)
 {
 	if (!m_magControl.IsConnected())
@@ -246,9 +266,19 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 	GetRGBRect(&rect);
 
 	CPen PenBlack(PS_SOLID, 0, RGB(0, 0, 0));
+	CPen PenBlack2(PS_DOT, 0, RGB(0, 0, 0));
+	CPen PenBlack3(PS_DASHDOT, 0, RGB(0, 0, 0));
+	CPen PenRed(PS_SOLID, 0, RGB(255, 0, 0));
+	CPen PenGreen(PS_SOLID, 0, RGB(0, 255, 0));
+	CPen PenBlue(PS_SOLID, 0, RGB(0, 0, 255));
+
 	pDC->SelectObject(&PenBlack);
 	pDC->MoveTo(rect.left, rect.bottom);
 	pDC->LineTo(rect.right, rect.bottom);
+
+	// change this colour to iondicatge if line present
+	BOOL bPresent = GetMagStatus(MAG_IND_RGB_LINE) == 1;
+	pDC->SelectObject(bPresent ? &PenGreen : &PenBlack);
 
 	pDC->MoveTo((rect.left + rect.right) / 2, rect.bottom);
 	pDC->LineTo((rect.left + rect.right) / 2, rect.top);
@@ -263,31 +293,100 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 
 	for (int i = 0; i < len; ++i)
 	{
-		minVal = min(minVal, m_rgbData[i]);
-		maxVal = max(maxVal, m_rgbData[i]);
+//		minVal = min(minVal, m_rgbData[i].red);
+//		maxVal = max(maxVal, m_rgbData[i].red);
+
+//		minVal = min(minVal, m_rgbData[i].green);
+//		maxVal = max(maxVal, m_rgbData[i].green);
+
+//		minVal = min(minVal, m_rgbData[i].blue);
+//		maxVal = max(maxVal, m_rgbData[i].blue);
+
+		minVal = min(minVal, m_rgbData[i].sum);
+		maxVal = max(maxVal, m_rgbData[i].sum);
 	}
-	if (maxVal <= 0)
-		return;
 
-	double scaleX = (double)rect.Width() / (double)len;
-	double scaleY = (double)rect.Height() / (double)maxVal;
-
-	int init = 1;
+	double scaleX = (double)rect.Width() / 25.0;
+	double scaleY = (double)rect.Height() / (double)(maxVal);
+	/*
+	pDC->SelectObject(&PenRed);
 	for (int i = 0; i < len; ++i)
 	{
 		int x = (int)(rect.left + i * scaleX + 0.5);
-		int y = (int)(rect.bottom - m_rgbData[i] * scaleY + 0.5);
-		(init) ? pDC->MoveTo(x,y) : pDC->LineTo(x, y);
-		init = 0;
+		int y = (int)(rect.bottom - (m_rgbData[i].red) * scaleY + 0.5);
+		x = min(max(x, rect.left), rect.right);
+		y = min(max(y, rect.top), rect.bottom);
+		(i==0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
 	}
+
+	pDC->SelectObject(&PenGreen);
+	for (int i = 0; i < len; ++i)
+	{
+		int x = (int)(rect.left + i * scaleX + 0.5);
+		int y = (int)(rect.bottom - (m_rgbData[i].green) * scaleY + 0.5);
+		(i==0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
+	}
+
+	pDC->SelectObject(&PenBlue);
+	for (int i = 0; i < len; ++i)
+	{
+		int x = (int)(rect.left + i * scaleX + 0.5);
+		int y = (int)(rect.bottom - (m_rgbData[i].blue) * scaleY + 0.5);
+		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
+	}
+	*/
+
+	// note the median value
+	int median = GetMedianSumValue(m_rgbData);
+	pDC->SelectObject(&PenBlack2);
+	int y = (int)(rect.bottom - median * scaleY + 0.5);
+	pDC->MoveTo(rect.left, y);
+	pDC->LineTo(rect.right, y);
+
+	// note the half way point from max and median (assume this shiould be calibration)
+	y = (int)(rect.bottom - (minVal+median)/2 * scaleY + 0.5);
+	pDC->SelectObject(&PenBlack3);
+	pDC->MoveTo(rect.left, y);
+	pDC->LineTo(rect.right, y);
+
+
+	pDC->SelectObject(&PenBlack);
+	for (int i = 0; i < len; ++i)
+	{
+		int x = (int)(rect.left + i * scaleX + 0.5);
+		int y = (int)(rect.bottom - m_rgbData[i].sum * scaleY + 0.5);
+		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
+	}
+
+	CString str;
+	str.Format("%d", minVal);
+	CSize sz = pDC->GetTextExtent(str);
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	pDC->TextOutA((rect.left + rect.right) / 2 - 5 * sz.cx / 4, rect.bottom - sz.cy, str);
+
+	str.Format("%d", maxVal);
+	sz = pDC->GetTextExtent(str);
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	pDC->TextOutA((rect.left + rect.right) / 2, rect.bottom - sz.cy, str);
+
+	str.Format("%d", m_rgbData[len - 1].sum);
+	sz = pDC->GetTextExtent(str);
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	pDC->TextOutA((rect.left + rect.right) / 2 - sz.cx / 2, rect.bottom, str);
 
 }
 
-int CStaticLaser::AddRGBData(int value)
+int CStaticLaser::AddRGBData(const RGB_DATA& value)
 {
-	m_rgbData.Add(value);
-	while (m_rgbData.GetSize() > 25)
-		m_rgbData.RemoveAt(0, 1);
+	if (value.red != INT_MAX && value.green != INT_MAX && value.blue != INT_MAX && value.sum != INT_MAX)
+	{
+		m_rgbData.Add(value);
+		while (m_rgbData.GetSize() > 25)
+			m_rgbData.RemoveAt(0, 1);
+	}
 
 	return (int)m_rgbData.GetSize();
 }

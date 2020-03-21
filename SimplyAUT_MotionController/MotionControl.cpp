@@ -146,7 +146,7 @@ void CMotionControl::GoToHomePosition()
 }
     
 
-void CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
+BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
 {
     CString str;
 
@@ -164,7 +164,8 @@ void CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
 
     m_pGclib->GCommand(str);
     m_pGclib->GCommand("SH");           // enable all axes
-    m_pGclib->GCommand("BG*");   // Begin motion on all Axis
+    if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
+        return FALSE;
 
 
 //    int posA = AxisDirection("A") * DistancePerSecondToEncoderCount(pos_mm);
@@ -181,6 +182,7 @@ void CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
     // this xshould be called by a thread
     m_pGclib->WaitForMotorsToStop();
     m_pGclib->StopMotors();
+    return TRUE;
 }
 
 void CMotionControl::StopMotors()
@@ -261,9 +263,8 @@ BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC
     m_pGclib->SetJogSpeed("C", AxisDirection("C") * DistancePerSecondToEncoderCount(speedC));
     m_pGclib->SetJogSpeed("D", AxisDirection("D") * DistancePerSecondToEncoderCount(speedD));
 
-    m_pGclib->GCommand("SH");           // enable all axes
-    m_pGclib->BeginMotors();   // Begin motion on all Axis
-    return TRUE;
+    m_pGclib->GCommand("SH");       // enable all axes
+    return m_pGclib->BeginMotors();   // Begin motion on all Axis
 }
 
 double CMotionControl::EncoderCountToDistancePerSecond(int encoderCount)const

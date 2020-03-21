@@ -8,7 +8,18 @@
 //	TIMER_LASER_STATUS /*TIMER_STEER_LEFT, TIMER_STEER_RIGHT*/
 //};
 
-
+struct LASER_POS
+{
+	LASER_POS() { memset(this, 0x0, sizeof(LASER_POS)); }
+	double  gap_raw;	// distance to the weld (mm)
+	double  gap_filt;	// distance to the weld (mm)
+	double  pos;	// dist travelled (mm)
+	double  gap_vel;
+	double  gap_accel;
+	double  motor_lr;
+	clock_t tim;	// time that measure taken (ms)
+	long    dummy4;
+};
 
 
 
@@ -33,7 +44,7 @@ public:
 //	void    SetLaserStatus(LASER_STATUS nStatus);
 	void	EnableControls();
 	void    RunMotors();
-	double  GetMotorSpeed(double& accel);
+	double  GetRequestedMotorSpeed(double& accel);
 	void	Init(CWnd* pParent, UINT nMsg);
 	void	ShowMotorSpeeds();
 	void    ShowMotorPosition();
@@ -48,7 +59,13 @@ public:
 	void    ShowLaserStatus();
 	int		GetMagStatus(int nStat);
 	void	SetRunTime(int);
-	double  GetFilteredLaserPosition();
+	int     NoteNextLaserPosition();
+	double  GetFilteredLaserPosition(double&);
+	void    SteerCrawler();
+	void    NoteSteering();
+	void    StartNotingRGBData(BOOL);
+	void	StartNotingMotorSpeed(BOOL);
+	void    StartSteeringMotors(BOOL);
 
 	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC };
 	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_STEERMOTORS, TIMER_NOTE_RGB
@@ -89,7 +106,7 @@ public:
 	double  m_fMotorSpeed;
 	double  m_fMotorAccel;
 	clock_t	m_nRunStart;
-	CArray<double, double> m_posLaserRaw;
+	CArray<LASER_POS, LASER_POS> m_posLaser;
 
 	CBitmap	m_bitmapPause;
 	CBitmap	m_bitmapGoRight;
@@ -178,4 +195,8 @@ public:
 	CString m_szTempLaser;
 	CString m_szTempSensor;
 	CString m_szRunTime;
+	CString m_szSteeringGapDist;
+	CString m_szSteeringGapVel;
+	CString m_szSteeringLRDiff;
+	CString m_szSteeringGapAccel;
 };
