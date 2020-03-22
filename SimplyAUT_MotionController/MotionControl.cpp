@@ -45,6 +45,14 @@ void CMotionControl::SendDebugMessage(CString msg)
     }
 }
 
+void CMotionControl::SendErrorMessage(CString msg)
+{
+    if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+    {
+        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
+    }
+}
+
 void CMotionControl::EnableControls()
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -91,8 +99,12 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
  //   sprintf_s(strAddress, sizeof(strAddress), "%d.%d.%d.%d  --subscribe ALL", address[0], address[1], address[2], address[3]);
     SendDebugMessage(_T("Opening connection to \"") + CString(strAddress) + _T("\"... "));
 
-    if (!m_pGclib->GOpen(strAddress))
+    CString szRet = m_pGclib->GOpen(strAddress);
+    if (szRet.Find("ERR") != -1)
+    {
+        SendErrorMessage(szRet);
         return FALSE;
+    }
 
     CString str = m_pGclib->GInfo(); //grab connection string
     SendDebugMessage(str);

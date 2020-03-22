@@ -100,21 +100,15 @@ BOOL Gclib::CheckDllExist()
     return TRUE;
 }
 
-BOOL Gclib::GOpen(GCStringIn address)
+CString Gclib::GOpen(GCStringIn address)
 {
     GReturn rc = ::GOpen(address, &m_ConnectionHandle);
 
     if (m_ConnectionHandle == NULL)
-    {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc) + _T("\nCheck if Power On")  );
-        return FALSE;
-    }
+        return _T("ERROR: ") + GError(rc) + _T(" Check if Power On");
     if (rc != G_NO_ERROR)
-    {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc) );
-        return FALSE;
-    }
-    return TRUE;
+        return _T("ERROR: " ) + GError(rc);
+    return _T("");
 }
 
 //! Uses GUtility() and @ref G_UTIL_INFO to provide a useful connection string.

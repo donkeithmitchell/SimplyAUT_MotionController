@@ -31,6 +31,8 @@ CStaticLaser::CStaticLaser(CLaserControl& laser, CMagControl& mag)
 	m_disp_width_factor = 1;
 	m_disp_height_factor = 1;
 	m_disp_rect = CRect(0, 0, 0, 0);
+	m_rgbSum = 0;
+	m_rgbCount = 0;
 }
 
 CStaticLaser::~CStaticLaser()
@@ -244,17 +246,9 @@ static int MinMaxI4(const void* i1, const void* i2)
 
 	return val1 - val2;
 }
-static int GetMedianSumValue(const CArray<RGB_DATA, RGB_DATA>& rgbData)
+double CStaticLaser::GetAverageRGBValue()
 {
-	static CArray<int,int> temp;
-	temp.SetSize(rgbData.GetSize());
-
-	for (int i = 0; i < rgbData.GetSize(); ++i)
-		temp[i] = rgbData[i].sum;
-
-	qsort(temp.GetData(), temp.GetSize(), sizeof(int), ::MinMaxI4);
-	int median = temp[temp.GetSize() / 2];
-	return  median;
+	return (m_rgbCount < 0) ? (double)m_rgbSum / (double)m_rgbCount : 0;
 }
 
 void CStaticLaser::DrawRGBProfile(CDC* pDC)
@@ -268,9 +262,7 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 	CPen PenBlack(PS_SOLID, 0, RGB(0, 0, 0));
 	CPen PenBlack2(PS_DOT, 0, RGB(0, 0, 0));
 	CPen PenBlack3(PS_DASHDOT, 0, RGB(0, 0, 0));
-	CPen PenRed(PS_SOLID, 0, RGB(255, 0, 0));
 	CPen PenGreen(PS_SOLID, 0, RGB(0, 255, 0));
-	CPen PenBlue(PS_SOLID, 0, RGB(0, 0, 255));
 
 	pDC->SelectObject(&PenBlack);
 	pDC->MoveTo(rect.left, rect.bottom);
@@ -293,58 +285,22 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 
 	for (int i = 0; i < len; ++i)
 	{
-//		minVal = min(minVal, m_rgbData[i].red);
-//		maxVal = max(maxVal, m_rgbData[i].red);
-
-//		minVal = min(minVal, m_rgbData[i].green);
-//		maxVal = max(maxVal, m_rgbData[i].green);
-
-//		minVal = min(minVal, m_rgbData[i].blue);
-//		maxVal = max(maxVal, m_rgbData[i].blue);
-
-		minVal = min(minVal, m_rgbData[i].sum);
-		maxVal = max(maxVal, m_rgbData[i].sum);
+		minVal = min(minVal, m_rgbData[i]);
+		maxVal = max(maxVal, m_rgbData[i]);
 	}
 
 	double scaleX = (double)rect.Width() / 25.0;
 	double scaleY = (double)rect.Height() / (double)(maxVal);
-	/*
-	pDC->SelectObject(&PenRed);
-	for (int i = 0; i < len; ++i)
-	{
-		int x = (int)(rect.left + i * scaleX + 0.5);
-		int y = (int)(rect.bottom - (m_rgbData[i].red) * scaleY + 0.5);
-		x = min(max(x, rect.left), rect.right);
-		y = min(max(y, rect.top), rect.bottom);
-		(i==0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
-	}
-
-	pDC->SelectObject(&PenGreen);
-	for (int i = 0; i < len; ++i)
-	{
-		int x = (int)(rect.left + i * scaleX + 0.5);
-		int y = (int)(rect.bottom - (m_rgbData[i].green) * scaleY + 0.5);
-		(i==0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
-	}
-
-	pDC->SelectObject(&PenBlue);
-	for (int i = 0; i < len; ++i)
-	{
-		int x = (int)(rect.left + i * scaleX + 0.5);
-		int y = (int)(rect.bottom - (m_rgbData[i].blue) * scaleY + 0.5);
-		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
-	}
-	*/
 
 	// note the median value
-	int median = GetMedianSumValue(m_rgbData);
+	double avg = GetAverageRGBValue();
 	pDC->SelectObject(&PenBlack2);
-	int y = (int)(rect.bottom - median * scaleY + 0.5);
+	int y = (int)(rect.bottom - avg * scaleY + 0.5);
 	pDC->MoveTo(rect.left, y);
 	pDC->LineTo(rect.right, y);
 
 	// note the half way point from max and median (assume this shiould be calibration)
-	y = (int)(rect.bottom - (minVal+median)/2 * scaleY + 0.5);
+	y = (int)(rect.bottom - (minVal+avg)/2 * scaleY + 0.5);
 	pDC->SelectObject(&PenBlack3);
 	pDC->MoveTo(rect.left, y);
 	pDC->LineTo(rect.right, y);
@@ -354,7 +310,7 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 	for (int i = 0; i < len; ++i)
 	{
 		int x = (int)(rect.left + i * scaleX + 0.5);
-		int y = (int)(rect.bottom - m_rgbData[i].sum * scaleY + 0.5);
+		int y = (int)(rect.bottom - m_rgbData[i] * scaleY + 0.5);
 		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
 	}
 
@@ -371,7 +327,7 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 	pDC->SetBkMode(TRANSPARENT);
 	pDC->TextOutA((rect.left + rect.right) / 2, rect.bottom - sz.cy, str);
 
-	str.Format("%d", m_rgbData[len - 1].sum);
+	str.Format("%d", m_rgbData[len - 1]);
 	sz = pDC->GetTextExtent(str);
 	pDC->SetTextColor(RGB(0, 0, 0));
 	pDC->SetBkMode(TRANSPARENT);
@@ -379,13 +335,21 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 
 }
 
-int CStaticLaser::AddRGBData(const RGB_DATA& value)
+int CStaticLaser::AddRGBData(const int& value)
 {
-	if (value.red != INT_MAX && value.green != INT_MAX && value.blue != INT_MAX && value.sum != INT_MAX)
+	if ( value != INT_MAX)
 	{
+		// for now
 		m_rgbData.Add(value);
+		m_rgbSum += value;
+		m_rgbCount++;
+
 		while (m_rgbData.GetSize() > 25)
+		{
+			m_rgbSum -= m_rgbData[0];
+			m_rgbCount--;
 			m_rgbData.RemoveAt(0, 1);
+		}
 	}
 
 	return (int)m_rgbData.GetSize();
@@ -416,9 +380,6 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	CPen PenSecondaryEdge(PS_SOLID, 1, RGB(250, 250, 10));
 	CPen PenTrackingPoint(PS_SOLID, 2, RGB(10, 200, 10));
 
-	pDC->SelectObject(&PenPrimaryEdge);
-
-	int init = 1;
 	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
 	pDC->SelectObject(&hits);
 
@@ -427,10 +388,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 		if (m_profile.hits[i].pos1 >= m_roi_rect.top && m_profile.hits[i].pos1 <= m_roi_rect.bottom)
 		{
 			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
-
-			if (init) pDC->MoveTo(pt.x, pt.y);
-			else pDC->LineTo(pt.x, pt.y);
-			init = 0;
+			pDC->SetPixel(pt, RGB(250, 50, 50));
 		}
 	}
 	if ( m_edge_pos[0].IsSet())
@@ -443,6 +401,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 	if ( m_edge_pos[1].IsSet())
 	{
+		pDC->SelectObject(&PenPrimaryEdge);
 		CPoint pt = GetScreenPixel(m_measure.mp[2].x, m_measure.mp[2].y);
 		pDC->MoveTo(pt.x, pt.y - 3);
 		pDC->LineTo(pt.x, pt.y + 3);

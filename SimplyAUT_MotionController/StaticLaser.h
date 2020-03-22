@@ -3,15 +3,16 @@
 #include "SLSDef.h"
 #include "LaserControl.h"
 #include "Misc.h"
-
+/*
 struct RGB_DATA
 {
+	RGB_DATA() { memset(this, 0x0, sizeof(RGB_DATA)); }
 	int red;
 	int green;
 	int blue;
 	int sum;
 };
-
+*/
 
 // CStaticLaser dialog
 class CLaserControl;
@@ -40,8 +41,9 @@ public:
 	CDoublePoint GetJointPos() { return m_joint_pos; }
 	CDoublePoint GetEdgePos(int ind) { return m_edge_pos[ind]; }
 	CPoint GetScreenPixel(double x, double y);
-	int    AddRGBData(const RGB_DATA&);
+	int    AddRGBData(const int&);
 	void   ResetRGBData();
+	double GetAverageRGBValue();
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
@@ -59,7 +61,9 @@ public:
 	double			m_disp_height_factor;
 	CRect			m_disp_rect;
 	CRect			m_roi_rect;
-	CArray<RGB_DATA, RGB_DATA> m_rgbData;
+	CArray<int, int>  m_rgbData;
+	int				m_rgbSum; // use to calculate the average
+	int				m_rgbCount;
 
 //	CStaticLaserProfile m_wndLaserProfile;
 	CLaserControl& m_laserControl;

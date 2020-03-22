@@ -26,7 +26,7 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	, m_laserControl(laser)
 	, m_magControl(mag)
 	, m_szMagVersion(_T(""))
-	, m_szEncoderCount(_T(""))
+	, m_szRGBEncCount(_T(""))
 	, m_szRGBValue(_T(""))
 	, m_szRGBCalValue(_T(""))
 	, m_szRGBCalValueSet(_T(""))
@@ -60,7 +60,7 @@ void CDialogMag::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_STATIC_MAG_VERSION, m_szMagVersion);
 	DDX_Control(pDX, IDC_CHECK_MAG_ENABLE, m_butMagEnable);
 	DDX_Control(pDX, IDC_BUTTON_MAG_ON, m_butMagOn);
-	DDX_Text(pDX, IDC_STATIC_MAG_ENCODER, m_szEncoderCount);
+	DDX_Text(pDX, IDC_STATIC_MAG_ENCODER, m_szRGBEncCount);
 	DDX_Text(pDX, IDC_STATIC_MAG_RGB, m_szRGBValue);
 	DDX_Text(pDX, IDC_STATIC_MAG_RGB_CAL, m_szRGBCalValue);
 	DDX_Text(pDX, IDC_EDIT_RGB_CAL, m_szRGBCalValueSet);
@@ -163,10 +163,10 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 
 		int nEncoderCount = GetMagStatus(MAG_IND_ENC_CNT);
 		if (nEncoderCount != INT_MAX)
-			m_szEncoderCount.Format("%d", nEncoderCount);
+			m_szRGBEncCount.Format("%d", nEncoderCount);
 		else
-			m_szEncoderCount.Format("***");
-		GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szEncoderCount);
+			m_szRGBEncCount.Format("***");
+		GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szRGBEncCount);
 
 		int red, green, blue;
 		int colour = m_magControl.GetRGBValues(red, green, blue);
@@ -280,3 +280,4 @@ void CDialogMag::OnClickedButtonSetCalValue()
 	m_magControl.SetMagRGBCalibration(nCalValue);
 	UpdateData(FALSE);
 }
+

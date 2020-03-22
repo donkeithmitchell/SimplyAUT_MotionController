@@ -26,21 +26,22 @@ public:
 	enum { IDD = IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG };
 #endif
 	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_LASER, TAB_MAG, TAB_SCAN, TAB_STATUS};
-	enum {MSG_SEND_DEBUGMSG = 0, MSG_SETBITMAPS, MSG_GETSCANSPEED, MSG_GETACCEL, MSG_SHOW_MOTOR_SPEEDS, MSG_GET_MAG_STATUS};
+	enum {MSG_SEND_DEBUGMSG = 0, MSG_ERROR_MSG, MSG_SETBITMAPS, MSG_GETSCANSPEED, MSG_GETACCEL, MSG_SHOW_MOTOR_SPEEDS, MSG_GET_MAG_STATUS};
 
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
-
+	void OnOK() {}
 	void OnSelchangeTab2();
 	BOOL CheckVisibleTab();
+	void AppendErrorMessage(const CString& szMsg);
 
 	enum { WM_DEGUG_MSG = WM_USER + 1 };
 	enum{ TIMER_GET_MAG_STATUS =1 };
 
 // Implementation
 protected:
-	HICON m_hIcon;
+	HICON				m_hIcon;
 	GALIL_STATE			m_galil_state;
 	CMotionControl		m_motionControl;
 	CLaserControl       m_laserControl;
@@ -67,8 +68,9 @@ protected:
 	afx_msg void OnSize(UINT, int cx, int xy);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg LRESULT OnUserDebugMessage(WPARAM, LPARAM);
+	afx_msg void OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pResult);
 	DECLARE_MESSAGE_MAP()
 public:
 	CTabCtrl m_tabControl;
-	afx_msg void OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pResult);
+	CString m_szErrorMsg;
 };

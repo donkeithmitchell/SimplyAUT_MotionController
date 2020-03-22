@@ -110,7 +110,6 @@
 #define IDC_TEMPERATURE_EDIT            1065
 #define IDC_STATIC_STEERING_LR_DIFF     1065
 #define IDC_MSG_EDIT                    1066
-#define IDC_STATIC_STEERING_GAP_VEL2    1066
 #define IDC_STATIC_STEERING_GAP_ACCEL   1066
 #define IDC_LASERPOWER_BUTTON           1067
 #define IDC_LASERPOWER_EDIT             1068
@@ -144,6 +143,7 @@
 #define IDC_STATIC_MAG_RGB_LINE         1095
 #define IDC_STATIC_LEFT                 1096
 #define IDC_STATIC_RIGHT                1097
+#define IDC_BUTTON_ENC_RESET            1097
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects

@@ -30,9 +30,17 @@ void CLaserControl::Init(CWnd* pParent, UINT nMsg)
 void CLaserControl::SendDebugMessage(CString msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-    {
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
-    }
+	{
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
+	}
+}
+
+void CLaserControl::SendErrorMessage(CString msg)
+{
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+	{
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
+	}
 }
 
 void CLaserControl::EnableControls()
@@ -222,7 +230,10 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 	// 
 
 	if (!g_sensor_initialised)
+	{
+		SendErrorMessage(_T("ERROR: Laser not Initialized, Check if Power On"));
 		return FALSE;
+	}
 
 	SendDebugMessage( "Sensor Comm Initialised" );
 

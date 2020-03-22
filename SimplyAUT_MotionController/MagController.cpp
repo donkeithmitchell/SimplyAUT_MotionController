@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MagController.h"
+#include "SimplyAUT_MotionControllerDlg.h"
 #include <Ws2tcpip.h>
 
 static BOOL g_sensor_initialised = FALSE;
@@ -20,6 +21,7 @@ enum{MAG_REG_HW=1,
 
 #define SOCKET_RECV_DELAY 1
 #define SOCKET_RECV_TIMEOUT 2000
+#define SOCKET_CONNECT_TIMEOUT 2000
 
 
 static UINT ThreadReadSocket(LPVOID param)
@@ -28,16 +30,32 @@ static UINT ThreadReadSocket(LPVOID param)
     return this2->ThreadReadSocket();
 }
 
+static UINT ThreadConnectSocket(LPVOID param)
+{
+    CMagControl* this2 = (CMagControl*)param;
+    return this2->ThreadConnectSocket();
+}
+
 CMagControl::CMagControl()
 {
+    m_nConnect = 0;
     m_server  = INVALID_SOCKET;
     m_hTheadReadSocket = NULL;
+    m_hTheadConnectSocket = NULL;
 }
 
 CMagControl::~CMagControl()
 {
     Disconnect();
 }
+
+void CMagControl::Init(CWnd* pParent, UINT nMsg)
+{
+    m_pParent = pParent;
+    m_nMsg = nMsg;
+}
+
+
 
 // this is only a stub
 BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
@@ -55,7 +73,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     int nRecv = InetPton(AF_INET, ip_address, (void*)&ip);
     if(nRecv != 1)
     {
-        AfxMessageBox("[ Error ]\nInetPton Error");
+        SendErrorMessage("Error: InetPton Error");
         return FALSE;
     }
 
@@ -66,35 +84,48 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     if(nRecv != NO_ERROR)
     {
         int nRec2 = WSAGetLastError();
-        str.Format("[ Error ]\nWSAStartup Error (%d)", nRec2);
-        :: AfxMessageBox(str);
+        str.Format("Error: WSAStartup Error (%d)", nRec2);
+        SendErrorMessage(str);
         return FALSE;
     }
     m_server = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (m_server == INVALID_SOCKET)
     {
         int nRec2 = WSAGetLastError();
-        str.Format("[ Error ]\nSocket Error (%d)", nRec2);
+        str.Format("Error: Socket Error (%d)", nRec2);
         ::closesocket(m_server);
         m_server = INVALID_SOCKET;
         ::WSACleanup();
-        ::AfxMessageBox(str);
+        SendErrorMessage(str);
         return FALSE;
     }
 
-    sockaddr_in addr;
-    memset(&addr, 0x0, sizeof(addr));
+    memset(&m_sockaddr_in, 0x0, sizeof(m_sockaddr_in));
 
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = ip;
-    addr.sin_port = htons(Port);
+    m_sockaddr_in.sin_family = AF_INET;
+    m_sockaddr_in.sin_addr.s_addr = ip;
+    m_sockaddr_in.sin_port = htons(Port);
 
-    nRecv = ::connect(m_server, (SOCKADDR*)&addr, sizeof(addr));
-    if(nRecv == SOCKET_ERROR)
+    // if the power is not on, then this will hang
+    // spin a thread to do, and wait for about 2 seconds
+    m_eventSocket.ResetEvent();
+    m_nConnect = 0;
+    m_hTheadConnectSocket = ::AfxBeginThread(::ThreadConnectSocket, this);
+    int ret = ::WaitForSingleObject(m_eventSocket, SOCKET_CONNECT_TIMEOUT);
+//    nRecv = ::connect(m_server, (SOCKADDR*)&addr, sizeof(addr));
+
+    if (ret != WAIT_OBJECT_0 )
+    {
+        m_nConnect = SOCKET_ERROR;
+        ::TerminateThread(m_hTheadReadSocket, 0);
+    }
+
+ //   nRecv = ::connect(m_server, (SOCKADDR*)&addr, sizeof(addr));
+    if(m_nConnect == SOCKET_ERROR)
     {
         int nRec2 = WSAGetLastError();
-        str.Format("[ Error ]\nConnect Error (%d)", nRec2);
-        ::AfxMessageBox(str);
+        str.Format("Error: Connect Error (%d)", nRec2);
+        SendErrorMessage(str);
         ::closesocket(m_server);
         m_server = INVALID_SOCKET;
         ::WSACleanup();
@@ -102,16 +133,10 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     }
 
     g_sensor_initialised = TRUE;
-
-    // now spin a thread to receive the bytes
-    // recv() does not respond if no bytes to receive
-    // this can lock up the code if done byu the start up threads
- //   m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
-
     
     if( !ResetEncoderCount() )
     {
-        ::AfxMessageBox("[ Error ]\nDisconnected from the Server.");
+        SendErrorMessage("Error: Disconnected from the Server.");
         ::closesocket(m_server);
         m_server = INVALID_SOCKET;
         ::WSACleanup();
@@ -122,6 +147,13 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
  
 	// thjis is likely set in a call back functiion
 	return TRUE;
+}
+
+UINT CMagControl::ThreadConnectSocket()
+{
+    m_nConnect = ::connect(m_server, (SOCKADDR*)&m_sockaddr_in, sizeof(m_sockaddr_in));
+    m_eventSocket.SetEvent();
+    return 0;
 }
 
 int CMagControl::GetMagRGBCalibration()
@@ -311,7 +343,7 @@ int CMagControl::GetMagRegister(int reg)
         return INT_MAX;
 
     if (strstr(buff, "$ERR") != NULL)
-        AfxMessageBox(buff + 5);
+        SendErrorMessage(CString("ERROR: ") + CString(buff + 5));
 
     // look for $REG
     const char* ptr = strstr(buff, "$REG,");
@@ -351,6 +383,16 @@ int CMagControl::GetEncoderCount()
         return status[MAG_IND_ENC_CNT];
 }
 */
+int CMagControl::GetRGBSum()
+{
+    CString str;
+    if (!IsConnected())
+        return INT_MAX;
+
+    int colour = GetMagRegister(MAG_REG_RGB_ALL);
+    return colour;
+}
+
 int CMagControl::GetRGBValues(int& red, int& green, int& blue)
 {
     CString str;
@@ -421,3 +463,20 @@ BOOL CMagControl::IsConnected()const
 {
 	return g_sensor_initialised;
 }
+
+void CMagControl::SendDebugMessage(CString msg)
+{
+    if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+    {
+        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
+    }
+}
+
+void CMagControl::SendErrorMessage(CString msg)
+{
+    if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+    {
+        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
+    }
+}
+

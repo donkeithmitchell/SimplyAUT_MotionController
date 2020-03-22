@@ -7,7 +7,7 @@ public:
 	Gclib();
 	~Gclib();
 
-	BOOL	GOpen(GCStringIn address);
+	CString	GOpen(GCStringIn address);
 	BOOL	GClose();
 	void	Init(CWnd*, UINT);
 

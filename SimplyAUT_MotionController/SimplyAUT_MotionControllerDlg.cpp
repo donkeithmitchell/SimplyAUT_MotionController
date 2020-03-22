@@ -58,6 +58,7 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_magControl, m_galil_state)
 	, m_dlgLaser(m_motionControl, m_laserControl)
 	, m_dlgMag(m_motionControl, m_laserControl, m_magControl)
+	, m_szErrorMsg(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
@@ -66,6 +67,9 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_galil_state = GALIL_IDLE;
 
 	m_motionControl.Init(this, WM_DEGUG_MSG);
+	m_laserControl.Init(this, WM_DEGUG_MSG);
+	m_magControl.Init(this, WM_DEGUG_MSG);
+
 	m_dlgConnect.Init(this, WM_DEGUG_MSG);
 	m_dlgGirthWeld.Init(this, WM_DEGUG_MSG);
 	m_dlgMotors.Init(this, WM_DEGUG_MSG);
@@ -81,6 +85,7 @@ void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_TAB1, m_tabControl);
+	DDX_Text(pDX, IDC_EDIT_STATUS, m_szErrorMsg);
 }
 
 BEGIN_MESSAGE_MAP(CSimplyAUTMotionControllerDlg, CDialogEx)
@@ -162,14 +167,20 @@ void CSimplyAUTMotionControllerDlg::OnTimer(UINT_PTR nIDEvent)
 }
 LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
 {
-	if( m_bInit )
-	switch (wParam)
-	{
+	if (m_bInit)
+		switch (wParam)
+		{
 		case MSG_SEND_DEBUGMSG: // receivbing address to a CString
 		{
 			const CString* pMsg = (CString*)lParam;
 			// now pass this to the status window
 			m_dlgStatus.AppendDebugMessage(*pMsg);
+			break;
+		}
+		case MSG_ERROR_MSG: // receivbing address to a CString
+		{
+			const CString* pMsg = (CString*)lParam;
+			AppendErrorMessage(*pMsg);
 			break;
 		}
 		case MSG_SETBITMAPS: // enable the various controlds
@@ -208,10 +219,11 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			*pEng = m_magStatus[wParam - MSG_GET_MAG_STATUS];
 			break;
 		}
-	}
+		}
 
 	return 0;
 }
+
 
 void CSimplyAUTMotionControllerDlg::OnSysCommand(UINT nID, LPARAM lParam)
 {
@@ -274,15 +286,11 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 	cx = rect.Width();
 	cy = rect.Height();
 
-	GetDlgItem(IDOK)->GetClientRect(&rect);
+	GetDlgItem(IDC_EDIT_STATUS)->GetClientRect(&rect);
 	int cx1 = rect.Width();
 	int cy1 = rect.Height();
-	GetDlgItem(IDOK)->MoveWindow(2, cy - cy1 - 2, cx1, cy1);
 
-	GetDlgItem(IDCANCEL)->GetClientRect(&rect);
-	int cx2 = rect.Width();
-	int cy2 = rect.Height();
-	GetDlgItem(IDCANCEL)->MoveWindow(cx-cx1-2, cy - cy1 - 2, cx1, cy1);
+	GetDlgItem(IDC_EDIT_STATUS)->MoveWindow(2, cy - cy1 - 2, cx-4, cy1);
 
 	m_tabControl.MoveWindow(2, 2, cx - 4, cy - cy1 - 6);
 	m_tabControl.GetClientRect(&rect);
@@ -349,3 +357,22 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	// this will causew the sdizing of the laser to be adjusted
 	m_dlgGirthWeld.PostMessage(WM_SIZE);
 }
+
+void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const CString& szMsg)
+{
+	UpdateData(TRUE);
+	CString temp = szMsg;
+	temp = temp.TrimLeft();
+	temp = temp.TrimRight();
+	int len = temp.GetLength();
+	if (len == 0)
+		return;
+
+	if (temp[len - 1] == '\n')
+		temp = temp.Left(len - 1);
+
+	temp = temp + CString("\r\n") + m_szErrorMsg;
+	m_szErrorMsg = temp;
+	UpdateData(FALSE);
+}
+

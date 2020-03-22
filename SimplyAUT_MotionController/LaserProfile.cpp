@@ -282,7 +282,6 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	// CalcLaserMeasures(measures);
 
 	// Display Profile
-	int init = 1;
 	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
 	pDC->SelectObject(&hits);
 	for (int i = 0; i < SENSOR_WIDTH; i++)
@@ -290,9 +289,7 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
 		{
 			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
-			if (init) pDC->MoveTo(pt.x, pt.y);
-			else pDC->LineTo(pt.x, pt.y);
-			init = 0;
+			pDC->SetPixel(pt, RGB(250,50,50));
 		}
 	}
 	if (m_valid_edges)

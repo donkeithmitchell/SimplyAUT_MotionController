@@ -52,15 +52,16 @@ protected:
 
 	DECLARE_MESSAGE_MAP()
 public:
+	afx_msg void OnClickedButtonSetCalValue();
+	afx_msg void OnClickedCheckMagEnable();
+	afx_msg void OnClickedButtonEncoderClear();
+
 	CString m_szMagVersion;
 	CButton m_butMagEnable;
 	CButton m_butMagOn;
-	afx_msg void OnClickedCheckMagEnable();
-	CString m_szEncoderCount;
 	CString m_szRGBValue;
-	afx_msg void OnClickedButtonEncoderClear();
 	CString m_szRGBCalValue;
 	CString m_szRGBCalValueSet;
-	afx_msg void OnClickedButtonSetCalValue();
 	CString m_szRGBLinePresent;
+	CString m_szRGBEncCount;
 };

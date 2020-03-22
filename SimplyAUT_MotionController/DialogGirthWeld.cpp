@@ -13,6 +13,7 @@
 #include "time.h"
 
 static const int LASER_BLINK = 500;
+#define MAX_TEMPERATURE 50
 
 // CDialogGirthWeld dialog
 
@@ -423,9 +424,10 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 	}
 	case TIMER_NOTE_RGB:
 	{
-		RGB_DATA rgb;
-		rgb.sum = m_magControl.GetRGBValues(rgb.red, rgb.green, rgb.blue);
-		m_wndLaser.AddRGBData(rgb);
+//		RGB_DATA rgb;
+//		rgb.sum = m_magControl.GetRGBValues(rgb.red, rgb.green, rgb.blue);
+		int sum = m_magControl.GetRGBSum();
+		m_wndLaser.AddRGBData(sum);
 		break;
 	}
 	case TIMER_STEERMOTORS:
@@ -616,6 +618,8 @@ void CDialogGirthWeld::ShowMotorPosition()
 	double dist2 = atof(m_szScannedDist);
 
 	double pos = GetMaximumMotorPosition();
+	int nEncoderCount = GetMagStatus(MAG_IND_ENC_CNT);
+
 	if (pos == FLT_MAX)
 	{
 		m_szHomeDist.Format("");
@@ -623,11 +627,15 @@ void CDialogGirthWeld::ShowMotorPosition()
 	}
 	else
 	{
-		m_szHomeDist.Format("%.1f", pos);
-		if(m_fScanStart != FLT_MAX )
-			m_szScannedDist.Format("%.1f", pos - m_fScanStart);
+		if (nEncoderCount == INT_MAX)
+			m_szHomeDist.Format("%.1f", pos);
 		else
+			m_szHomeDist.Format("%.1f (%d)", pos, nEncoderCount);
+
+		if (m_fScanStart == FLT_MAX)
 			m_szScannedDist.Format("");
+		else
+			m_szScannedDist.Format("%.1f", pos - m_fScanStart);
 	}
 
 	// the scanned distance requires the start location to be noted
@@ -651,16 +659,39 @@ BOOL CDialogGirthWeld::CheckVisibleTab()
 
 HBRUSH CDialogGirthWeld::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 {
+	SensorStatus SensorStatus;
+	LASER_TEMPERATURE temp;
 	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);
 
 	if (pWnd->GetDlgCtrlID() == IDC_STATIC_TEMP_BOARD)
 	{
 		//set the static text color to red     
-		SensorStatus SensorStatus;
-		m_laserControl.GetLaserStatus(SensorStatus);
+		m_laserControl.GetLaserTemperature(temp);
+		if( temp.BoardTemperature > MAX_TEMPERATURE )
+			m_laserControl.GetLaserStatus(SensorStatus);
 
 		pDC->SetTextColor(RGB(255, 0, 0));
-//		pDC->SelectObject(&m_brRed);
+		//		pDC->SelectObject(&m_brRed);
+	}
+
+	else if (pWnd->GetDlgCtrlID() == IDC_STATIC_TEMP_LASER)
+	{
+		//set the static text color to red     
+		m_laserControl.GetLaserTemperature(temp);
+		m_laserControl.GetLaserStatus(SensorStatus);
+
+		if (temp.LaserTemperature > MAX_TEMPERATURE)
+			pDC->SetTextColor(RGB(255, 0, 0));
+	}
+
+	else if (pWnd->GetDlgCtrlID() == IDC_STATIC_TEMP_SENSOR)
+	{
+		//set the static text color to red     
+		m_laserControl.GetLaserTemperature(temp);
+		m_laserControl.GetLaserStatus(SensorStatus);
+
+		if (temp.SensorTemperature > MAX_TEMPERATURE)
+			pDC->SetTextColor(RGB(255, 0, 0));
 	}
 
 	// TODO: Return a different brush if the default is not desired   
@@ -867,7 +898,9 @@ void CDialogGirthWeld::OnClickedButtonManual()
 
 		m_fMotorSpeed = GetRequestedMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
 		m_laserControl.TurnLaserOn(TRUE);
+		m_magControl.ResetEncoderCount();
 		m_magControl.EnableMagSwitchControl(FALSE);
+		m_magControl.ResetEncoderCount();
 
 		SetRunTime(0);
 		// set a time to manage the steering
@@ -936,6 +969,7 @@ void CDialogGirthWeld::OnClickedButtonGoHome()
 		StartNotingMotorSpeed(TRUE);
 		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
 		m_laserControl.TurnLaserOn(TRUE);
+//		m_magControl.ResetEncoderCount(); // don't rest as want to see it return to zero also
 		m_magControl.EnableMagSwitchControl(FALSE);
 		m_fMotorSpeed = GetRequestedMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
 		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
@@ -1102,6 +1136,7 @@ void CDialogGirthWeld::RunMotors()
 			{
 				m_laserControl.TurnLaserOn(TRUE);
 				m_magControl.EnableMagSwitchControl(FALSE);
+				m_magControl.ResetEncoderCount();
 				StartSteeringMotors(TRUE);
 				StartNotingRGBData(TRUE);
 				StartNotingMotorSpeed(TRUE);
@@ -1124,6 +1159,7 @@ void CDialogGirthWeld::RunMotors()
 			{
 				m_laserControl.TurnLaserOn(TRUE);
 				m_magControl.EnableMagSwitchControl(FALSE);
+				m_magControl.ResetEncoderCount();
 				StartSteeringMotors(TRUE);
 				StartNotingRGBData(TRUE);
 				StartNotingMotorSpeed(TRUE);

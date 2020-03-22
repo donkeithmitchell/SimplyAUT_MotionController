@@ -1,4 +1,5 @@
 #pragma once
+#include "SimplyAUT_MotionController.h"
 
 
 // CDialogMotors dialog

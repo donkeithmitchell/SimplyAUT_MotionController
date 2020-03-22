@@ -18,6 +18,7 @@ public:
     CMagControl();
     ~CMagControl();
 
+    void    Init(CWnd* pParent, UINT nMsg);
     BOOL    IsConnected()const;
     BOOL    Connect(const BYTE address[4], u_short port);
     BOOL    Disconnect();
@@ -29,16 +30,25 @@ public:
  //   int     GetMagSwitchLockedOut();
  //   int     GetEncoderCount();
     int     GetRGBValues(int& red, int& green, int& blue);
+    int     GetRGBSum();
     BOOL    ResetEncoderCount();
     BOOL    EnableMagSwitchControl(BOOL);
     int     GetMagRegister(int reg);
     size_t  ReadMagBuffer(char* buff, size_t nSize );
     BOOL    IsMagSwitchEnabled();
     UINT    ThreadReadSocket();
+    UINT    ThreadConnectSocket();
+    void    SendDebugMessage(CString msg);
+    void    SendErrorMessage(CString msg);
 
 protected:
+    CWnd*   m_pParent;
+    UINT    m_nMsg;
     SOCKET  m_server;
+    int     m_nConnect;
+    sockaddr_in  m_sockaddr_in;
     HANDLE  m_hTheadReadSocket;
+    HANDLE  m_hTheadConnectSocket;
     char    m_strBuffer[SOCKET_BUFF_LENGTH];
     CEvent  m_eventSocket;
 
