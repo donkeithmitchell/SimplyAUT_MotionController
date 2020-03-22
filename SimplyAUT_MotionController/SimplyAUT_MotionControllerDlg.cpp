@@ -369,7 +369,11 @@ void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const CString& szMsg)
 		return;
 
 	if (temp[len - 1] == '\n')
-		temp = temp.Left(len - 1);
+		temp = temp.Left(--len);
+
+	// if this is identical to the last entry then do not re add
+	if (m_szErrorMsg.Left(len).Compare(temp) == 0)
+		return;
 
 	temp = temp + CString("\r\n") + m_szErrorMsg;
 	m_szErrorMsg = temp;

@@ -69,7 +69,10 @@ BOOL CLaserControl::Disconnect()
 		return TRUE;
 	}
 	else
+	{
+		SendErrorMessage("Laser ERROR: Already Disconnected");
 		return FALSE;
+	}
 }
 
 BOOL CLaserControl::IsLaserOn()
@@ -83,15 +86,26 @@ BOOL CLaserControl::IsLaserOn()
 
 BOOL CLaserControl::GetLaserStatus(SensorStatus& SensorStatus)
 {
-	::DLLGetSensorStatus(&SensorStatus);
-	::SLSGetSensorStatus();
-	return TRUE;
+	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
+		return FALSE;
+	}
+	else
+	{
+		::DLLGetSensorStatus(&SensorStatus);
+		::SLSGetSensorStatus();
+		return TRUE;
+	}
 }
 
 int CLaserControl::GetSerialNumber()
 {
 	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
 		return 0;
+	}
 	else
 		return 10357;
 }
@@ -106,9 +120,10 @@ BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE & temperature)
 		double t2 = (((double)SensorStatus.LaserTemp) / 100.0) - 100.0;
 		double t3 = (((double)SensorStatus.PsuBrdTemp) / 100.0) - 100.0;
 
-		CString str;
-		str.Format("%.1f %.1f %.1f", t1, t2, t3);
-		SendDebugMessage(str);
+// happens too often to put in the status window
+//		CString str;
+//		str.Format("%.1f %.1f %.1f", t1, t2, t3);
+//		SendDebugMessage(str);
 		
 		temperature.BoardTemperature = t1;
 		temperature.SensorTemperature = t2;
@@ -116,7 +131,9 @@ BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE & temperature)
 		return TRUE;
 	}
 	else
+	{
 		return FALSE;
+	}
 }
 
 BOOL CLaserControl::SetLaserOptions(int opt)
@@ -132,7 +149,12 @@ BOOL CLaserControl::SetLaserOptions(int opt1, int opt2, int opt3, int opt4)
 
 BOOL CLaserControl::SetAutoLaserCheck(BOOL bAuto)
 {
-	if (IsLaserOn())
+	if (!IsLaserOn())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not On"));
+		return FALSE;
+	}
+	else
 	{
 		if (bAuto)
 			SetLaserOptions(1);
@@ -143,37 +165,46 @@ BOOL CLaserControl::SetAutoLaserCheck(BOOL bAuto)
 		}
 		return TRUE;
 	}
-	else
-		return FALSE;
 }
 
 BOOL CLaserControl::SetLaserIntensity(int nLaserPower)
 {
-	if (IsConnected())
+	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
+		return FALSE;
+	}
+	else
 	{
 		m_nLaserPower = nLaserPower;
 		::SetLaserIntensity(m_nLaserPower, m_nLaserPower, m_nLaserPower, m_nLaserPower);
 		return TRUE;
 	}
-	else
-		return FALSE;
 }
 
 BOOL CLaserControl::SetCameraShutter(int nCameraShutter)
 {
-	if (IsConnected())
+	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
+		return FALSE;
+	}
+	else
 	{
 		m_nCameraShutter = nCameraShutter;
 		::SetCameraShutter(m_nCameraShutter);
 		return TRUE;
 	}
-	else
-		return FALSE;
 }
 
 BOOL CLaserControl::SetCameraRoi(const CRect& rect)
 {
-	if (IsConnected())
+	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
+		return FALSE;
+	}
+	else
 	{
 		CString str;
 		SLSSetCameraRoi((unsigned short)rect.left, (unsigned short)rect.top, (unsigned short)rect.right, (unsigned short)rect.bottom);
@@ -181,8 +212,6 @@ BOOL CLaserControl::SetCameraRoi(const CRect& rect)
 		SendDebugMessage(str);
 		return TRUE;
 	}
-	else
-		return FALSE;
 }
 
 BOOL CLaserControl::GetCameraRoi(CRect& rect)
@@ -197,7 +226,9 @@ BOOL CLaserControl::GetCameraRoi(CRect& rect)
 		return TRUE;
 	}
 	else
+	{
 		return FALSE;
+	}
 }
 
 
@@ -231,7 +262,7 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 
 	if (!g_sensor_initialised)
 	{
-		SendErrorMessage(_T("ERROR: Laser not Initialized, Check if Power On"));
+		SendErrorMessage(_T("Laser ERROR: Not Initialized, Check if Power On"));
 		return FALSE;
 	}
 
@@ -263,20 +294,25 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 
 BOOL CLaserControl::ConvPixelToMm(int row, int col, double& sw, double& hw)
 {
-	if (IsConnected())
+	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
+		return FALSE;
+	}
+	else
 	{
 		::ConvPixelToMm(row, col, &sw, &hw);
 		return TRUE;
 	}
-	else
-		return FALSE;
-
 }
 
 BOOL CLaserControl::GetLaserVersion(unsigned short& major, unsigned short& minor)
 {
 	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
 		return FALSE;
+	}
 
 	major = minor = 0;
 	::SLSGetSensorVersion();
@@ -286,10 +322,16 @@ BOOL CLaserControl::GetLaserVersion(unsigned short& major, unsigned short& minor
 BOOL CLaserControl::GetLaserMeasurment(Measurement& meas)
 {
 	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
 		return FALSE;
+	}
 
 	else if (!IsLaserOn())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not On"));
 		return FALSE;
+	}
 
 	else if (!::DLLGetMeasurement(&meas))
 		return FALSE;
@@ -301,7 +343,10 @@ BOOL CLaserControl::GetLaserMeasurment(Measurement& meas)
 BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 {
 	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
 		return FALSE;
+	}
 	else if ( !bLaserOn )
 	{
 		::Profile_Sending(FALSE);
@@ -320,19 +365,36 @@ BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 BOOL CLaserControl::GetProfile(Profile& profile)
 {
 	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
 		return FALSE;
+	}
 	else if (!IsLaserOn())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not On"));
 		return FALSE;
+	}
+	else if (!::DLLGetProfile(&profile))
+	{
+		SendErrorMessage(_T("Laser ERROR: Cant get Profile"));
+		return FALSE;
+	}
 	else
-		return ::DLLGetProfile(&profile);
+		return TRUE;
 }
 
 BOOL CLaserControl::GetProfilemm(Profilemm* pProfile, int hit_no)
 {
 	if (!IsConnected())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not Connected"));
 		return FALSE;
+	}
 	else if (!IsLaserOn())
+	{
+		SendErrorMessage(_T("Laser ERROR: Not On"));
 		return FALSE;
+	}
 	else
 		return ::DLLGetProfilemm(pProfile, hit_no);
 }

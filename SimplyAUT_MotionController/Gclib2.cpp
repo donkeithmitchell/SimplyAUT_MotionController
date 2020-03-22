@@ -29,6 +29,17 @@ void Gclib::Init(CWnd* pParent, UINT nMsg)
     m_nMsg = nMsg;
 }
 
+void Gclib::SetLastError()
+{
+    m_szLastError = _T("");
+}
+
+
+void Gclib::SetLastError(const CString& str)
+{
+    m_szLastError = _T("Motor ERROR: ") + str;
+}
+
 void Gclib::SendDebugMessage(CString msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -43,8 +54,12 @@ int Gclib::GetMotorSpeed(GCStringIn axis, int& rAccel)
     char Command[256];
 
     rAccel = INT_MAX;
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return INT_MAX;
+    }
 
     sprintf_s(Command, sizeof(Command), "MG _TV%s", axis);
     GReturn rc1 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
@@ -62,12 +77,22 @@ int Gclib::GetMotorPosition(GCStringIn axis)
     GSize bytes_read = 0;
     char Command[256];
     
-    if (this == NULL || !IsConnected() )
+    SetLastError();
+    if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return INT_MAX;
+    }
     
     sprintf_s(Command, sizeof(Command), "MG _TP%s", axis);
     GReturn rc1 = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
-    int pos = (rc1 == G_NO_ERROR) ? atoi(Trim(m_Buffer)) : INT_MAX;
+    if (rc1 != G_NO_ERROR)
+    {
+        SetLastError(GError(rc1));
+        return INT_MAX;
+    }
+
+    int pos = atoi(Trim(m_Buffer));
     return pos;
 }
 
@@ -84,15 +109,16 @@ BOOL Gclib::CheckDllExist()
     CString szGcliboDllPath(_T("DLL\\x64\\gclibo.dll"));
     
     /// <remarks>Checks to ensure gclib dlls are in the correct location.</remarks>
+    SetLastError();
     if (::GetFileAttributes(szGclibDllPath) == INVALID_FILE_ATTRIBUTES)
     {
-        AfxMessageBox(_T("Could not find gclib dll at ") + szGclibDllPath);
+        SetLastError(_T("Could not find gclib dll at ") + szGclibDllPath);
         throw new CFileException(CFileException::fileNotFound);
         return FALSE;
     }
     if (::GetFileAttributes(szGcliboDllPath) == INVALID_FILE_ATTRIBUTES)
     {
-        AfxMessageBox(_T("Could not find gclibo dll at ") + szGcliboDllPath);
+        SetLastError(_T("Could not find gclibo dll at ") + szGcliboDllPath);
         throw new CFileException(CFileException::fileNotFound);
         return FALSE;
     }
@@ -100,15 +126,22 @@ BOOL Gclib::CheckDllExist()
     return TRUE;
 }
 
-CString Gclib::GOpen(GCStringIn address)
+BOOL Gclib::GOpen(GCStringIn address)
 {
     GReturn rc = ::GOpen(address, &m_ConnectionHandle);
 
+    SetLastError();
     if (m_ConnectionHandle == NULL)
-        return _T("ERROR: ") + GError(rc) + _T(" Check if Power On");
+    {
+        SetLastError(GError(rc) + _T(" Check if Power On"));
+        return FALSE;
+    }
     if (rc != G_NO_ERROR)
-        return _T("ERROR: " ) + GError(rc);
-    return _T("");
+    {
+        SetLastError(GError(rc));
+        return FALSE;
+    }
+    return TRUE;
 }
 
 //! Uses GUtility() and @ref G_UTIL_INFO to provide a useful connection string.
@@ -117,12 +150,16 @@ CString Gclib::GInfo()
     GSize info_len = 256;
     GCStringOut info = new char[info_len];
 
+    SetLastError();
     GReturn rc = ::GInfo(m_ConnectionHandle, info, info_len);
     CString str(info);
 
     delete[] info;
     if (rc != G_NO_ERROR)
+    {
+        SetLastError(GError(rc));
         return _T("ERR");
+    }
 
     else
         return str;
@@ -292,8 +329,12 @@ BOOL Gclib::GClose()
 CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
 {
     GSize bytes_read = 0;
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return _T("ERR");
+    }
 
     SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
     
@@ -301,8 +342,8 @@ CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
     if (rc != G_NO_ERROR)
     {
         GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
-        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCommand(") + _T(Command) 
-            + _T(")\n") + GError(rc) + _T("\n") + Trim(_T(m_Buffer)) );
+        SetLastError( CString("GCommand(") + _T(Command)
+            + _T(") ") + GError(rc) + _T(" ") + Trim(_T(m_Buffer)) );
         return _T("ERR");
     }
     else if (bytes_read > 0)
@@ -329,9 +370,13 @@ CString Gclib::Trim(CString str)
 
 CString Gclib::GCmdT(GCStringIn command)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return _T("ERR");
-    
+    }
+
     GSize response_len = 256;
     GCStringOut trimmed_response = new char[response_len];
     GCStringOut front;
@@ -341,44 +386,52 @@ CString Gclib::GCmdT(GCStringIn command)
     {
         GSize bytes_read = 0;
         GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
-        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmdT(") + _T(command)
-            + _T(")\n") + GError(rc) + _T("\n") + _T(m_Buffer));
+        SetLastError(CString("GCmdT(") + _T(command)
+            + _T(") ") + GError(rc) + _T(" ") + _T(m_Buffer));
         return _T("ERR");
     }
     
     CString str(trimmed_response);
     delete[] trimmed_response;
 
-    return (rc == G_NO_ERROR) ? str : _T("ERR");
+    return str;
 }
 
 GReturn Gclib::GCmd(GCStringIn command)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GCmd(m_ConnectionHandle, command);
     if (rc != G_NO_ERROR)
     {
         GSize bytes_read = 0;
         GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
-        ::AfxMessageBox(_T("[ ERROR ]\n") + CString("GCmd(") + _T(command)
-            + _T(")\n") + GError(rc) + _T("\n") + _T(m_Buffer));
+        ::AfxMessageBox(CString("GCmd(") + _T(command)
+            + _T(") ") + GError(rc) + _T(" ") + _T(m_Buffer));
         return rc;
     }
 
-    return rc;
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GRead(GBufOut buffer, GSize buffer_len, GSize* bytes_read)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GRead(m_ConnectionHandle, buffer, buffer_len, bytes_read);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError( GError(rc));
         return rc;
     }
     return rc;
@@ -386,99 +439,127 @@ GReturn Gclib::GRead(GBufOut buffer, GSize buffer_len, GSize* bytes_read)
 
 GReturn Gclib::GWrite(GBufIn buffer, GSize buffer_len)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GWrite(m_ConnectionHandle, buffer, buffer_len);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
-    return rc;
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GProgramDownload(GCStringIn program, GCStringIn preprocessor)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GProgramDownload(m_ConnectionHandle, program, preprocessor);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError( GError(rc));
         return rc;
     }
-    return rc;
+    return G_NO_ERROR;
 }
 
 
 GReturn Gclib::GProgramUpload(GBufOut buffer, GSize buffer_len)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GProgramUpload(m_ConnectionHandle, buffer, buffer_len);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
-    return rc;
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GArrayDownload(const GCStringIn array_name, GOption first, GOption last, GCStringIn buffer)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
 
     GReturn rc = ::GArrayDownload(m_ConnectionHandle, array_name, first, last, buffer);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
-    return rc;
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GArrayUpload(const GCStringIn array_name, GOption first, GOption last, GOption delim, GBufOut buffer, GSize buffer_len)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GArrayUpload(m_ConnectionHandle, array_name, first, last, delim, buffer, buffer_len);
 
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
-    return rc;
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GRecord(union GDataRecord* record, GOption method)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
+    }
     
     GReturn rc = ::GRecord(m_ConnectionHandle, record, method);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
-    return rc;
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GMessage(GCStringOut buffer, GSize buffer_len)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
-    
+    }
+
     GReturn rc = ::GMessage(m_ConnectionHandle, buffer, buffer_len);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
     return rc;
@@ -486,13 +567,17 @@ GReturn Gclib::GMessage(GCStringOut buffer, GSize buffer_len)
 
 GReturn Gclib::GInterrupt(GStatus* status_byte)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
-    
+    }
+
     GReturn rc = ::GInterrupt(m_ConnectionHandle, status_byte);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
     return rc;
@@ -500,13 +585,17 @@ GReturn Gclib::GInterrupt(GStatus* status_byte)
 
 GReturn Gclib::GFirmwareDownload(GCStringIn filepath)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
-    
+    }
+
     GReturn rc = ::GFirmwareDownload(m_ConnectionHandle, filepath);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
     return rc;
@@ -514,13 +603,17 @@ GReturn Gclib::GFirmwareDownload(GCStringIn filepath)
 
 GReturn Gclib::GUtility(GOption request, GMemory memory1, GMemory memory2)
 {
+    SetLastError();
     if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
         return G_GCLIB_ERROR;
-    
+    }
+
     GReturn rc = ::GUtility(m_ConnectionHandle, request, memory1, memory2);
     if (rc != G_NO_ERROR)
     {
-        ::AfxMessageBox(_T("[ ERROR ]\n") + GError(rc));
+        SetLastError(GError(rc));
         return rc;
     }
     return rc;

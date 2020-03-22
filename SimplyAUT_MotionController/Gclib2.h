@@ -7,14 +7,17 @@ public:
 	Gclib();
 	~Gclib();
 
-	CString	GOpen(GCStringIn address);
+	BOOL	GOpen(GCStringIn address);
 	BOOL	GClose();
 	void	Init(CWnd*, UINT);
 
 	BOOL IsConnected()const;
 	void SendDebugMessage(CString);
 
-	BOOL CheckDllExist();
+	void    SetLastError();
+	void    SetLastError(const CString& szErr);
+	CString GetLastError() { return  m_szLastError; }
+	BOOL	CheckDllExist();
 	CString GCommand(GCStringIn Command, bool Trim = true);
 	GReturn GCmd(GCStringIn command);
 	CString GCmdT(GCStringIn command);
@@ -58,6 +61,7 @@ private:
 	GCon	m_ConnectionHandle;
 	GSize	m_BufferSize;
 	GBufOut	m_Buffer;
+	CString m_szLastError;
 
 	CWnd*	m_pParent;
 	UINT	m_nMsg;

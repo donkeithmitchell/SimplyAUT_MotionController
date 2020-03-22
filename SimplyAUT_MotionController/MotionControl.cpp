@@ -91,18 +91,20 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
     // this will enable the GCLIB to send messages to the owner of the motion control
     m_pGclib->Init(m_pParent, m_nMsg);
 
-	if (!m_pGclib->CheckDllExist())
-		return FALSE;
+    if (!m_pGclib->CheckDllExist())
+    {
+        AfxMessageBox(m_pGclib->GetLastError());
+        return FALSE;
+    }
 
     char strAddress[256];
     sprintf_s(strAddress, sizeof(strAddress), "%d.%d.%d.%d  --direct --subscribe ALL", address[0], address[1], address[2], address[3]);
  //   sprintf_s(strAddress, sizeof(strAddress), "%d.%d.%d.%d  --subscribe ALL", address[0], address[1], address[2], address[3]);
     SendDebugMessage(_T("Opening connection to \"") + CString(strAddress) + _T("\"... "));
 
-    CString szRet = m_pGclib->GOpen(strAddress);
-    if (szRet.Find("ERR") != -1)
+    if( !m_pGclib->GOpen(strAddress) )
     {
-        SendErrorMessage(szRet);
+        SendErrorMessage(m_pGclib->GetLastError());
         return FALSE;
     }
 
@@ -154,7 +156,10 @@ void CMotionControl::GoToHomePosition()
 {
     m_pGclib->GCommand("PA 0,0,0,0");
     m_pGclib->GCommand("SH");           // enable all axes
-    m_pGclib->GCommand("BG*");   // Begin motion on all Axis
+    if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
+    {
+        SendErrorMessage(m_pGclib->GetLastError());
+    }
 }
     
 
@@ -177,7 +182,10 @@ BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
     m_pGclib->GCommand(str);
     m_pGclib->GCommand("SH");           // enable all axes
     if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
+    {
+        SendErrorMessage(m_pGclib->GetLastError());
         return FALSE;
+    }
 
 
 //    int posA = AxisDirection("A") * DistancePerSecondToEncoderCount(pos_mm);
@@ -276,7 +284,11 @@ BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC
     m_pGclib->SetJogSpeed("D", AxisDirection("D") * DistancePerSecondToEncoderCount(speedD));
 
     m_pGclib->GCommand("SH");       // enable all axes
-    return m_pGclib->BeginMotors();   // Begin motion on all Axis
+    if (m_pGclib->BeginMotors())   // Begin motion on all Axis
+        return TRUE;
+
+    SendErrorMessage(m_pGclib->GetLastError());
+    return FALSE;
 }
 
 double CMotionControl::EncoderCountToDistancePerSecond(int encoderCount)const
