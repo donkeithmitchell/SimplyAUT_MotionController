@@ -86,6 +86,13 @@ void CDialogStatus::Create(CWnd* pParent)
 	ShowWindow(SW_HIDE);
 }
 
+void CDialogStatus::ResetStatus()
+{
+	UpdateData(TRUE);
+	m_szStatus = _T("");
+	UpdateData(FALSE);
+}
+
 void CDialogStatus::AppendDebugMessage(const CString& szMsg)
 {
 	UpdateData(TRUE);

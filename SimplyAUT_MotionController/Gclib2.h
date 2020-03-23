@@ -12,7 +12,7 @@ public:
 	void	Init(CWnd*, UINT);
 
 	BOOL IsConnected()const;
-	void SendDebugMessage(CString);
+	void SendDebugMessage(const CString&);
 
 	void    SetLastError();
 	void    SetLastError(const CString& szErr);

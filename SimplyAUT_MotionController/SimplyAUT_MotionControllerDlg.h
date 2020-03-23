@@ -73,4 +73,5 @@ protected:
 public:
 	CTabCtrl m_tabControl;
 	CString m_szErrorMsg;
+	afx_msg void OnClickedButtonResetStatus();
 };

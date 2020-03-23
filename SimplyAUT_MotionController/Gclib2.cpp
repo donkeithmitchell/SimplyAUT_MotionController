@@ -31,16 +31,18 @@ void Gclib::Init(CWnd* pParent, UINT nMsg)
 
 void Gclib::SetLastError()
 {
-    m_szLastError = _T("");
+    if( this != NULL )
+        m_szLastError = _T("");
 }
 
 
 void Gclib::SetLastError(const CString& str)
 {
-    m_szLastError = _T("Motor ERROR: ") + str;
+    if (this != NULL)
+        m_szLastError = _T("Motor ERROR: ") + str;
 }
 
-void Gclib::SendDebugMessage(CString msg)
+void Gclib::SendDebugMessage(const CString& msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {

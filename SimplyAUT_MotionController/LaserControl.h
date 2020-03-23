@@ -20,8 +20,8 @@ public:
 	BOOL IsLaserOn();
 	BOOL Disconnect();
 	BOOL Connect(const BYTE address[4]);
-	void SendDebugMessage(CString);
-	void SendErrorMessage(CString);
+	void SendDebugMessage(const CString&);
+	void SendErrorMessage(const CString&);
 	void EnableControls();
 	BOOL TurnLaserOn(BOOL);
 	BOOL GetLaserTemperature(LASER_TEMPERATURE&);

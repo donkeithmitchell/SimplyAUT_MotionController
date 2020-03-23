@@ -464,7 +464,7 @@ BOOL CMagControl::IsConnected()const
 	return g_sensor_initialised;
 }
 
-void CMagControl::SendDebugMessage(CString msg)
+void CMagControl::SendDebugMessage(const CString& msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
@@ -472,7 +472,7 @@ void CMagControl::SendDebugMessage(CString msg)
     }
 }
 
-void CMagControl::SendErrorMessage(CString msg)
+void CMagControl::SendErrorMessage(const CString& msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {

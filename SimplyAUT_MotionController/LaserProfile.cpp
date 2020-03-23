@@ -5,6 +5,7 @@
 #include "LaserProfile.h"
 #include "SLS_Comms.h"
 #include "afxdialogex.h"
+#include "misc.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -258,6 +259,60 @@ BOOL CStaticLaserProfile::CalcLaserMeasures(LASSER_MEASURES& meas)
 	return TRUE;
 }
 
+static double GetWeldCentre(const Hits hits[], int nSize)
+{
+	double sum = 0;
+	int count = 0;
+	int minPos = INT_MAX;
+	int maxPos = -INT_MAX;
+	
+	for (int i = 0; i < nSize; ++i)
+	{
+		if (hits[i].pos1 > 0 && hits[i].pos1 < SENSOR_HEIGHT)
+		{
+			minPos = min(minPos, hits[i].pos1);
+			maxPos = max(maxPos, hits[i].pos1);
+			sum += hits[i].pos1;
+			count++;
+		}
+	}
+	if (count == 0)
+		return 0;
+
+	double avgPos = sum / count;
+
+	// the threshold is 1/2 way from average to maxVal
+	int threshold = (int)((maxPos + avgPos) / 2 + 0.5);
+
+	// now note the start and end of this region above the threshold 
+	int i1, i2;
+	for (i1 = 0; i1 < nSize; ++i1)
+	{
+		if (hits[i1].pos1 > 0 && hits[i1].pos1 < SENSOR_HEIGHT && hits[i1].pos1 >= threshold)
+			break;
+	}
+	for (i2 = nSize - 1; i2 >= 0; --i2)
+	{
+		if (hits[i2].pos1 > 0 && hits[i2].pos1 < SENSOR_HEIGHT && hits[i2].pos1 >= threshold)
+			break;
+	}
+
+	// now put these values into a double vector and gtet the 2nd order polynomial parameters for
+	double x[SENSOR_WIDTH], y[SENSOR_WIDTH];
+	for (int i = i1; i < i2; ++i)
+	{
+		x[i - i1] = i;
+		y[i - i1] = hits[i].pos1;
+	}
+
+	double coeff[3];
+	::polyfit(x, y, i2 - i1, 2, coeff);
+
+	// now differentiate the coeff to dind the location of the maximum
+	double ind = -coeff[1] / (2 * coeff[2]);
+	return ind;
+}
+
 
 void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 {
@@ -284,6 +339,18 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	// Display Profile
 	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
 	pDC->SelectObject(&hits);
+
+	// get the modelled weld centrre
+	double weld_centre = GetWeldCentre(m_profile.hits, SENSOR_WIDTH);
+	CPoint pt = GetScreenPixel(weld_centre, 0);
+
+	// draw a vertical line here
+	CPen pen1(PS_DOT, 0, RGB(10, 255, 10));
+	pDC->SelectObject(&pen1);
+
+	pDC->MoveTo(pt.x, rect.bottom);
+	pDC->LineTo(pt.x, rect.top);
+
 	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
 		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)

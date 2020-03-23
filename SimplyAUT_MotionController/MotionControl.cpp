@@ -37,7 +37,7 @@ void CMotionControl::Init(CWnd* pParent, UINT nMsg)
     m_nMsg = nMsg;
 }
 
-void CMotionControl::SendDebugMessage(CString msg)
+void CMotionControl::SendDebugMessage(const CString& msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
@@ -45,7 +45,7 @@ void CMotionControl::SendDebugMessage(CString msg)
     }
 }
 
-void CMotionControl::SendErrorMessage(CString msg)
+void CMotionControl::SendErrorMessage(const CString& msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {

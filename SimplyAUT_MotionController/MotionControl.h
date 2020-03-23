@@ -16,8 +16,8 @@ public:
 	double GetMotorSpeed(GCStringIn axis, double& rAccel);
 	double GetMotorPosition(GCStringIn axis);
 	BOOL SetMotorJogging(double speedA, double speedB, double speedC, double speedD, double accel);
-	void SendDebugMessage(CString);
-	void SendErrorMessage(CString);
+	void SendDebugMessage(const CString&);
+	void SendErrorMessage(const CString&);
 	void EnableControls();
 	void StopMotors();
 	double EncoderCountToDistancePerSecond(int encoderCount)const;

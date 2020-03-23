@@ -27,7 +27,7 @@ void CLaserControl::Init(CWnd* pParent, UINT nMsg)
     m_nMsg = nMsg;
 }
 
-void CLaserControl::SendDebugMessage(CString msg)
+void CLaserControl::SendDebugMessage(const CString& msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 	{
@@ -35,7 +35,7 @@ void CLaserControl::SendDebugMessage(CString msg)
 	}
 }
 
-void CLaserControl::SendErrorMessage(CString msg)
+void CLaserControl::SendErrorMessage(const CString& msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 	{
@@ -114,7 +114,7 @@ int CLaserControl::GetSerialNumber()
 BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE & temperature)
 {
 	SensorStatus SensorStatus;
-	if (GetLaserStatus(SensorStatus) )
+	if (IsConnected() && GetLaserStatus(SensorStatus) )
 	{
 		double t1 = (((double)SensorStatus.MainBrdTemp) / 100.0) - 100.0;
 		double t2 = (((double)SensorStatus.LaserTemp) / 100.0) - 100.0;

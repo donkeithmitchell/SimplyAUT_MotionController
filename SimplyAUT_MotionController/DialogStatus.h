@@ -16,6 +16,7 @@ public:
 	void EnableControls();
 	void Init(CWnd* pParent, UINT nMsg);
 	BOOL CheckVisibleTab() { return TRUE; }
+	void ResetStatus();
 
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 

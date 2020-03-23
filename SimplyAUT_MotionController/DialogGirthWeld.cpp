@@ -48,6 +48,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
+	, m_weldNavigation(motion, laser, mag)
 	, m_wndLaser(laser, mag)
 	, m_nGalilState(nState)
 
@@ -209,6 +210,7 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_MESSAGE(WM_STEER_RIGHT,				&CDialogGirthWeld::OnUserSteerRight)
 	ON_MESSAGE(WM_STOPMOTOR_FINISHED,		&CDialogGirthWeld::OnUserStopMotorFinished)
 	ON_MESSAGE(WM_USER_STATIC,				&CDialogGirthWeld::OnUserStaticParameter)
+	ON_MESSAGE(WM_WELD_NAVIGATION,			&CDialogGirthWeld::OnUserWeldNavigation)
 END_MESSAGE_MAP()
 
 
@@ -246,6 +248,7 @@ BOOL CDialogGirthWeld::OnInitDialog()
 	m_wndLaser.Init(this, WM_USER_STATIC);
 	m_buttonLeft.Init(this, WM_STEER_LEFT);
 	m_buttonRight.Init(this, WM_STEER_RIGHT);
+	m_weldNavigation.Init(this, WM_WELD_NAVIGATION);
 
 	m_bInit = TRUE;
 	SetButtonBitmaps();
@@ -280,102 +283,12 @@ void CDialogGirthWeld::Create(CWnd* pParent)
 	ShowWindow(SW_HIDE);
 }
 
-static double CalcGapVelocity(const LASER_POS* buff1, int nSize)
-{
-	// note the average velocity of the last 5 entries
-	// use the filtered positions
 
-	double sum = 0;
-	int count = 0;
-	for (int i = nSize - 1; i >= max(nSize - 5, 1); --i)
-	{
-		double gap_diff = buff1[i].gap_filt - buff1[i - 1].gap_filt; // change in gap 
-		double tim_diff = buff1[i].tim - buff1[i - 1].tim;
-		double pos_diff = buff1[i].pos - buff1[i - 1].pos;
-
-		double vel = (pos_diff != 0) ? gap_diff / (pos_diff / 1000.0) : 0; // mm/M
-		sum += vel;
-		count++;
-	}
-
-	return (count > 0) ? sum / count : 0;
-}
-
-static double CalcGapAcceleration(const LASER_POS* buff1, int nSize)
-{
-	// note the average accel of the last 5 entries
-	// use the filtered velocities
-
-	double sum = 0;
-	int count = 0;
-	for (int i = nSize - 1; i >= max(nSize - 5, 1); --i)
-	{
-		double vel_diff = buff1[i].gap_vel - buff1[i - 1].gap_vel; // change in gap 
-		double pos_diff = buff1[i].pos - buff1[i - 1].pos;
-
-		double vel = (pos_diff != 0) ? vel_diff / (pos_diff / 1000.0) : 0; // mm/M
-		sum += vel;
-		count++;
-	}
-
-	return (count > 0) ? sum / count : 0;
-}
-
-// only need to L/P filter the last value
-// for now ghet the average of the last 5 values
-static double LowPassFilterGap(const LASER_POS* buff1, int nSize)
-{
-//#define WIDTH 10
-//	double PI = acos(-1.0);
-
-	double sum = 0;
-	int count = 0;
-	for (int i = nSize - 1; i >= max(nSize - 5, 0); --i)
-	{
-//		double Wk = 0.54 - 0.46 * cos(2 * PI * i / WIDTH);
-		sum += buff1[i].gap_raw;
-		count++;
-	}
-
-	return (count > 0) ? sum / count : 0;
-}
-
-// add the current laser position to a list along with the time stamp of when noted
-int CDialogGirthWeld::NoteNextLaserPosition()
-{
-	int nSize = (int)m_posLaser.GetSize();
-	CDoublePoint pt = m_wndLaser.GetJointPos();
-
-	if (pt.IsSet())
-	{
-		m_posLaser.SetSize(++nSize, 1028);
-		m_posLaser[nSize - 1].gap_raw = pt.x;
-		m_posLaser[nSize - 1].tim = clock(); // niote wshen this position was, used to calculate velocities
-		m_posLaser[nSize - 1].pos = GetMaximumMotorPosition();
-
-		// calculate the filtered position of this last entry as the average of the last 5
-		m_posLaser[nSize - 1].gap_filt = ::LowPassFilterGap(m_posLaser.GetData(), nSize + 1);
-		m_posLaser[nSize - 1].gap_vel = ::CalcGapVelocity(m_posLaser.GetData(), nSize + 1);
-		m_posLaser[nSize - 1].gap_accel = ::CalcGapAcceleration(m_posLaser.GetData(), nSize + 1);
-
-		// get the actual (VS requested) speed of all the motors
-		double accelA, velA = m_motionControl.GetMotorSpeed("A", accelA);
-		double accelB, velB = m_motionControl.GetMotorSpeed("B", accelB);
-		double accelC, velC = m_motionControl.GetMotorSpeed("C", accelC);
-		double accelD, velD = m_motionControl.GetMotorSpeed("D", accelD);
-
-		double velLeft = (velA + velD) / 2;
-		double velRight = (velB + velC) / 2;
-		double ratio = (velRight != 0) ? 100 * velLeft / velRight : 0;
-		m_posLaser[nSize - 1].motor_lr = ::CalcGapAcceleration(m_posLaser.GetData(), nSize + 1);
-
-	}
-	return nSize + 1;
-}
 
 // this will be called approximately every mm
 // so add the next location on each call to a buffer
 // preset the length of the buffer for the distance being run
+/*
 double CDialogGirthWeld::GetFilteredLaserPosition(double& gap_vel)
 {
 	// now LP filter to a seperate buffer
@@ -385,7 +298,7 @@ double CDialogGirthWeld::GetFilteredLaserPosition(double& gap_vel)
 	// now note the velocity 
 	return gap;
 }
-
+*/
 /*
 void CDialogGirthWeld::SetLaserStatus(LASER_STATUS nStatus)
 {
@@ -430,10 +343,8 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 		m_wndLaser.AddRGBData(sum);
 		break;
 	}
-	case TIMER_STEERMOTORS:
+	case TIMER_NOTE_STEERING:
 	{
-		NoteNextLaserPosition();
-//		SteerCrawler();
 		NoteSteering();
 		break;
 	}
@@ -444,25 +355,29 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 
 void CDialogGirthWeld::NoteSteering()
 {
-	int nSize = (int)m_posLaser.GetSize();
-	if (nSize == 0 || !m_laserControl.IsLaserOn())
+	if ( !m_laserControl.IsLaserOn())
+		return;
+
+	// if tim=0, then thre is no data
+	// this is thread safe
+	LASER_POS pos = m_weldNavigation.GetLastNotedPosition();
+	if (pos.tim == 0)
 		return;
 
 	// note the fioltered gap distance
-	m_szSteeringGapDist.Format("%.1f", m_posLaser[nSize-1].gap_filt);
+	m_szSteeringGapDist.Format("%.1f", pos.gap_filt);
 	GetDlgItem(IDC_STATIC_STEERING_GAP)->SetWindowText(m_szSteeringGapDist);
 
-	m_szSteeringGapVel.Format("%.1f", m_posLaser[nSize - 1].gap_vel);
+	m_szSteeringGapVel.Format("%.1f", pos.gap_vel);
 	GetDlgItem(IDC_STATIC_STEERING_GAP_VEL)->SetWindowText(m_szSteeringGapVel);
 
-	m_szSteeringGapAccel.Format("%.1f", m_posLaser[nSize - 1].gap_accel);
+	m_szSteeringGapAccel.Format("%.1f", pos.gap_accel);
 	GetDlgItem(IDC_STATIC_STEERING_GAP_ACCEL)->SetWindowText(m_szSteeringGapAccel);
 
-	m_szSteeringLRDiff.Format("%.1f", m_posLaser[nSize - 1].motor_lr);
+	m_szSteeringLRDiff.Format("%.1f", pos.motor_lr);
 	GetDlgItem(IDC_STATIC_STEERING_LR_DIFF)->SetWindowText(m_szSteeringLRDiff);
-
 }
-
+/*
 void CDialogGirthWeld::SteerCrawler()
 {
 	if (!m_laserControl.IsLaserOn())
@@ -506,7 +421,7 @@ void CDialogGirthWeld::SteerCrawler()
 		m_motionControl.SetSlewSpeed(m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed);
 	}
 }
-
+*/
 void CDialogGirthWeld::ShowLaserStatus()
 {
 	HBITMAP hBitmap = NULL;
@@ -753,7 +668,7 @@ void CDialogGirthWeld::OnDeltaposSpinScanOverlap(NMHDR* pNMHDR, LRESULT* pResult
 }
 
 
-void CDialogGirthWeld::SendDebugMessage(CString msg)
+void CDialogGirthWeld::SendDebugMessage(const CString& msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
@@ -917,11 +832,15 @@ void CDialogGirthWeld::StartSteeringMotors(BOOL bSet)
 	if (bSet)
 	{
 		double accel, speed = GetRequestedMotorSpeed(accel); // this uses a SendMessage, and must not be called from a thread
-		int delay1 = (int)(10 * 1000.0 / speed + 0.5);
-		SetTimer(TIMER_STEERMOTORS, delay1, NULL);
+		m_weldNavigation.StartSteeringMotors(TRUE, speed);
+		SetTimer(TIMER_NOTE_STEERING, 500, NULL); // this speed does not need to be the same as that used to manage the steerin g
+
 	}
 	else
-		KillTimer(TIMER_STEERMOTORS);
+	{
+		KillTimer(TIMER_NOTE_STEERING);
+		m_weldNavigation.StartSteeringMotors(FALSE);
+	}
 }
 
 void CDialogGirthWeld::StartNotingMotorSpeed(BOOL bSet)
@@ -1137,7 +1056,7 @@ void CDialogGirthWeld::RunMotors()
 				m_laserControl.TurnLaserOn(TRUE);
 				m_magControl.EnableMagSwitchControl(FALSE);
 				m_magControl.ResetEncoderCount();
-				StartSteeringMotors(TRUE);
+//				StartSteeringMotors(TRUE);
 				StartNotingRGBData(TRUE);
 				StartNotingMotorSpeed(TRUE);
 			}
@@ -1160,7 +1079,7 @@ void CDialogGirthWeld::RunMotors()
 				m_laserControl.TurnLaserOn(TRUE);
 				m_magControl.EnableMagSwitchControl(FALSE);
 				m_magControl.ResetEncoderCount();
-				StartSteeringMotors(TRUE);
+//				StartSteeringMotors(TRUE);
 				StartNotingRGBData(TRUE);
 				StartNotingMotorSpeed(TRUE);
 			}
@@ -1180,6 +1099,25 @@ UINT CDialogGirthWeld::ThreadStopMotors()
 //	m_magControl.EnableMagSwitchControl(TRUE);		// call, them in the finish up call-back
 	PostMessage(WM_STOPMOTOR_FINISHED);
 	return 0;
+}
+
+LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
+{
+	switch (wParam)
+	{
+		case NAVIGATE_GET_MEASURE:
+		{
+			Measurement* pMeas = (Measurement*)lParam;
+			return m_laserControl.GetLaserMeasurment(*pMeas);
+		}
+		case NAVIGATE_SEND_DEBUG_MSG:
+		{
+			const CString* pMsg = (CString*)lParam;
+			SendDebugMessage(*pMsg);
+			return 0L;
+		}
+	}
+	return 0L;
 }
 
 LRESULT CDialogGirthWeld::OnUserStaticParameter(WPARAM wParam, LPARAM lParam)

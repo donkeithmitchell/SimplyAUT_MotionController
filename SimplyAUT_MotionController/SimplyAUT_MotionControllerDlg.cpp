@@ -96,6 +96,7 @@ BEGIN_MESSAGE_MAP(CSimplyAUTMotionControllerDlg, CDialogEx)
 	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB1, &CSimplyAUTMotionControllerDlg::OnSelchangeTab1)
 	ON_MESSAGE(WM_DEGUG_MSG, OnUserDebugMessage)
 	ON_WM_TIMER()
+	ON_BN_CLICKED(IDC_BUTTON_RESET_STATUS, &CSimplyAUTMotionControllerDlg::OnClickedButtonResetStatus)
 END_MESSAGE_MAP()
 
 
@@ -145,6 +146,8 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	m_dlgLaser.Create(&m_tabControl);
 	m_dlgMag.Create(&m_tabControl);
 	m_dlgStatus.Create(&m_tabControl);
+
+	GetDlgItem(IDC_BUTTON_RESET_STATUS)->ShowWindow(SW_HIDE);
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
@@ -282,17 +285,23 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 	if (!m_bInit)
 		return;
 
+	BOOL bStatus = m_tabControl.GetCurSel() == TAB_STATUS;
 	GetClientRect(&rect);
 	cx = rect.Width();
 	cy = rect.Height();
 
+	GetDlgItem(IDC_BUTTON_RESET_STATUS)->GetClientRect(&rect);
+	int cx2 = rect.Width();
+	int cy2 = rect.Height();
+
 	GetDlgItem(IDC_EDIT_STATUS)->GetClientRect(&rect);
 	int cx1 = rect.Width();
-	int cy1 = rect.Height();
+	int cy1 = 3 * cy2; //  rect.Height();
 
-	GetDlgItem(IDC_EDIT_STATUS)->MoveWindow(2, cy - cy1 - 2, cx-4, cy1);
+	GetDlgItem(IDC_EDIT_STATUS)->MoveWindow(2, cy - cy1 - 2, cx - 4, cy1);
+	GetDlgItem(IDC_BUTTON_RESET_STATUS)->MoveWindow(cx - cx2 - 2, cy - cy2 - 2, cx2, cy2);
 
-	m_tabControl.MoveWindow(2, 2, cx - 4, cy - cy1 - 6);
+	m_tabControl.MoveWindow(2, 2, cx - 4, cy - (bStatus ? cy2 : cy1) - 6);
 	m_tabControl.GetClientRect(&rect);
 	int cx3 = rect.Width();
 	int cy3 = rect.Height();
@@ -314,6 +323,11 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pRes
 		OnSelchangeTab2();
 	else
 		m_tabControl.SetCurSel(m_nSel); // put back as there qwere errors in n edit box
+
+	BOOL bStatus = m_tabControl.GetCurSel() == TAB_STATUS;
+	GetDlgItem(IDC_BUTTON_RESET_STATUS)->ShowWindow(bStatus ? SW_SHOW : SW_HIDE);
+	GetDlgItem(IDC_EDIT_STATUS)->ShowWindow(bStatus ? SW_HIDE : SW_SHOW);
+
 	*pResult = 0;
 }
 
@@ -355,6 +369,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	m_dlgStatus.ShowWindow(m_nSel == TAB_STATUS ? SW_SHOW : SW_HIDE);
 
 	// this will causew the sdizing of the laser to be adjusted
+	PostMessage(WM_SIZE);
 	m_dlgGirthWeld.PostMessage(WM_SIZE);
 }
 
@@ -380,3 +395,10 @@ void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const CString& szMsg)
 	UpdateData(FALSE);
 }
 
+
+
+void CSimplyAUTMotionControllerDlg::OnClickedButtonResetStatus()
+{
+	// TODO: Add your control notification handler code here
+	m_dlgStatus.ResetStatus();
+}

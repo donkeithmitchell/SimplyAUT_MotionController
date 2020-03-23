@@ -1,27 +1,8 @@
 #pragma once
 #include "StaticLaser.h"
+#include "WeldNavigation.h"
+#include "SimplyAUT_MotionController.h"
 #include "button.h"
-
-//enum LASER_STATUS {
-//	TIMER_LASER_OFF = 0, TIMER_LASER_OK, TIMER_LASER_ERROR, TIMER_LASER_HOT,
-//	TIMER_LASER_SENDING_OK, TIMER_LASER_SENDING_ERROR, TIMER_LASER_LOADING, TIMER_SHOW_MOTOR_SPEEDS,
-//	TIMER_LASER_STATUS /*TIMER_STEER_LEFT, TIMER_STEER_RIGHT*/
-//};
-
-struct LASER_POS
-{
-	LASER_POS() { memset(this, 0x0, sizeof(LASER_POS)); }
-	double  gap_raw;	// distance to the weld (mm)
-	double  gap_filt;	// distance to the weld (mm)
-	double  pos;	// dist travelled (mm)
-	double  gap_vel;
-	double  gap_accel;
-	double  motor_lr;
-	clock_t tim;	// time that measure taken (ms)
-	long    dummy4;
-};
-
-
 
 // CDialogGirthWeld dialog
 
@@ -53,24 +34,21 @@ public:
 	UINT    ThreadStopMotors(void);
 	UINT	ThreadGoToHome(void);
 	UINT	ThreadRunManual(BOOL);
-	void	SendDebugMessage(CString);
+	void	SendDebugMessage(const CString&);
 	double  GetMaximumMotorPosition();
 	void    ShowLaserTemperature();
 	void    ShowLaserStatus();
 	int		GetMagStatus(int nStat);
 	void	SetRunTime(int);
-	int     NoteNextLaserPosition();
-	double  GetFilteredLaserPosition(double&);
-	void    SteerCrawler();
 	void    NoteSteering();
 	void    StartNotingRGBData(BOOL);
 	void	StartNotingMotorSpeed(BOOL);
 	void    StartSteeringMotors(BOOL);
 
-	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC };
-	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_STEERMOTORS, TIMER_NOTE_RGB
-	};
+	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION};
+	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_NOTE_RGB, TIMER_NOTE_STEERING};
 	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_MAG_STATUS};
+	enum{ NAVIGATE_GET_MEASURE=0, NAVIGATE_SEND_DEBUG_MSG};
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -88,6 +66,7 @@ public:
 	afx_msg LRESULT OnUserSteerRight(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserStopMotorFinished(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserStaticParameter(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserWeldNavigation(WPARAM, LPARAM);
 
 	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
@@ -95,6 +74,7 @@ public:
 	CMagControl& m_magControl;
 	HANDLE			m_hThreadRunMotors;
 	GALIL_STATE		m_nGaililStateBackup;
+	CWeldNavigation m_weldNavigation;
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;
@@ -106,7 +86,6 @@ public:
 	double  m_fMotorSpeed;
 	double  m_fMotorAccel;
 	clock_t	m_nRunStart;
-	CArray<LASER_POS, LASER_POS> m_posLaser;
 
 	CBitmap	m_bitmapPause;
 	CBitmap	m_bitmapGoRight;

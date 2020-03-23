@@ -52,7 +52,7 @@ public:
 	double	m_fHomeAng;
 
 	Profile			m_profile;
-	Measurement		m_measure;
+	Measurement 	m_measure;
 	int				m_profile_count;
 	int				m_image_count;
 	CDoublePoint    m_joint_pos;

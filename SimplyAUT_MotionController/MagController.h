@@ -38,8 +38,8 @@ public:
     BOOL    IsMagSwitchEnabled();
     UINT    ThreadReadSocket();
     UINT    ThreadConnectSocket();
-    void    SendDebugMessage(CString msg);
-    void    SendErrorMessage(CString msg);
+    void    SendDebugMessage(const CString& msg);
+    void    SendErrorMessage(const CString& msg);
 
 protected:
     CWnd*   m_pParent;
