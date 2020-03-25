@@ -6,16 +6,18 @@
 #include "DialogGirthWeld.h"
 #include "Misc.h"
 
+static double PI = 4 * atan(1.0);
+
+
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres
-#define FILTER_WIDTH				10
-#define UPDATE_DISTANCE_MM			10
+#define FILTER_WIDTH				10 // samples
+#define UPDATE_DISTANCE_MM			5 // mm
 #define NAVIGATION_TARGET_DIST_MM	100
 #define WHEEL_SPACING				(10.0 * 2.54)
 #define MIN_STEERING_TIME			100
 #define MAX_STEERING_TIME			1000
 #define DESIRED_SPEED_VARIATION		1 // percent
 #define MAX_SPEED_VARIATION			10 // percent
-static const double PI = acos(-1.0);
 
 static UINT ThreadSteerMotors(LPVOID param)
 {
@@ -48,7 +50,7 @@ void CWeldNavigation::Init(CWnd* pWnd, UINT nMsg)
 
 static double HammingWindow(int ind, int nWidth)
 {
-	double Wk = 0.54 - 0.46 * cos(PI * ind / nWidth);
+	double Wk = 0.54 - 0.46 * cos(PI * (ind+1) / nWidth);
 	return Wk;
 }
 
@@ -56,22 +58,45 @@ static double HammingWindow(int ind, int nWidth)
 // for now ghet the average of the last 5 values
 static double LowPassFilterGap(const LASER_POS* buff1, int nSize)
 {
-	// assumne get a value per mm
-	// use a hamming window (1/2) to filter
+	// sort tyhe gaps, and remove the outliers
+	CDoublePoint buffer[FILTER_WIDTH];
+	int cnt1 = 0;
+	for (int i = 0; i < nSize; ++i)
+	{
+		double gap1 = buff1[i].gap_raw;
+		if (gap1 != FLT_MAX)
+		{
+			buffer[cnt1].x = gap1;
+			buffer[cnt1].y = (double)i;
+			cnt1++;
+		}
+	}
+	if (cnt1 < 3)
+		return FLT_MAX;
+
+	// sort by gap, then remove the 1st and last values
+	// i.e. use the inside 3
+	qsort(buffer, cnt1, sizeof(CDoublePoint), ::MinMaxDP_X);
+
+	// remove the outside 2 values, then re-sort back to index order
+	qsort(buffer + 1, cnt1 - 2, sizeof(CDoublePoint), ::MinMaxDP_Y);
 
 	double sum = 0;
 	double count = 0;
-	for (int i = 0; i < nSize; ++i)
+	int cnt2 = 0;
+	for (int j = 1; j < cnt1-1; ++j)
 	{
+		int i = (int)(buffer[j].y + 0.5);
 		if (buff1[i].gap_raw != FLT_MAX)
 		{
 			double Wk = HammingWindow(i, nSize);
 			sum += Wk * buff1[i].gap_raw;
 			count += Wk;
+			cnt2++;
 		}
 	}
 
-	return (count > 0) ? sum / count : FLT_MAX;
+	return (cnt2 == cnt1-2) ? sum / count : FLT_MAX;
 }
 
 // navigation required knowing the velocity to from the weld
@@ -81,23 +106,45 @@ static double CalcGapVelocity(const LASER_POS* buff1, int nSize)
 	// note the average velocity of the last FILTER_WIDTH entries
 	// use the filtered positions
 
-	double sum = 0;
-	double count = 0;
+	// get the median velocity to see if to remove any outliers
+	CDoublePoint buffer[FILTER_WIDTH-1];
+	int cnt1 = 0;
 	for (int i = 1; i < nSize; ++i)
 	{
-		// -Ve gap is to the left
-		// -Ve velocity os driving further to the left
-		if (buff1[i].gap_filt != FLT_MAX && buff1[i - 1].gap_filt != FLT_MAX)
+		double gap1 = buff1[i - 1].gap_filt;
+		double gap2 = buff1[i - 0].gap_filt;
+		if (gap1 != FLT_MAX && gap2 != FLT_MAX)
 		{
-			double gap_diff = buff1[i].gap_filt - buff1[i - 1].gap_filt; // change in gap 
-			double tim_diff = buff1[i].tim - buff1[i - 1].tim;
+			double gap_diff = gap2 - gap1; // change in gap 
 			double pos_diff = buff1[i].pos - buff1[i - 1].pos;
+			buffer[cnt1].x = (pos_diff != 0) ? gap_diff / (pos_diff / 1000.0) : 0; // mm/M
+			buffer[cnt1].y = (double)i;
+			cnt1++;
+		}
+	}
+	if (cnt1 != nSize-1)
+		return FLT_MAX;
 
-			// divide by 1000, so the velocity is mm/M
-			double vel = (pos_diff != 0) ? gap_diff / (pos_diff / 1000.0) : 0; // mm/M
-			double Wk = HammingWindow(i, nSize);
+	// sort by velocity, then remove the 1st and last values
+	// i.e. use the inside 3
+	qsort(buffer, cnt1, sizeof(CDoublePoint), ::MinMaxDP_X);
+
+	// remove the outside 2 values, then re-sort back to index order
+	qsort(buffer+1, cnt1-2, sizeof(CDoublePoint), ::MinMaxDP_Y);
+
+	double sum = 0;
+	double count = 0;
+	int cnt2 = 0;
+	for (int j = 1; j < cnt1-1; ++j)
+	{
+		int i1 = (int)(buffer[j].y + 0.5); // 
+		double vel = buffer[j].x;
+		if( vel != FLT_MAX )
+		{
+			double Wk = HammingWindow(i1, nSize);
 			sum += Wk * vel;
-				count += Wk;
+			count += Wk;
+			cnt2++;
 		}
 	}
 
@@ -139,7 +186,7 @@ LASER_POS CWeldNavigation::GetLastNotedPosition()
 BOOL CWeldNavigation::GetLaserMeasurment(LASER_MEASURES& measure)
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
-		return m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MEASURE, (LPARAM)&measure);
+		return (BOOL)m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MEASURE, (LPARAM)&measure);
 	else
 		return FALSE;
 }
@@ -147,7 +194,7 @@ BOOL CWeldNavigation::GetLaserMeasurment(LASER_MEASURES& measure)
 BOOL CWeldNavigation::GetMotorSpeed(double speed[4])
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
-		return m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MOTOR_SPEED, (LPARAM)speed);
+		return (BOOL)m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MOTOR_SPEED, (LPARAM)speed);
 	else
 		return  FALSE;
 }
@@ -155,7 +202,7 @@ BOOL CWeldNavigation::GetMotorSpeed(double speed[4])
 BOOL CWeldNavigation::SetMotorSpeed(const double speed[4] )
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
-		return m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_SET_MOTOR_SPEED, (LPARAM)speed);
+		return (BOOL)m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_SET_MOTOR_SPEED, (LPARAM)speed);
 	else
 		return FALSE;
 }
@@ -187,6 +234,14 @@ LASER_POS CWeldNavigation::NoteNextLaserPosition()
 		// m_measure will be updatre regularily 
 		double motor_pos = GetAvgMotorPosition();
 
+		// if the motor has not yet moved a full mm, then return
+		// less than this and the velocity will not be stable
+		if (m_posLaser.GetSize() > 0 && motor_pos < m_posLaser[m_posLaser.GetSize() - 1].pos + 1)
+		{
+			m_crit.Unlock();
+			return ret;
+		}
+
 		// as this is called by a thread
 		// lock the array while modifying
 		ret.gap_raw = measure.weld_cap_mm.x;
@@ -208,25 +263,30 @@ LASER_POS CWeldNavigation::NoteNextLaserPosition()
 		}
 
 		// once in a copy will be thread safe
-		for (int i = FILTER_WIDTH - 1, j = m_posLaser.GetSize()-2; i >= 0; --i, --j)
+		for (int i = FILTER_WIDTH - 1, j = (int)m_posLaser.GetSize()-2; i >= 0; --i, --j)
 			buffer[i] = m_posLaser[j];
 
 		m_crit.Unlock();
 
 		ret.gap_filt = ::LowPassFilterGap(buffer, FILTER_WIDTH);
-		ret.gap_vel = ::CalcGapVelocity(buffer, FILTER_WIDTH);
-		if (ret.gap_vel != FLT_MAX)
+		if (ret.gap_filt != FLT_MAX)
 		{
-			ret.gap_accel = ::CalcGapAcceleration(buffer, FILTER_WIDTH);
+			// put this value into the buffer, so can be used to calcualte the velocity
+			buffer[FILTER_WIDTH - 1].gap_filt = ret.gap_filt;
+			ret.gap_vel = ::CalcGapVelocity(buffer, FILTER_WIDTH);
+			if (ret.gap_vel != FLT_MAX)
+			{
+//				ret.gap_accel = ::CalcGapAcceleration(buffer, FILTER_WIDTH);
 
-			// get the actual (VS requested) speed of all the motors
-			double speed[4];
-			GetMotorSpeed(speed);
+				// get the actual (VS requested) speed of all the motors
+				double speed[4];
+				GetMotorSpeed(speed);
 
-			double velLeft = (speed[0] + speed[3]) / 2;
-			double velRight = (speed[1] + speed[2]) / 2;
-			double ratio = (velRight != 0) ? 100 * velLeft / velRight : 0;
-			ret.motor_lr = ratio;
+				double velLeft = (speed[0] + speed[3]) / 2;
+				double velRight = (speed[1] + speed[2]) / 2;
+				double ratio = (velRight != 0) ? 100 * velLeft / velRight : 1;
+				ret.motor_lr = ratio;
+			}
 		}
 
 		// hiold the lock() as short a time as posible
@@ -298,8 +358,9 @@ UINT CWeldNavigation::ThreadSteerMotors()
 		// modify the mnotor speeds for the required time
 		if (travel.x != 0)
 		{
-			double speedLeft = m_fMotorSpeed + travel.x / 2;
-			double speedRight = m_fMotorSpeed - travel.x / 2;
+			// if travel.x < 0 then want to travel to the right
+			double speedLeft = m_fMotorSpeed - travel.x / 2;
+			double speedRight = m_fMotorSpeed + travel.x / 2;
 
 			if(tim1 == -1 )
 				tim1 = clock();
@@ -335,7 +396,9 @@ UINT CWeldNavigation::ThreadSteerMotors()
 void CWeldNavigation::Wait(int delay)
 {
 	clock_t tim2 = clock();
-	int delay1 = max((int)(UPDATE_DISTANCE_MM * 1000.0 / m_fMotorSpeed + 0.5), 1);
+	int delay1 = (int)(UPDATE_DISTANCE_MM * 1000.0 / m_fMotorSpeed + 0.5);
+	delay1 = max(delay1, 1);
+	delay1 = min(delay1, 100);
 
 	while (m_bSteerMotors && clock() - tim2 < delay)
 	{
@@ -363,12 +426,12 @@ CDoublePoint CWeldNavigation::CalculateLeftRightTravel(double dir_change)
 	double change_time = 1000 * dist / fChange;
 
 	// want this time to be between 1/10 sec and 2 sec
-	if (change_time < MIN_STEERING_TIME)
+	if (fabs(change_time) < MIN_STEERING_TIME)
 	{
 		fChange = 1000 * dist / MIN_STEERING_TIME;
 		change_time = MIN_STEERING_TIME;
 	}
-	else if (change_time > MAX_STEERING_TIME)
+	else if (fabs(change_time) > MAX_STEERING_TIME)
 	{
 		fChange = 1000 * dist / MAX_STEERING_TIME;
 		change_time = MAX_STEERING_TIME;

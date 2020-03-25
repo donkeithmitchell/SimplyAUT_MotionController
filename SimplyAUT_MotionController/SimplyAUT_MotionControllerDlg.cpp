@@ -151,11 +151,21 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
-	SetTimer(TIMER_GET_MAG_STATUS, 100, NULL);
+	StartReadMagStatus(TRUE);
 	OnSelchangeTab2();
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
+
+// will turn this off while navigating
+void CSimplyAUTMotionControllerDlg::StartReadMagStatus(BOOL bOn)
+{
+	if (bOn)
+		SetTimer(TIMER_GET_MAG_STATUS, 500, NULL);
+	else
+		KillTimer(TIMER_GET_MAG_STATUS);
+}
+
 
 void CSimplyAUTMotionControllerDlg::OnTimer(UINT_PTR nIDEvent)
 {
@@ -208,6 +218,9 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			*pAccel = m_dlgMotors.GetMotorAccel();
 			break;
 		}
+		case MSG_MAG_STATUS_ON:
+			StartReadMagStatus(lParam);
+			break;
 		case MSG_SHOW_MOTOR_SPEEDS:
 			m_dlgMotors.ShowMotorSpeeds();
 			break;

@@ -4,10 +4,10 @@
 #include "MotionControl.h"
 #include "Gclib2.h"
 
-static double PI = 3.14159265358979323846;
 //static const  double COUNTS_PER_TURN = 768000.0;
 static const  double COUNTS_PER_TURN = (768000.0 / 0.68);
 static const double WHEEL_DIAMETER = 50.0; // MM
+static double PI = 4 * atan(1.0);
 
 
 CMotionControl::CMotionControl()
@@ -180,27 +180,21 @@ BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
     str.Format("PA %d, %d, %d, %d", posA, posB, posC, posD);
 
     m_pGclib->GCommand(str);
-    m_pGclib->GCommand("SH");           // enable all axes
+   // m_pGclib->GCommand("SH");           // enable all axes
     if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
     {
         SendErrorMessage(m_pGclib->GetLastError());
         return FALSE;
     }
 
-
-//    int posA = AxisDirection("A") * DistancePerSecondToEncoderCount(pos_mm);
-//    int posB = AxisDirection("B") * DistancePerSecondToEncoderCount(pos_mm);
-//    int posC = AxisDirection("C") * DistancePerSecondToEncoderCount(pos_mm);
-//    int posD = AxisDirection("D") * DistancePerSecondToEncoderCount(pos_mm);
-//    m_pGclib->GoToPosition(posA, posB, posC, posD);
- //   m_pGclib->GoToPosition(pos_cnt);
-
- //   m_pGclib->SetServoHere();
- //   m_pGclib->BeginMotors();   // Begin motion on all Axis
-
     // now wait for the mnotors to stop
     // this xshould be called by a thread
     m_pGclib->WaitForMotorsToStop();
+    double posA1 = GetMotorPosition("A");
+    double posB1 = GetMotorPosition("B");
+    double posC1 = GetMotorPosition("C");
+    double posD1 = GetMotorPosition("D");
+
     m_pGclib->StopMotors();
     return TRUE;
 }

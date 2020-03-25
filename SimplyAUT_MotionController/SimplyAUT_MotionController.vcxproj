@@ -195,6 +195,7 @@
     <ClInclude Include="DialogMag.h" />
     <ClInclude Include="DialogMotors.h" />
     <ClInclude Include="DialogStatus.h" />
+    <ClInclude Include="Filter.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Gclib2.h" />
     <ClInclude Include="include\gclib.h" />
@@ -225,6 +226,7 @@
     <ClCompile Include="DialogMag.cpp" />
     <ClCompile Include="DialogMotors.cpp" />
     <ClCompile Include="DialogStatus.cpp" />
+    <ClCompile Include="Filter.cpp" />
     <ClCompile Include="Gclib2.cpp" />
     <ClCompile Include="LaserControl.cpp" />
     <ClCompile Include="LaserProfile.cpp" />

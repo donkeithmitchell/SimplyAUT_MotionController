@@ -37,6 +37,7 @@ CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, COLORREF bgColour
 	m_disp_width_factor = 1;
 	m_disp_height_factor = 1;
 	m_disp_height = 0;
+	memset(m_hitBuffer, 0x0, sizeof(m_hitBuffer));
 }
 
 CStaticLaserProfile::~CStaticLaserProfile()
@@ -239,7 +240,8 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	{
 		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
 		{
-			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
+//			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
+			CPoint pt = GetScreenPixel(i, m_hitBuffer[i]);
 			pDC->SetPixel(pt, RGB(250,50,50));
 		}
 	}
@@ -336,7 +338,7 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 	// will truy every 50 ms, but only draw every 500 ms
 	m_profile_count++;
 
-	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2); 
+	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, m_hitBuffer);
 	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix.x, (int)m_measure2.weld_cap_pix.y, h_mm, v_mm);
 	m_jointPos_str.Format("(%.1f,%.1f)", h_mm, v_mm);
 	m_valid_joint_pos = true;

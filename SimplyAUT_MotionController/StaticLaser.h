@@ -22,7 +22,7 @@ class CStaticLaser : public CWnd
 	DECLARE_DYNAMIC(CStaticLaser)
 
 public:
-	CStaticLaser(CLaserControl&, CMagControl&, const Profile&, const LASER_MEASURES&);
+	CStaticLaser(CLaserControl&, CMagControl&, const Profile&, const LASER_MEASURES&, const double*);
 
 	virtual ~CStaticLaser();
 	void Init(CWnd*, UINT);
@@ -55,6 +55,7 @@ public:
 
 	const Profile&			m_profile;
 	const LASER_MEASURES&   m_measure2;
+	const double*	m_hitBuffer;
 //	Measurement 	m_measure1;
 //	int				m_profile_count;
 //	int				m_image_count;
@@ -62,8 +63,8 @@ public:
 	CDoublePoint    m_edge_pos[3];
 	double			m_disp_width_factor;
 	double			m_disp_height_factor;
-	int             m_disp_height_min;
-	int             m_disp_height_max;
+	double          m_disp_height_min;
+	double          m_disp_height_max;
 	CRect			m_disp_rect;
 	CArray<int, int>  m_rgbData;
 	int				m_rgbSum; // use to calculate the average

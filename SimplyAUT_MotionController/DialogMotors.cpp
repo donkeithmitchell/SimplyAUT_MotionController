@@ -194,10 +194,16 @@ void CDialogMotors::ShowMotorSpeeds()
 	double fAC, fSC = m_motionControl.GetMotorSpeed("C", fAC);
 	double fAD, fSD = m_motionControl.GetMotorSpeed("D", fAD);
 
-	m_szMotorA.Format("%.1f (%.1f)", fSA, fAA);
-	m_szMotorB.Format("%.1f (%.1f)", fSB, fAB);
-	m_szMotorC.Format("%.1f (%.1f)", fSC, fAC);
-	m_szMotorD.Format("%.1f (%.1f)", fSD, fAD);
+	double fPosA = m_motionControl.GetMotorPosition("A");
+	double fPosB = m_motionControl.GetMotorPosition("B");
+	double fPosC = m_motionControl.GetMotorPosition("C");
+	double fPosD = m_motionControl.GetMotorPosition("D");
+
+	m_szMotorA.Format("%5.1f (%4.0f)", fSA, fPosA);
+	m_szMotorB.Format("%5.1f (%4.0f)", fSB, fPosB);
+	m_szMotorC.Format("%5.1f (%4.0f)", fSC, fPosC);
+	m_szMotorD.Format("%5.1f (%4.0f)", fSD, fPosD);
+
 	UpdateData(FALSE);
 }
 

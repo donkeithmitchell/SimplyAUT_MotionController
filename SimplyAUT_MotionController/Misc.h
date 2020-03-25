@@ -7,6 +7,7 @@ int polyfit(const double* const dependentValues,
 	double* coefficients);
 
 
+
 class CDoublePoint
 {
 public:
@@ -17,3 +18,10 @@ public:
 
 	double x, y;
 };
+
+
+
+int MinMaxI4(const void* i1, const void* i2);
+int MinMaxR8(const void* i1, const void* i2);
+int MinMaxDP_X(const void* i1, const void* i2);
+int MinMaxDP_Y(const void* i1, const void* i2);

@@ -43,6 +43,7 @@ public:
 	void    StartNotingRGBData(BOOL);
 	void	StartNotingMotorSpeed(BOOL);
 	void    StartSteeringMotors(BOOL);
+	void    StartReadMagStatus(BOOL);
 	void    StartMeasuringLaser(BOOL);
 	void    GetLaserProfile();
 
@@ -78,8 +79,10 @@ public:
 	GALIL_STATE		m_nGaililStateBackup;
 	CWeldNavigation m_weldNavigation;
 
-	Profile m_profile;
-	LASER_MEASURES m_measure2;
+	Profile				m_profile;
+	LASER_MEASURES	m_measure2;
+	double			m_hitBuffer[2*SENSOR_WIDTH];
+
 
 
 	UINT  m_nMsg;

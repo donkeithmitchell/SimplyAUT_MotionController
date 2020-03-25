@@ -48,7 +48,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_wndLaser(laser, mag, m_profile, m_measure2)
+	, m_wndLaser(laser, mag, m_profile, m_measure2, m_hitBuffer)
 	, m_nGalilState(nState)
 
 	, m_szLROffset(_T("0.0"))
@@ -95,6 +95,8 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_szLaserEdge[1] = _T("---");
 	m_szLaserEdge[2] = _T("---");
 	m_szLaserJoint = _T("---");
+
+	memset(m_hitBuffer, 0x0, sizeof(m_hitBuffer));
 }
 
 CDialogGirthWeld::~CDialogGirthWeld()
@@ -362,7 +364,9 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 void CDialogGirthWeld::GetLaserProfile()
 {
 	if (m_laserControl.GetProfile(m_profile))
-		m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2);
+	{
+		m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, m_hitBuffer);
+	}
 }
 
 void CDialogGirthWeld::NoteSteering()
@@ -808,10 +812,22 @@ void CDialogGirthWeld::OnClickedButtonManual()
 		// adjust the location every ( 10 mm)
 		StartNotingMotorSpeed(TRUE);
 		StartMeasuringLaser(TRUE);
-		StartNotingRGBData(TRUE);
+//		StartNotingRGBData(TRUE);
 		StartSteeringMotors(TRUE);
+		if (m_bReturnToHome)
+			m_motionControl.ZeroPositions();
+
+		// always set the default speed to all motors
+		m_motionControl.SetSlewSpeed(m_fMotorSpeed);
+
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunManual, (LPVOID)this)->m_hThread;
 	}
+}
+
+void CDialogGirthWeld::StartReadMagStatus(BOOL bSet)
+{
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+		m_pParent->SendMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_MAG_STATUS_ON, bSet);
 }
 
 void CDialogGirthWeld::StartSteeringMotors(BOOL bSet)
@@ -820,6 +836,7 @@ void CDialogGirthWeld::StartSteeringMotors(BOOL bSet)
 	{
 		double accel, speed = GetRequestedMotorSpeed(accel); // this uses a SendMessage, and must not be called from a thread
 		m_weldNavigation.StartSteeringMotors(TRUE, speed);
+		StartReadMagStatus(!bSet); // takes too mjuch time
 		SetTimer(TIMER_NOTE_STEERING, 500, NULL); // this speed does not need to be the same as that used to manage the steerin g
 
 	}
@@ -833,7 +850,7 @@ void CDialogGirthWeld::StartSteeringMotors(BOOL bSet)
 void CDialogGirthWeld::StartMeasuringLaser(BOOL bSet)
 {
 	if (bSet)
-		SetTimer(TIMER_GET_LASER_PROFILE, 250, NULL);
+		SetTimer(TIMER_GET_LASER_PROFILE, 100, NULL);
 	else
 		KillTimer(TIMER_GET_LASER_PROFILE);
 }
@@ -913,11 +930,11 @@ UINT CDialogGirthWeld::ThreadRunManual(BOOL reset_pos)
 		if (reset_pos)
 		{
 			// optionally return to the home poisitioin beforee scanning
-			if(m_bReturnToHome )
-				m_motionControl.ZeroPositions();
-
-			// always set the default speed to all motors
-			m_motionControl.SetSlewSpeed(m_fMotorSpeed);
+//			if(m_bReturnToHome )
+//				m_motionControl.ZeroPositions();
+//
+//			// always set the default speed to all motors
+//			m_motionControl.SetSlewSpeed(m_fMotorSpeed);
 			m_fScanStart = FLT_MAX;
 		}
 

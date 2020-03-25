@@ -3,13 +3,16 @@
 #include "SimplyAUT_MotionControllerDlg.h"
 #include "LaserControl.h"
 #include "sls_comms.h"
+#include "Filter.h"
 
 static int __stdcall callback_fct(int val);
 static int g_sensor_initialised = FALSE;
 static int g_log_msgs[100];
 static int g_log_ptr = 0;
+#define FILTER_MARGIN 100
 
 CLaserControl::CLaserControl()
+	: m_filter(SENSOR_WIDTH+FILTER_MARGIN)
 {
 	m_nLaserPower = 0;
 	m_nCameraShutter = 0;
@@ -79,9 +82,24 @@ BOOL CLaserControl::Disconnect()
 
 BOOL CLaserControl::IsLaserOn()
 {
+//	static clock_t total_time = 0;
+//	static int count = 0;
+//	clock_t t1 = clock();
+
 	SensorStatus SensorStatus;
 	::DLLGetSensorStatus(&SensorStatus);
 	::SLSGetSensorStatus();
+
+	// this was used to show that this function takes less than a ms
+	// not an issue
+//	clock_t dt = clock() - t1;
+//	total_time += dt;
+//	count++;
+
+//	CString str2;
+//	str2.Format("IsLaserOn: %d ms, avg: %d ms", dt, total_time / count);
+//	SendDebugMessage(str2);
+
 
 	return (SensorStatus.LaserStatus == 0) ? FALSE : TRUE;
 }
@@ -426,56 +444,91 @@ static int __stdcall callback_fct(int val)
 
 }
 
-BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& measures)
+static double InterplateLaserHit(const double* buffer, int ind, int nSize)
+{
+	// find a previous value
+	int i1, i2;
+	for (i1 = ind - 1; i1 >= 0 && (buffer[i1] < 0 || buffer[i1] >= SENSOR_HEIGHT); --i1);
+	for (i2 = ind + 1; i2 < nSize && (buffer[i2] < 0 || buffer[i2] >= SENSOR_HEIGHT); ++i2);
+
+	if (i1 >= 0 && i2 < nSize)
+		return buffer[i1] + (ind - i1) * (buffer[i2] - buffer[i1]) / (i2 - i1);
+	else if (i2 < nSize)
+		return buffer[i2];
+	else if (i1 >= 0)
+		return buffer[i1];
+	else
+		return 0;
+}
+
+
+
+BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measures, double buffer[])
 {
 	measures.status = -1;
 	if (!IsConnected() || !IsLaserOn())
 		return FALSE;
 
-	double sum = 0;
-	int count = 0;
-	int minPos = INT_MAX;
-	int maxPos = -INT_MAX;
+	// calculate the average, min and max values
+// gety rid of not set values
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+		buffer[i] = (double)hits[i].pos1;
 
+	// interpolate invalid value
+	// can not just remove, as this will shift the data
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
-		if (hits[i].pos1 > 0 && hits[i].pos1 < SENSOR_HEIGHT)
-		{
-			minPos = min(minPos, hits[i].pos1);
-			maxPos = max(maxPos, hits[i].pos1);
-			sum += hits[i].pos1;
-			count++;
-		}
+		if (buffer[i] < 0 || buffer[i] >= SENSOR_HEIGHT)
+			buffer[i] = ::InterplateLaserHit(buffer, i, SENSOR_WIDTH);
 	}
-	if (count == 0)
-		return FALSE;
 
-	double avgPos = sum / count;
+	// pad the end with copies of the last value
+	for (int i = SENSOR_WIDTH; i < SENSOR_WIDTH + FILTER_MARGIN; ++i)
+		buffer[i] = buffer[SENSOR_WIDTH-1];
+
+	// note that this filter will leave the last 20 or so values invalid
+	m_filter.IIR_HighCut(buffer, 100, 5.0);
+
+
+	double sum = 0;
+	int maxInd = -1;
+	int minInd = -1;
+
+	int cnt = 0;
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+	{
+		if (minInd == -1 || buffer[i] < buffer[minInd])
+			minInd = i;
+		if (maxInd == -1 || buffer[i] > buffer[maxInd])
+			maxInd = i;
+
+		// also note the average
+		sum +=buffer[i];
+		cnt++;
+	}
+
+	double avgPos = sum / cnt;
 
 	// the threshold is 1/2 way from average to maxVal
 	// incase following a gap, not a weld cap, check which is larget
 	// average to minimum or average to maximum
-	int dir = -1; //  (maxPos - avgPos) > (avgPos - minPos) ? 1 : -1;
-	int threshold = (dir == 1) ? (int)(maxPos - (maxPos - avgPos) / 3 + 0.5) : (int)(minPos + (avgPos - minPos) / 3 + 0.5);
+	int dir = 1; //  (maxPos - avgPos) > (avgPos - minPos) ? 1 : -1;
+	double threshold = (dir == 1) ? (buffer[maxInd] + avgPos) / 2 : (buffer[minInd] + avgPos) / 2;
 
 	// now note the start and end of this region above the threshold 
 	int i1, i2;
 	for (i1 = 0; i1 < SENSOR_WIDTH; ++i1)
 	{
-		if (hits[i1].pos1 < 0 || hits[i1].pos1 >= SENSOR_HEIGHT)
-			continue;
-		if (dir == 1 && hits[i1].pos1 >= threshold)
+		if (dir == 1 && buffer[i1] >= threshold)
 			break;
-		if (dir == -1 && hits[i1].pos1 <= threshold)
+		if (dir == -1 && buffer[i1] <= threshold)
 			break;
 	}
 	for (i2 = SENSOR_WIDTH - 1; i2 >= 0; --i2)
 	{
-		if (hits[i2].pos1 < 0 || hits[i2].pos1 >= SENSOR_HEIGHT)
-			continue;
-		if (dir == 1 && hits[i2].pos1 >= threshold)
+		if (dir == 1 && buffer[i2] >= threshold)
 			break;
-		if (dir == -1 && hits[i2].pos1 <= threshold)
+		if (dir == -1 && buffer[i2] <= threshold)
 			break;
 	}
 
@@ -483,12 +536,9 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 	int j = 0;
 	for (int i = i1; i < i2; ++i)
 	{
-		if (hits[i].pos1 >= 0 && hits[i].pos1 < SENSOR_HEIGHT)
-		{
-			m_polyX[j] = i;
-			m_polyY[j] = hits[i].pos1;
-			j++;
-		}
+		m_polyX[j] = i;
+		m_polyY[j] = buffer[i];
+		j++;
 	}
 
 	// these coefficients will be for mm not laser units
@@ -496,7 +546,7 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 	::polyfit(m_polyX, m_polyY, j, 2, coeff);
 
 	// now differentiate the coeff to dind the location of the maximum
-	measures.weld_cap_pix.x = -coeff[1] / (2 * coeff[2]);
+	measures.weld_cap_pix.x = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
 	measures.weld_cap_pix.y = coeff[2] * measures.weld_cap_pix.x * measures.weld_cap_pix.x + coeff[1] * measures.weld_cap_pix.x + coeff[0];
 	measures.weld_left = i1;
 	measures.weld_right = i2;
@@ -510,12 +560,9 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 	j = 0;
 	for (int i = i1 / 2; i < i1; ++i)
 	{
-		if (hits[i].pos1 >= 0 && hits[i].pos1 < SENSOR_HEIGHT)
-		{
-			m_polyX[j] = i;
-			m_polyY[j] = hits[i].pos1;
-			j++;
-		}
+		m_polyX[j] = i;
+		m_polyY[j] = buffer[i];
+		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
 	::polyfit(m_polyX, m_polyY, j, 1, measures.ds_coeff);
@@ -525,12 +572,9 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 	j = 0;
 	for (int i = i2; i < (i2 + SENSOR_WIDTH) / 2; ++i)
 	{
-		if (hits[i].pos1 >= 0 && hits[i].pos1 < SENSOR_HEIGHT)
-		{
-			m_polyX[j] = i;
-			m_polyY[j] = hits[i].pos1;
-			j++;
-		}
+		m_polyX[j] = i;
+		m_polyY[j] = buffer[i];
+		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
 	::polyfit(m_polyX, m_polyY, j, 1, measures.us_coeff);
@@ -541,40 +585,39 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 }
 
 
-BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measures)
+BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& measures, double buffer[])
 {
+	static clock_t total_time = 0;
+	static int count = 0;
+	clock_t t1 = clock();
+
 	measures.status = -1;
 	if (!IsConnected() || !IsLaserOn())
 		return FALSE;
 
 	// calculate the average, min and max values
 	// gety rid of not set values
-	MT_Hits_Pos pos1[SENSOR_WIDTH];
-	double pos2[SENSOR_WIDTH];
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+		buffer[i] = (double)hits[i].pos1;
 
-	int nSize = 0;
+	// interpolate invalid value
+	// can not just remove, as this will shift the data
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
-		if (hits[i].pos1 > 0 && hits[i].pos1 < SENSOR_HEIGHT)
-			pos1[nSize++] = hits[i].pos1;
+		if (buffer[i] < 0 || buffer[i] >= SENSOR_HEIGHT)
+			buffer[i] = ::InterplateLaserHit(buffer, i, SENSOR_WIDTH);
 	}
-	if (nSize < 3)
-		return FALSE;
 
-	// filter the responsed +/- 1
-	pos2[0] = (2 * pos1[0] + 1 * pos1[1]) / 3.0;
-	pos2[nSize-1] = (2 * pos1[nSize-1] + 1 * pos1[nSize-2]) / 3.0;
+	// now low pas filter this buffer
+	m_filter.IIR_HighCut(buffer, 100, 5.0);
 
-	for (int i = 1; i < nSize - 1; ++i)
-		pos2[i] = (pos1[i - 1] + 2 * pos1[i] + pos1[i + 1]) / 4.0;
-
-	// find all local max or min values
-	int dir = -1;
+	// find all local max or min values ibn the buffer
+	int dir = 1;
 	int peaks[SENSOR_WIDTH];
 	int nPeaks = 0;
-	for (int i = 1; i < nSize - 1; ++i)
+	for (int i = 1; i < SENSOR_WIDTH - 1; ++i)
 	{
-		if (dir * pos2[i] > dir* pos2[i - 1] && dir* pos2[i] > dir* pos2[i + 1])
+		if (dir * buffer[i] > dir* buffer[i - 1] && dir* buffer[i] > dir* buffer[i + 1])
 			peaks[nPeaks++] = i;
 	}
 
@@ -584,13 +627,13 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	for (int j = 0; j < nPeaks; ++j)
 	{
 		int i = peaks[j];
-		double val = pos2[i];
+		double val = buffer[i];
 
 		int count = 0;
 		double sum = 0;
-		for (int k = max(0, i - 50); k < min(i + 50, nSize); ++k)
+		for (int k = max(0, i - 50); k < min(i + 50, SENSOR_WIDTH); ++k)
 		{
-			sum += pos2[k];
+			sum += buffer[k];
 			count++;
 		}
 		double avg = sum / count;
@@ -604,19 +647,19 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 
 	// now find the edges of the weld
 	// the threshold is now the half way point between the maximum variation peak and its average
-	double avg = pos2[maxInd] - dir * maxVar;
-	double threshold = (avg + pos2[maxInd]) / 2;
+	double avg = buffer[maxInd] - dir * maxVar;
+	double threshold = (avg + buffer[maxInd]) / 2;
 
 	// now note the start and end of this region above the threshold 
 	int i1, i2;
 	for (i1 = maxInd-1; i1 >= 0; --i1)
 	{
-		if (dir*pos2[i1] < dir*threshold)
+		if (dir*buffer[i1] < dir*threshold)
 			break;
 	}
-	for (i2 = maxInd+1; i2 < nSize; ++i2)
+	for (i2 = maxInd+1; i2 < SENSOR_WIDTH; ++i2)
 	{
-		if (dir*pos2[i2] < dir*threshold)
+		if (dir*buffer[i2] < dir*threshold)
 			break;
 	}
 
@@ -625,7 +668,7 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	for (int i = i1; i < i2; ++i)
 	{
 		m_polyX[j] = i;
-		m_polyY[j] = pos2[i];
+		m_polyY[j] = buffer[i];
 		j++;
 	}
 
@@ -634,7 +677,7 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	::polyfit(m_polyX, m_polyY, j, 2, coeff);
 
 	// now differentiate the coeff to dind the location of the maximum
-	measures.weld_cap_pix.x = -coeff[1] / (2 * coeff[2]);
+	measures.weld_cap_pix.x = (coeff[2] == 0) ? maxInd : -coeff[1] / (2 * coeff[2]);
 	measures.weld_cap_pix.y = coeff[2] * measures.weld_cap_pix.x * measures.weld_cap_pix.x + coeff[1] * measures.weld_cap_pix.x + coeff[0];
 	measures.weld_left = i1;
 	measures.weld_right = i2;
@@ -649,19 +692,19 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	for (int i = i1 / 2; i < i1; ++i)
 	{
 		m_polyX[j] = i;
-		m_polyY[j] = pos2[i];
+		m_polyY[j] = buffer[i];
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
 	::polyfit(m_polyX, m_polyY, j, 1, measures.ds_coeff);
 
-	// now get the slop of the up side
+	// now get the slope of the up side
 	// get a 1st order fit to the left
 	j = 0;
 	for (int i = i2; i < (i2 + SENSOR_WIDTH) / 2; ++i)
 	{
 		m_polyX[j] = i;
-		m_polyY[j] = pos2[i];
+		m_polyY[j] = buffer[i];
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
@@ -669,6 +712,16 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 
 	// now convert the laser units to mm
 	measures.status = 0;
+
+	clock_t dt = clock() - t1;
+	total_time += dt;
+	count++;
+
+// the above takes less than 1 ms
+//	CString str2;
+//	str2.Format("CalcLaserMeasures: %d ms, avg: %d ms", dt, total_time / count);
+//	SendDebugMessage(str2);
+
 	return TRUE;
 
 }

@@ -9,19 +9,20 @@
 #include "MagController.h"
 #include "afxdialogex.h"
 
-static double PI = 3.14159265358979323846;
+static double PI = 4 * atan(1.0); 
 #define DISP_MARGIN 5
 
 // CStaticLaser dialog
 
 IMPLEMENT_DYNAMIC(CStaticLaser, CWnd)
 
-CStaticLaser::CStaticLaser(CLaserControl& laser, CMagControl& mag, const Profile& prof, const LASER_MEASURES& meas)
+CStaticLaser::CStaticLaser(CLaserControl& laser, CMagControl& mag, const Profile& prof, const LASER_MEASURES& meas, const double* buffer)
 	: CWnd()
 	, m_laserControl(laser)
 	, m_magControl(mag)
 	, m_profile(prof)
 	, m_measure2(meas)
+	, m_hitBuffer(buffer)
 //	, m_wndLaserProfile(laser, ::GetSysColor(COLOR_3DFACE))
 	, m_ptMouse(INT_MAX, INT_MAX)
 {
@@ -235,13 +236,6 @@ void CStaticLaser::GetRGBRect(CRect* rect)
 	rect->SetRect(x1, y1, x2, y2);
 }
 
-static int MinMaxI4(const void* i1, const void* i2)
-{
-	int val1 = *((int*)i1);
-	int val2 = *((int*)i2);
-
-	return val1 - val2;
-}
 double CStaticLaser::GetAverageRGBValue()
 {
 	return (m_rgbCount < 0) ? (double)m_rgbSum / (double)m_rgbCount : 0;
@@ -383,10 +377,12 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	m_disp_height_min = SENSOR_HEIGHT;
 	for (int i = 0; i <= SENSOR_WIDTH; i++)
 	{
-		if (m_profile.hits[i].pos1 >= 1 && m_profile.hits[i].pos1 <= SENSOR_HEIGHT-1)
+		double val = m_hitBuffer[i];
+//		int val = m_profile.hits[i].pos1;
+		if (val>= 1 && val <= SENSOR_HEIGHT-1)
 		{
-			m_disp_height_min = min(m_disp_height_min, m_profile.hits[i].pos1);
-			m_disp_height_max = max(m_disp_height_max, m_profile.hits[i].pos1);
+			m_disp_height_min = min(m_disp_height_min, val);
+			m_disp_height_max = max(m_disp_height_max, val);
 		}
 	}
 //	m_disp_width_factor = ((double)m_disp_rect.Width()) / (double)SENSOR_WIDTH; // set in OnSize()
@@ -394,9 +390,11 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 	for (int i = 0; i <= SENSOR_WIDTH; i++)
 	{
-		if (m_profile.hits[i].pos1 >= 0 && m_profile.hits[i].pos1 <= SENSOR_HEIGHT)
+		double val = m_hitBuffer[i];
+//		int val = m_profile.hits[i].pos1;
+		if (val >= 1 && val <= SENSOR_HEIGHT - 1)
 		{
-			CPoint pt = GetScreenPixel(i, m_profile.hits[i].pos1);
+			CPoint pt = GetScreenPixel(i, val);
 			pDC->SetPixel(pt, RGB(250, 50, 50));
 		}
 	}

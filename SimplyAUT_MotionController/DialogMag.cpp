@@ -168,11 +168,13 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 			m_szRGBEncCount.Format("***");
 		GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szRGBEncCount);
 
-		int red, green, blue;
-		int colour = m_magControl.GetRGBValues(red, green, blue);
+//		int red, green, blue;
+//		int colour = m_magControl.GetRGBValues(red, green, blue);
+		int colour = m_magControl.GetRGBSum();
 		if( colour != INT_MAX )
 		{
-			m_szRGBValue.Format("(%d,%d,%d) %d", red, green, blue, colour);
+//			m_szRGBValue.Format("(%d,%d,%d) %d", red, green, blue, colour);
+			m_szRGBValue.Format("%d",colour);
 		}
 		else
 			m_szRGBValue.Format(_T(""));

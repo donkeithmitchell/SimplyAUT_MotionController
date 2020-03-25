@@ -40,6 +40,7 @@ public:
     UINT    ThreadConnectSocket();
     void    SendDebugMessage(const CString& msg);
     void    SendErrorMessage(const CString& msg);
+    int     Send(const CString& str);
 
 protected:
     CWnd*   m_pParent;

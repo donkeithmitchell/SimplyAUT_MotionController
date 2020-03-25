@@ -33,6 +33,8 @@ public:
 	Profile			m_profile;
 //	Measurement		m_measure1;
 	LASER_MEASURES  m_measure2;
+	double			m_hitBuffer[2*SENSOR_WIDTH];
+
 
 
 	CLaserControl& m_laserControl;

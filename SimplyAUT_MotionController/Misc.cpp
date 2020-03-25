@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "SimplyAUT_MotionController.h"
 #include "Button.h"
+#include "Misc.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -136,3 +137,52 @@ int polyfit(const double* const dependentValues,
 
     return 0;
 }
+
+
+
+int MinMaxI4(const void* i1, const void* i2)
+{
+    int val1 = *((int*)i1);
+    int val2 = *((int*)i2);
+
+    return val1 - val2;
+}
+
+int MinMaxDP_X(const void* i1, const void* i2)
+{
+    const CDoublePoint* val1 = (CDoublePoint*)i1;
+    const CDoublePoint* val2 = (CDoublePoint*)i2;
+
+    if (val1->x > val2->x)
+        return 1;
+    else if (val1->x < val2->x)
+        return -1;
+    else
+        return 0;
+}
+
+int MinMaxDP_Y(const void* i1, const void* i2)
+{
+    const CDoublePoint* val1 = (CDoublePoint*)i1;
+    const CDoublePoint* val2 = (CDoublePoint*)i2;
+
+    if (val1->y > val2->y)
+        return 1;
+    else if (val1->y < val2->y)
+        return -1;
+    else
+        return 0;
+}
+int MinMaxR8(const void* i1, const void* i2)
+{
+    double val1 = *((double*)i1);
+    double val2 = *((double*)i2);
+
+    if (val1 > val2)
+        return 1;
+    else if (val1 < val2)
+        return -1;
+    else
+        return 0;
+}
+
