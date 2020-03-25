@@ -338,7 +338,7 @@ CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
         return _T("ERR");
     }
 
-    SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
+ //   SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
     
     GReturn rc = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);
     if (rc != G_NO_ERROR)

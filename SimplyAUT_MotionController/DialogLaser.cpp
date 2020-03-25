@@ -113,7 +113,7 @@ BOOL CDialogLaser::OnInitDialog()
 	m_camera_shutter_sld.SetPos(1);
 
 //	EnableControls();
-	SetTimer(1, 25*50, NULL);
+	SetTimer(1, 250, NULL);
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
@@ -149,6 +149,7 @@ void CDialogLaser::OnLaserButton()
 {
 	BOOL bOn = !m_laserControl.IsLaserOn();
 	m_laserControl.TurnLaserOn( bOn );
+	m_wndProfile.InvalidateRgn(NULL);
 //	m_wndProfile.ResetROI();
 	EnableControls();
 }
@@ -178,7 +179,7 @@ void CDialogLaser::OnTimer(UINT nIDEvent)
 	tstr.Format("%5.1f %5.1f %5.1f", t1, t2, t3);
 	m_temperature_edit.SetWindowText(tstr);
 
-	m_wndProfile.m_profile_count = m_wndProfile.m_image_count;
+	m_wndProfile.m_profile_count = m_wndProfile.m_profile_count;
 
 	EnableControls();
 	CDialog::OnTimer(nIDEvent);

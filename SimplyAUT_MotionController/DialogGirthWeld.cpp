@@ -48,8 +48,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_weldNavigation(motion, laser, mag)
-	, m_wndLaser(laser, mag)
+	, m_wndLaser(laser, mag, m_profile, m_measure2)
 	, m_nGalilState(nState)
 
 	, m_szLROffset(_T("0.0"))
@@ -321,6 +320,13 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 		ShowLaserStatus();
 		break;
 
+	case TIMER_GET_LASER_PROFILE:
+	{
+		GetLaserProfile();
+		m_wndLaser.InvalidateRgn(NULL);
+		break;
+	}
+
 //	case TIMER_STEER_LEFT:
 //		break;
 //	case TIMER_STEER_RIGHT:
@@ -351,6 +357,12 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 	default:
 		return;
 	}
+}
+
+void CDialogGirthWeld::GetLaserProfile()
+{
+	if (m_laserControl.GetProfile(m_profile))
+		m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2);
 }
 
 void CDialogGirthWeld::NoteSteering()
@@ -500,28 +512,6 @@ void CDialogGirthWeld::ShowMotorSpeeds()
 		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SHOW_MOTOR_SPEEDS, 0);
 }
 
-double CDialogGirthWeld::GetMaximumMotorPosition()
-{
-	double posA = m_motionControl.GetMotorPosition("A");
-	double posB = m_motionControl.GetMotorPosition("B");
-	double posC = m_motionControl.GetMotorPosition("C");
-	double posD = m_motionControl.GetMotorPosition("D");
-
-
-	if (posA == FLT_MAX || posB == FLT_MAX || posC == FLT_MAX || posD == FLT_MAX)
-		return FLT_MAX;
-	else
-	{
-		// these positions may be pos or neg
-		double maxPos = max(max(max(posA, posB), posC), posD);
-		double minPos = min(min(min(posA, posB), posC), posD);
-		if (fabs(maxPos) > fabs(minPos))
-			return maxPos;
-		else
-			return minPos;
-	}
-
-}
 
 // show the positoon as the average of the four motors
 // the motor position is the home ;osition
@@ -532,7 +522,7 @@ void CDialogGirthWeld::ShowMotorPosition()
 	double dist1 = atof(m_szHomeDist);
 	double dist2 = atof(m_szScannedDist);
 
-	double pos = GetMaximumMotorPosition();
+	double pos = m_motionControl.GetAvgMotorPosition();
 	int nEncoderCount = GetMagStatus(MAG_IND_ENC_CNT);
 
 	if (pos == FLT_MAX)
@@ -554,8 +544,6 @@ void CDialogGirthWeld::ShowMotorPosition()
 	}
 
 	// the scanned distance requires the start location to be noted
-	m_wndLaser.InvalidateRgn(NULL);
-
 	// this is cleaner than using UpdarteData()
 	GetDlgItem(IDC_STATIC_HOMEDIST)->SetWindowTextA(m_szHomeDist);
 	GetDlgItem(IDC_STATIC_SCANNEDDIST)->SetWindowTextA(m_szScannedDist);
@@ -746,8 +734,6 @@ void CDialogGirthWeld::SetButtonBitmaps()
 
 
 	GetDlgItem(IDC_STATIC_PAUSE)->SetWindowText(m_bPaused ? _T("Resume" : _T("Pause")));
-
-	m_wndLaser.InvalidateRgn(NULL);
 }
 
 
@@ -821,6 +807,7 @@ void CDialogGirthWeld::OnClickedButtonManual()
 		// set a time to manage the steering
 		// adjust the location every ( 10 mm)
 		StartNotingMotorSpeed(TRUE);
+		StartMeasuringLaser(TRUE);
 		StartNotingRGBData(TRUE);
 		StartSteeringMotors(TRUE);
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunManual, (LPVOID)this)->m_hThread;
@@ -841,6 +828,14 @@ void CDialogGirthWeld::StartSteeringMotors(BOOL bSet)
 		KillTimer(TIMER_NOTE_STEERING);
 		m_weldNavigation.StartSteeringMotors(FALSE);
 	}
+}
+
+void CDialogGirthWeld::StartMeasuringLaser(BOOL bSet)
+{
+	if (bSet)
+		SetTimer(TIMER_GET_LASER_PROFILE, 250, NULL);
+	else
+		KillTimer(TIMER_GET_LASER_PROFILE);
 }
 
 void CDialogGirthWeld::StartNotingMotorSpeed(BOOL bSet)
@@ -1058,6 +1053,7 @@ void CDialogGirthWeld::RunMotors()
 				m_magControl.ResetEncoderCount();
 //				StartSteeringMotors(TRUE);
 				StartNotingRGBData(TRUE);
+				StartMeasuringLaser(TRUE);
 				StartNotingMotorSpeed(TRUE);
 			}
 			else
@@ -1081,6 +1077,7 @@ void CDialogGirthWeld::RunMotors()
 				m_magControl.ResetEncoderCount();
 //				StartSteeringMotors(TRUE);
 				StartNotingRGBData(TRUE);
+				StartMeasuringLaser(TRUE);
 				StartNotingMotorSpeed(TRUE);
 			}
 			else
@@ -1105,10 +1102,34 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 {
 	switch (wParam)
 	{
+		// this is avoid threads talking to laser and motion controller
 		case NAVIGATE_GET_MEASURE:
 		{
-			Measurement* pMeas = (Measurement*)lParam;
-			return m_laserControl.GetLaserMeasurment(*pMeas);
+			LASER_MEASURES* pMeas = (LASER_MEASURES*)lParam;
+			m_wndLaser.GetLaserMeasurment(pMeas);
+			return pMeas->status == 0;
+		}
+		case NAVIGATE_GET_MOTOR_POS:
+		{
+			double* pos = (double*)lParam;
+			*pos = m_motionControl.GetAvgMotorPosition();
+			return 1L;
+		}
+		case NAVIGATE_GET_MOTOR_SPEED:
+		{
+			double* speed = (double*)lParam;
+			double accel;
+			speed[0] = m_motionControl.GetMotorSpeed("A", accel);
+			speed[1] = m_motionControl.GetMotorSpeed("B", accel);
+			speed[2] = m_motionControl.GetMotorSpeed("C", accel);
+			speed[3] = m_motionControl.GetMotorSpeed("D", accel);
+			return 1L;
+		}
+		case NAVIGATE_SET_MOTOR_SPEED:
+		{
+			const double* speed = (double*)lParam;
+			m_motionControl.SetSlewSpeed(speed[0],speed[1],speed[2],speed[3]);
+			return 1L;
 		}
 		case NAVIGATE_SEND_DEBUG_MSG:
 		{
@@ -1175,6 +1196,7 @@ LRESULT CDialogGirthWeld::OnUserStopMotorFinished(WPARAM, LPARAM)
 	if (!m_bPaused)
 	{
 		m_nGalilState = GALIL_IDLE;
+		StartMeasuringLaser(FALSE);
 		StartNotingMotorSpeed(FALSE);
 	}
 	else
@@ -1232,7 +1254,6 @@ void CDialogGirthWeld::OnClickedButtonZeroHome()
 	m_motionControl.ZeroPositions();
 	m_szScannedDist = _T("0.0");
 	m_szHomeDist = _T("0.0");
-	m_wndLaser.InvalidateRgn(NULL);
 	UpdateData(FALSE);
 }
 

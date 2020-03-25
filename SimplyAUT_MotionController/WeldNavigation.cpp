@@ -23,11 +23,7 @@ static UINT ThreadSteerMotors(LPVOID param)
 	return this2->ThreadSteerMotors();
 }
 
-CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, CMagControl& mag)
-	: m_motionControl(motion)
-	, m_laserControl(laser)
-	, m_magControl(mag)
-
+CWeldNavigation::CWeldNavigation()
 {
 	m_bSteerMotors = FALSE;
 	m_hThreadSteerMotors = NULL;
@@ -48,29 +44,6 @@ void CWeldNavigation::Init(CWnd* pWnd, UINT nMsg)
 {
 	m_pParent = pWnd;
 	m_nMsg = nMsg;
-}
-
-double CWeldNavigation::GetMaximumMotorPosition()
-{
-	double posA = m_motionControl.GetMotorPosition("A");
-	double posB = m_motionControl.GetMotorPosition("B");
-	double posC = m_motionControl.GetMotorPosition("C");
-	double posD = m_motionControl.GetMotorPosition("D");
-
-
-	if (posA == FLT_MAX || posB == FLT_MAX || posC == FLT_MAX || posD == FLT_MAX)
-		return FLT_MAX;
-	else
-	{
-		// these positions may be pos or neg
-		double maxPos = max(max(max(posA, posB), posC), posD);
-		double minPos = min(min(min(posA, posB), posC), posD);
-		if (fabs(maxPos) > fabs(minPos))
-			return maxPos;
-		else
-			return minPos;
-	}
-
 }
 
 static double HammingWindow(int ind, int nWidth)
@@ -163,12 +136,37 @@ LASER_POS CWeldNavigation::GetLastNotedPosition()
 	return ret;
 }
 
-BOOL CWeldNavigation::GetLaserMeasurment(Measurement& measure)
+BOOL CWeldNavigation::GetLaserMeasurment(LASER_MEASURES& measure)
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
 		return m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MEASURE, (LPARAM)&measure);
 	else
 		return FALSE;
+}
+
+BOOL CWeldNavigation::GetMotorSpeed(double speed[4])
+{
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+		return m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MOTOR_SPEED, (LPARAM)speed);
+	else
+		return  FALSE;
+}
+
+BOOL CWeldNavigation::SetMotorSpeed(const double speed[4] )
+{
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+		return m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_SET_MOTOR_SPEED, (LPARAM)speed);
+	else
+		return FALSE;
+}
+
+double CWeldNavigation::GetAvgMotorPosition()
+{
+	double ret = FLT_MAX;
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+		m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_MOTOR_POS, (LPARAM)&ret);
+
+	return  ret;
 }
 
 void CWeldNavigation::SendDebugMessage(const CString& str)
@@ -180,20 +178,18 @@ void CWeldNavigation::SendDebugMessage(const CString& str)
 // 
 LASER_POS CWeldNavigation::NoteNextLaserPosition()
 {
-	CDoublePoint joint_pos;
-	Measurement measure;
+	LASER_MEASURES measure;
 	LASER_POS buffer[FILTER_WIDTH];
 
 	LASER_POS ret = m_last_pos;
-	if (GetLaserMeasurment(measure) && measure.mp[0].status == 0)
+	if (GetLaserMeasurment(measure) )
 	{
 		// m_measure will be updatre regularily 
-		m_laserControl.ConvPixelToMm((int)measure.mp[0].x, (int)measure.mp[0].y, joint_pos.x, joint_pos.y);
-		double motor_pos = GetMaximumMotorPosition();
+		double motor_pos = GetAvgMotorPosition();
 
 		// as this is called by a thread
 		// lock the array while modifying
-		ret.gap_raw = joint_pos.x;
+		ret.gap_raw = measure.weld_cap_mm.x;
 		ret.tim = clock(); // niote wshen this position was, used to calculate velocities
 		ret.pos = motor_pos;
 
@@ -204,7 +200,7 @@ LASER_POS CWeldNavigation::NoteNextLaserPosition()
 		m_posLaser.SetSize(++nSize, NAVIGATION_GROW_BY);
 
 		// if too short can only set the location not the velocity
-		if (m_posLaser.GetSize() < FILTER_WIDTH)
+		if (m_posLaser.GetSize() <= FILTER_WIDTH)
 		{
 			m_posLaser[nSize - 1] = ret;
 			m_crit.Unlock();
@@ -212,23 +208,26 @@ LASER_POS CWeldNavigation::NoteNextLaserPosition()
 		}
 
 		// once in a copy will be thread safe
-		memcpy(buffer, m_posLaser.GetData() + m_posLaser.GetSize() - FILTER_WIDTH, sizeof(LASER_POS) * FILTER_WIDTH);
+		for (int i = FILTER_WIDTH - 1, j = m_posLaser.GetSize()-2; i >= 0; --i, --j)
+			buffer[i] = m_posLaser[j];
+
 		m_crit.Unlock();
 
 		ret.gap_filt = ::LowPassFilterGap(buffer, FILTER_WIDTH);
 		ret.gap_vel = ::CalcGapVelocity(buffer, FILTER_WIDTH);
-		ret.gap_accel = ::CalcGapAcceleration(buffer, FILTER_WIDTH);
+		if (ret.gap_vel != FLT_MAX)
+		{
+			ret.gap_accel = ::CalcGapAcceleration(buffer, FILTER_WIDTH);
 
-		// get the actual (VS requested) speed of all the motors
-		double accelA, velA = m_motionControl.GetMotorSpeed("A", accelA);
-		double accelB, velB = m_motionControl.GetMotorSpeed("B", accelB);
-		double accelC, velC = m_motionControl.GetMotorSpeed("C", accelC);
-		double accelD, velD = m_motionControl.GetMotorSpeed("D", accelD);
+			// get the actual (VS requested) speed of all the motors
+			double speed[4];
+			GetMotorSpeed(speed);
 
-		double velLeft = (velA + velD) / 2;
-		double velRight = (velB + velC) / 2;
-		double ratio = (velRight != 0) ? 100 * velLeft / velRight : 0;
-		ret.motor_lr = ratio;
+			double velLeft = (speed[0] + speed[3]) / 2;
+			double velRight = (speed[1] + speed[2]) / 2;
+			double ratio = (velRight != 0) ? 100 * velLeft / velRight : 0;
+			ret.motor_lr = ratio;
+		}
 
 		// hiold the lock() as short a time as posible
 		m_crit.Lock();
@@ -305,20 +304,25 @@ UINT CWeldNavigation::ThreadSteerMotors()
 			if(tim1 == -1 )
 				tim1 = clock();
 
-			str.Format("%d: GAP: %.1f, Vel1: %.1f, Vel2: %.1f, Steer %.1f mm/M for %.0f ms", 
+			str.Format("%d: GAP: %.1f mm, Vel1: %.1f mm/M, Vel2: %.1f mm/M, Steer %.1f mm/M for %.0f ms", 
 				clock() - tim1, gap_dist, gap_vel1, gap_vel2, travel.x, travel.y);
 			SendDebugMessage(str);
 
-			m_motionControl.SetSlewSpeed(speedLeft, speedRight, speedRight, speedLeft);
+			str.Format("Left: %.1f, Right: %.1f mm/sec", speedLeft, speedRight);
+			SendDebugMessage(str);
+
+			double speed1[] = { speedLeft, speedRight, speedRight, speedLeft };
+			SetMotorSpeed(speed1);
 			Wait((int)(travel.y + 0.5));
 
 			// likely now have completed the turn, set back to driving straight (but in new direction)
-			m_motionControl.SetSlewSpeed(m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed);
+			double speed2[] = { m_fMotorSpeed ,m_fMotorSpeed ,m_fMotorSpeed ,m_fMotorSpeed };
+			SetMotorSpeed(speed2);
 		}
 
 		// now wait for 1/2 the required time to get to line, before reccalulating
 		// at gap_vel2 it will take how long to travel 100 mm (100 / gap_vel2 sec)
-		int delay3 = (int)(NAVIGATION_TARGET_DIST_MM / gap_vel2 + 0.5);
+		int delay3 = (int)(NAVIGATION_TARGET_DIST_MM / fabs(gap_vel2) + 0.5);
 		str.Format("%d: Drive for: %d ms",
 			clock() - tim1, delay3);
 		SendDebugMessage(str);

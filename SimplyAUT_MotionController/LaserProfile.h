@@ -1,5 +1,6 @@
 #pragma once
 #include "SLSDef.h"
+#include "LaserControl.h"
 
 // CDialogLaser dialog
 class CMotionControl;
@@ -9,21 +10,6 @@ class CLaserControl;
 // they will not vary from instanc ew to instance
 
 
-
-struct LASSER_MEASURES
-{
-	LASSER_MEASURES() {
-		memset(this, 0x0, sizeof(LASSER_MEASURES));
-		up_side_locn = dn_side_locn = -1;
-	}
-
-	double weld_cap;
-	double up_side_height;
-	double dn_size_height;
-	double dummy8;
-	int up_side_locn;
-	int dn_side_locn;
-};
 class CStaticLaserProfile : public CWnd
 {
 	DECLARE_DYNAMIC(CStaticLaserProfile)
@@ -38,7 +24,6 @@ public:
 	void OnRoiButton();
 	CPoint GetDataPoint(CPoint);
 	CPoint GetScreenPixel(double x, double y);
-	BOOL   CalcLaserMeasures(LASSER_MEASURES& meas);
 	void	ResetROI();
 
 
@@ -46,7 +31,9 @@ public:
 	UINT	m_nMsg;
 
 	Profile			m_profile;
-	Measurement		m_measure;
+//	Measurement		m_measure1;
+	LASER_MEASURES  m_measure2;
+
 
 	CLaserControl& m_laserControl;
 	CString		m_jointPos_str;
@@ -54,7 +41,6 @@ public:
 	CString		m_edgesPos_str;
 	CString		m_mismVal_str;
 	int			m_profile_count;
-	int         m_image_count;
 	BOOL		m_valid_edges;
 	BOOL		m_valid_joint_pos;
 	COLORREF    m_bgColour;

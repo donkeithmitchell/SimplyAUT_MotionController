@@ -35,7 +35,6 @@ public:
 	UINT	ThreadGoToHome(void);
 	UINT	ThreadRunManual(BOOL);
 	void	SendDebugMessage(const CString&);
-	double  GetMaximumMotorPosition();
 	void    ShowLaserTemperature();
 	void    ShowLaserStatus();
 	int		GetMagStatus(int nStat);
@@ -44,11 +43,14 @@ public:
 	void    StartNotingRGBData(BOOL);
 	void	StartNotingMotorSpeed(BOOL);
 	void    StartSteeringMotors(BOOL);
+	void    StartMeasuringLaser(BOOL);
+	void    GetLaserProfile();
 
 	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION};
-	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_NOTE_RGB, TIMER_NOTE_STEERING};
+	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_NOTE_RGB, TIMER_NOTE_STEERING, TIMER_GET_LASER_PROFILE
+	};
 	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_MAG_STATUS};
-	enum{ NAVIGATE_GET_MEASURE=0, NAVIGATE_SEND_DEBUG_MSG};
+	enum{ NAVIGATE_GET_MEASURE=0, NAVIGATE_SEND_DEBUG_MSG, NAVIGATE_GET_MOTOR_POS, NAVIGATE_GET_MOTOR_SPEED, NAVIGATE_SET_MOTOR_SPEED};
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -75,6 +77,10 @@ public:
 	HANDLE			m_hThreadRunMotors;
 	GALIL_STATE		m_nGaililStateBackup;
 	CWeldNavigation m_weldNavigation;
+
+	Profile m_profile;
+	LASER_MEASURES m_measure2;
+
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;

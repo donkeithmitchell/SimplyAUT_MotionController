@@ -1,6 +1,8 @@
 #pragma once
 #include "time.h"
 #include "SLSDef.h"
+#include "LaserControl.h"
+
 struct LASER_POS
 {
 	LASER_POS() { Reset(); }
@@ -24,7 +26,7 @@ class CDoublePoint;
 class CWeldNavigation
 {
 public:
-	CWeldNavigation(CMotionControl& motion, CLaserControl& laser, CMagControl& mag);
+	CWeldNavigation();
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	LASER_POS NoteNextLaserPosition();
@@ -34,16 +36,15 @@ public:
 
 private:
 	CArray<LASER_POS, LASER_POS> m_posLaser;
-	double	GetMaximumMotorPosition();
 	void	StopSteeringMotors();
 	CDoublePoint CalculateLeftRightTravel(double dir);
-	BOOL	GetLaserMeasurment(Measurement& measure);
+	BOOL	GetLaserMeasurment(LASER_MEASURES& measure);
 	void	Wait(int delay);
 	void	SendDebugMessage(const CString& msg);
+	double  GetAvgMotorPosition();
+	BOOL    GetMotorSpeed(double speed[]);
+	BOOL    SetMotorSpeed(const double speed[]);
 
-	CMotionControl& m_motionControl;
-	CLaserControl& m_laserControl;
-	CMagControl& m_magControl;
 
 	CCriticalSection m_crit;
 	BOOL m_bSteerMotors;

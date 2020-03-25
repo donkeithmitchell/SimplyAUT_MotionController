@@ -295,13 +295,18 @@ UINT CMagControl::ThreadReadSocket()
             memset(m_strBuffer, 0x0, SOCKET_BUFF_LENGTH);
             break;
         }
+        // toss any NULL characters at the start
+        else if (m_strBuffer[i] == 0)
+            i--;
+        else if (i == 0 && m_strBuffer[i] == '\n')
+            i--;
         else
         {
             m_strBuffer[i + 1] = 0; // terminate so can use string functions on
             if (stop_char == '\n' && strstr(m_strBuffer, "$STA") != NULL)
                 stop_char = '\r';
 
-            if (m_strBuffer[i] == stop_char)
+            if (i > 0 && m_strBuffer[i] == stop_char)
             {
                 break;
             }

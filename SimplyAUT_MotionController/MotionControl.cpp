@@ -119,8 +119,8 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
     m_pGclib->StopMotors(); //stop all motion and programs
     m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
 
-    m_pGclib->GCommand("KP*=1.05");     // proportional constant
-    m_pGclib->GCommand("KI*=0");        // integrator
+    m_pGclib->GCommand(_T("KP*=1.05"));     // proportional constant
+    m_pGclib->GCommand(_T("KI*=0"));        // integrator
     m_pGclib->GCommand("KD*=0");        // derivative constant
     m_pGclib->GCommand("ER*=20000");    // magnitude of the position errors cnts
     m_pGclib->GCommand("OE*=1");        // Off On Error function   
@@ -351,3 +351,22 @@ BOOL CMotionControl::SteerMotors(double fSpeed, BOOL bRight, double rate)
 
     return SetMotorJogging(spA, spB, spC, spD, accelA);
 }
+
+double CMotionControl::GetAvgMotorPosition()
+{
+    // NOTE THAT A,D and B,C will be cvorrected for direction al,ready
+    double posA = GetMotorPosition("A");
+    double posB = GetMotorPosition("B");
+    double posC = GetMotorPosition("C");
+    double posD = GetMotorPosition("D");
+
+
+    if (posA == FLT_MAX || posB == FLT_MAX || posC == FLT_MAX || posD == FLT_MAX)
+        return FLT_MAX;
+    else
+    {
+        double avg = (posA + posB + posC + posD) / 4;
+        return avg;
+    }
+}
+

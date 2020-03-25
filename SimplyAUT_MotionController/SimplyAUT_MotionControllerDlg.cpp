@@ -354,6 +354,9 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 		m_laserControl.TurnLaserOn(FALSE);
 
 	m_nSel = m_tabControl.GetCurSel();
+	if (m_nSel == TAB_LASER)
+		m_laserControl.TurnLaserOn(TRUE);
+
 	ASSERT(IsWindow(m_dlgConnect.m_hWnd));
 	ASSERT(IsWindow(m_dlgMotors.m_hWnd));
 	ASSERT(IsWindow(m_dlgGirthWeld.m_hWnd));

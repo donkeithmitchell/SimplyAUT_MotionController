@@ -26,7 +26,6 @@ CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, COLORREF bgColour
 	m_pParent = NULL;
 	m_nMsg = 0;
 	m_profile_count = 0;
-	m_image_count = 0;
 	m_valid_edges = FALSE;
 	m_valid_joint_pos = FALSE;
 	m_jointPos_str = _T("");
@@ -73,7 +72,7 @@ void CStaticLaserProfile::Create(CWnd* pParent)
 	BOOL ret = CWnd::Create(NULL, _T(""), WS_CHILD | WS_VISIBLE, CRect(0, 0, 0, 0), pParent, 2, NULL);
 	ASSERT(m_hWnd != NULL);
 
-	SetTimer(1, 50, NULL);
+	SetTimer(1, 250, NULL);
 	EnableWindow(TRUE);
 	InvalidateRgn(NULL);
 	PostMessage(WM_SIZE);
@@ -206,151 +205,36 @@ void CStaticLaserProfile::OnLButtonDown(UINT nFlags, CPoint point)
 	CWnd::OnLButtonDown(nFlags, point);
 }
 
-static int MinMaxI4(const void* i1, const void* i2)
-{
-	int val1 = *((int*)i1);
-	int val2 = *((int*)i2);
-
-	return val1 - val2;
-}
-
-BOOL CStaticLaserProfile::CalcLaserMeasures(LASSER_MEASURES& meas)
-{
-	// get the medxian value that is valid
-	int hits[SENSOR_WIDTH];
-	int count = 0;
-	int maxVal = 0;
-	int minVal = INT_MAX;
-	for (int i = 0; i < SENSOR_WIDTH; ++i)
-	{
-		if (m_profile.hits[i].pos1 >= 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
-		{
-			hits[count++] = m_profile.hits[i].pos1;
-			maxVal = max(maxVal, m_profile.hits[i].pos1);
-			minVal = min(minVal, m_profile.hits[i].pos1);
-		}
-	}
-	if (count == 0)
-		return FALSE;
-
-	qsort(hits, count, sizeof(int), ::MinMaxI4);
-	int median = hits[count / 2];
-
-	// get the first value which passes the threshiold
-	// note less than as the weld cap decreases the distance to the laser
-	int threshold = (minVal + median) / 2;
-	meas.dn_side_locn = -1;
-	for (int i = 0; i < SENSOR_WIDTH && meas.dn_side_locn == -1; ++i)
-	{
-		int pos1 = m_profile.hits[i].pos1;
-		if (pos1 >= 0 && pos1 < SENSOR_HEIGHT && pos1 < threshold)
-			meas.dn_side_locn = i;
-	}
-
-	// now from the right look for the up sie
-	meas.up_side_locn = -1;
-	for (int i = SENSOR_WIDTH-1; i >= 0 && meas.up_side_locn == -1; --i)
-	{
-		int pos1 = m_profile.hits[i].pos1;
-		if (pos1 >= 0 && pos1 < SENSOR_HEIGHT && pos1 < threshold)
-			meas.up_side_locn = i;
-	}
-
-	return TRUE;
-}
-
-static double GetWeldCentre(const Hits hits[], int nSize)
-{
-	double sum = 0;
-	int count = 0;
-	int minPos = INT_MAX;
-	int maxPos = -INT_MAX;
-	
-	for (int i = 0; i < nSize; ++i)
-	{
-		if (hits[i].pos1 > 0 && hits[i].pos1 < SENSOR_HEIGHT)
-		{
-			minPos = min(minPos, hits[i].pos1);
-			maxPos = max(maxPos, hits[i].pos1);
-			sum += hits[i].pos1;
-			count++;
-		}
-	}
-	if (count == 0)
-		return 0;
-
-	double avgPos = sum / count;
-
-	// the threshold is 1/2 way from average to maxVal
-	int threshold = (int)((maxPos + avgPos) / 2 + 0.5);
-
-	// now note the start and end of this region above the threshold 
-	int i1, i2;
-	for (i1 = 0; i1 < nSize; ++i1)
-	{
-		if (hits[i1].pos1 > 0 && hits[i1].pos1 < SENSOR_HEIGHT && hits[i1].pos1 >= threshold)
-			break;
-	}
-	for (i2 = nSize - 1; i2 >= 0; --i2)
-	{
-		if (hits[i2].pos1 > 0 && hits[i2].pos1 < SENSOR_HEIGHT && hits[i2].pos1 >= threshold)
-			break;
-	}
-
-	// now put these values into a double vector and gtet the 2nd order polynomial parameters for
-	double x[SENSOR_WIDTH], y[SENSOR_WIDTH];
-	for (int i = i1; i < i2; ++i)
-	{
-		x[i - i1] = i;
-		y[i - i1] = hits[i].pos1;
-	}
-
-	double coeff[3];
-	::polyfit(x, y, i2 - i1, 2, coeff);
-
-	// now differentiate the coeff to dind the location of the maximum
-	double ind = -coeff[1] / (2 * coeff[2]);
-	return ind;
-}
-
 
 void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 {
 	CRect rect;
-	if (!m_laserControl.IsLaserOn())
-		return;
-
+	// the rectangle to draw into
+	/////////////////////////////
 	GetClientRect(&rect);
 
 	// Draw the background of the laser display
-	CBrush black_brush;
-	CPen PenPrimaryEdge(PS_SOLID, 2, RGB(10, 10, 250));
-	CPen PenSecondaryEdge(PS_SOLID, 1, RGB(250, 250, 10));
-	CPen PenTrackingPoint(PS_SOLID, 2, RGB(10, 200, 10));
+	CPen PenPrimaryEdge(PS_DASHDOT, 0, RGB(10, 10, 250));
+	CPen PenSecondaryEdge(PS_DOT, 1, RGB(250, 250, 10));
+	CPen PenTrackingPoint(PS_DOT, 2, RGB(10, 200, 10));
 
-	black_brush.CreateSolidBrush(m_bgColour);
-	pDC->FillRect(&rect, &black_brush);
+	// erase the rectangle to draw into
+	//////////////////////////////////////
+	CBrush brushErase(m_bgColour);
+	pDC->FillRect(&rect, &brushErase);
 
+	if (!m_laserControl.IsLaserOn())
+		return;
 
-	// get a measure of the lasewr
-	LASSER_MEASURES measures;
-	// CalcLaserMeasures(measures);
+	// draw a line in the centre to represent the craler
+	pDC->SelectObject(&PenPrimaryEdge);
+	pDC->SetROP2(R2_MERGEPEN);
+	pDC->MoveTo((rect.left + rect.right) / 2, rect.top);
+	pDC->LineTo((rect.left + rect.right) / 2, rect.bottom);
 
-	// Display Profile
-	CPen hits(PS_SOLID, 0, RGB(250, 50, 50));
-	pDC->SelectObject(&hits);
-
-	// get the modelled weld centrre
-	double weld_centre = GetWeldCentre(m_profile.hits, SENSOR_WIDTH);
-	CPoint pt = GetScreenPixel(weld_centre, 0);
-
-	// draw a vertical line here
-	CPen pen1(PS_DOT, 0, RGB(10, 255, 10));
-	pDC->SelectObject(&pen1);
-
-	pDC->MoveTo(pt.x, rect.bottom);
-	pDC->LineTo(pt.x, rect.top);
-
+	// Display Profile as a RED line
+	///////////////////////////////////
+	pDC->SelectObject(&PenTrackingPoint);
 	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
 		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
@@ -359,6 +243,35 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 			pDC->SetPixel(pt, RGB(250,50,50));
 		}
 	}
+
+	// get a measure of the lasewr
+	// show it as a line drawn top to bottom at thazt location
+	//////////////////////////////////////////////////////////////
+//	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2); in ontimer
+
+	CPoint pt = GetScreenPixel(m_measure2.weld_cap_pix.x, m_measure2.weld_cap_pix.y);
+	CPen penWeldCentre(PS_DOT, 0, RGB(10, 255, 10));
+	pDC->SelectObject(&penWeldCentre);
+	pDC->MoveTo(pt.x, pt.y-20);
+	pDC->LineTo(pt.x, pt.y+20);
+
+	// draw the hgith of the dsown and up sides
+	// alread have points at the inside of the sides, now need the outside point
+	//////////////////////////////////////////////////////
+	pDC->SelectObject(&PenSecondaryEdge);
+	CPoint pt11 = GetScreenPixel(m_measure2.weld_left/2, m_measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel(m_measure2.weld_left, m_measure2.GetDnSideWeldHeight());
+	pDC->MoveTo(pt11.x, pt11.y);
+	pDC->LineTo(pt12.x, pt12.y);
+
+	CPoint pt21 = GetScreenPixel(m_measure2.weld_right, m_measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel((m_measure2.weld_right+SENSOR_WIDTH)/2, m_measure2.GetUpSideEndHeight());
+	pDC->MoveTo(pt21.x, pt21.y);
+	pDC->LineTo(pt22.x, pt22.y);
+
+
+	// draw the values returned by the F/W
+	/*
 	if (m_valid_edges)
 	{
 		pDC->SelectObject(&PenPrimaryEdge);
@@ -380,6 +293,7 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 		pDC->MoveTo(pt.x, pt.y - 7);
 		pDC->LineTo(pt.x, pt.y + 7);
 	}
+	*/
 	// while waiting for the 2nd clicki, draw a rectangle
 	if (m_ROI_stage == 2)
 	{
@@ -406,16 +320,46 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 
 	double h_mm = 0.0, v_mm = 0.0;
 	double h2_mm = 0.0, v2_mm = 0.0;
+	double gap_h_mm, gap_v_mm;
 
 	if (!IsWindowVisible())
 		return;
 
+	InvalidateRgn(NULL);
+	
+	if (!m_laserControl.IsConnected() || !m_laserControl.IsLaserOn())
+		return;
 
-	if (m_laserControl.IsConnected() && m_laserControl.IsLaserOn() && m_laserControl.GetLaserMeasurment(m_measure))
+	if (!m_laserControl.GetProfile(m_profile))
+		return;
+
+	// will truy every 50 ms, but only draw every 500 ms
+	m_profile_count++;
+
+	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2); 
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix.x, (int)m_measure2.weld_cap_pix.y, h_mm, v_mm);
+	m_jointPos_str.Format("(%.1f,%.1f)", h_mm, v_mm);
+	m_valid_joint_pos = true;
+
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_left, (int)m_measure2.GetDnSideWeldHeight(), h_mm, v_mm);
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_right, (int)m_measure2.GetUpSideWeldHeight(), h2_mm, v2_mm);
+	m_edgesPos_str.Format("(%.1f,%.1f) (%.1f,%.1f)", h_mm, v_mm, h2_mm, v2_mm);
+	m_valid_edges = true;
+
+	m_laserControl.ConvPixelToMm(
+		(int)(m_measure2.weld_right - m_measure2.weld_left),
+		(int)(m_measure2.GetUpSideWeldHeight() - m_measure2.GetDnSideWeldHeight()), gap_h_mm, gap_v_mm);
+	m_gapVal_str.Format("%.1f", -gap_h_mm);
+	m_mismVal_str.Format("%.1f", gap_v_mm);
+
+	m_pParent->PostMessageA(m_nMsg);
+
+/*
+	if (m_laserControl.IsConnected() && m_laserControl.IsLaserOn() && m_laserControl.GetLaserMeasurment(m_measure1))
 	{
-		if (m_measure.mp[0].status == 0)
+		if (m_measure1.mp[0].status == 0)
 		{
-			m_laserControl.ConvPixelToMm((int)m_measure.mp[0].x, (int)m_measure.mp[0].y, h_mm, v_mm);
+			m_laserControl.ConvPixelToMm((int)m_measure1.mp[0].x, (int)m_measure1.mp[0].y, h_mm, v_mm);
 			m_jointPos_str.Format("(%.1f,%.1f)", h_mm, v_mm);
 			m_valid_joint_pos = true;
 		}
@@ -424,10 +368,10 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 			m_jointPos_str = "-----";
 			m_valid_joint_pos = false;
 		}
-		if ((m_measure.mp[1].status == 0) || (m_measure.mp[2].status == 0))
+		if ((m_measure1.mp[1].status == 0) || (m_measure1.mp[2].status == 0))
 		{
-			m_laserControl.ConvPixelToMm((int)m_measure.mp[1].x, (int)m_measure.mp[1].y, h_mm, v_mm);
-			m_laserControl.ConvPixelToMm((int)m_measure.mp[2].x, (int)m_measure.mp[2].y, h2_mm, v2_mm);
+			m_laserControl.ConvPixelToMm((int)m_measure1.mp[1].x, (int)m_measure1.mp[1].y, h_mm, v_mm);
+			m_laserControl.ConvPixelToMm((int)m_measure1.mp[2].x, (int)m_measure1.mp[2].y, h2_mm, v2_mm);
 			m_edgesPos_str.Format("(%+5.1f,%+5.1f) (%+5.1f,%+5.1f)", h_mm, v_mm, h2_mm, v2_mm);
 			m_valid_edges = true;
 		}
@@ -436,17 +380,17 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 			m_edgesPos_str = "-----";
 			m_valid_edges = false;
 		}
-		if (m_measure.mv[0].status == 0)
+		if (m_measure1.mv[0].status == 0)
 		{
-			m_gapVal_str.Format("%+5.1f", m_measure.mv[0].val);
+			m_gapVal_str.Format("%+5.1f", m_measure1.mv[0].val);
 		}
 		else
 		{
 			m_gapVal_str = "-----";
 		}
-		if (m_measure.mv[1].status == 0)
+		if (m_measure1.mv[1].status == 0)
 		{
-			m_mismVal_str.Format("%+5.1f", m_measure.mv[1].val);
+			m_mismVal_str.Format("%+5.1f", m_measure1.mv[1].val);
 		}
 		else
 		{
@@ -461,7 +405,7 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 		if (m_profile_count % 10 == 0)
 			m_pParent->PostMessageA(m_nMsg);
 	}
+	*/
 
-	InvalidateRgn(NULL);
 	CWnd::OnTimer(nIDEvent);
 }

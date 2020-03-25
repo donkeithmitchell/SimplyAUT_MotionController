@@ -22,7 +22,8 @@ class CStaticLaser : public CWnd
 	DECLARE_DYNAMIC(CStaticLaser)
 
 public:
-	CStaticLaser(CLaserControl&, CMagControl&);   // standard constructor
+	CStaticLaser(CLaserControl&, CMagControl&, const Profile&, const LASER_MEASURES&);
+
 	virtual ~CStaticLaser();
 	void Init(CWnd*, UINT);
 
@@ -44,6 +45,7 @@ public:
 	int    AddRGBData(const int&);
 	void   ResetRGBData();
 	double GetAverageRGBValue();
+	void   GetLaserMeasurment(LASER_MEASURES* meas) {*meas = m_measure2;	}
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
@@ -51,16 +53,18 @@ public:
 	UINT	m_nMsg;
 	double	m_fHomeAng;
 
-	Profile			m_profile;
-	Measurement 	m_measure;
-	int				m_profile_count;
-	int				m_image_count;
+	const Profile&			m_profile;
+	const LASER_MEASURES&   m_measure2;
+//	Measurement 	m_measure1;
+//	int				m_profile_count;
+//	int				m_image_count;
 	CDoublePoint    m_joint_pos;
 	CDoublePoint    m_edge_pos[3];
 	double			m_disp_width_factor;
 	double			m_disp_height_factor;
+	int             m_disp_height_min;
+	int             m_disp_height_max;
 	CRect			m_disp_rect;
-	CRect			m_roi_rect;
 	CArray<int, int>  m_rgbData;
 	int				m_rgbSum; // use to calculate the average
 	int				m_rgbCount;

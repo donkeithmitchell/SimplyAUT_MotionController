@@ -29,6 +29,7 @@ public:
 	void   SetSlewSpeed(double A, double B, double C, double D);
 	void   SetSlewSpeed(double speed);
 	void   GoToHomePosition();
+	double GetAvgMotorPosition();
 
 	Gclib* m_pGclib;
 	CWnd* m_pParent;
