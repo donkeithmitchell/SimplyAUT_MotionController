@@ -99,7 +99,8 @@ void CStaticLaser::OnPaint()
 	DrawCrawlerLocation(&memDC);
 	DrawLaserProfile(&memDC);
 	DrawRGBProfile(&memDC);
-//	m_wndLaserProfile.InvalidateRgn(NULL);
+	DrawLaserOffset(&memDC);
+	//	m_wndLaserProfile.InvalidateRgn(NULL);
 	dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
 }
 
@@ -119,28 +120,6 @@ CPoint CStaticLaser::GetScreenPixel(double x, double y)
 	ret.y = m_disp_rect.bottom - int((y- m_disp_height_min) * m_disp_height_factor + 0.5);
 
 	return ret;
-}
-
-
-int CStaticLaser::GetPipeRect(CRect* rect)
-{
-	GetClientRect(rect);
-	int x0 = (rect->left + rect->right) / 2;
-	int y0 = (rect->top + rect->bottom) / 2;
-	int radius1 = min(rect->Width(), rect->Height()) / 2;
-
-	if (rect->Width() > rect->Height())
-	{
-		rect->right = x0 + radius1;
-		rect->left = x0 - radius1;
-	}
-	else
-	{
-
-		rect->top = y0 - radius1;
-		rect->bottom = y0 + radius1;
-	}
-	return radius1;
 }
 
 // draw a circle with the current location of the crawler noted on the circle
@@ -217,13 +196,57 @@ void CStaticLaser::SetCrawlerLocation(CPoint pt)
 void CStaticLaser::GetLaserRect(CRect* rect)
 {
 	// positioon in the bottom half and in the centre half of that
-	GetClientRect(rect);
+	GetPipeRect(rect);
+
+	// push in from the pipe circle
 	int x1 = rect->left + rect->Width() / 6;
 	int x2 = rect->right - rect->Width() / 6;
 	int y1 = rect->top + rect->Height() / 8;
 	int y2 = (rect->bottom + rect->top) / 2;
 	rect->SetRect(x1, y1, x2, y2);
 }
+
+
+void CStaticLaser::GetOffsetRect(CRect* rect)
+{
+	// positioon in the bottom half and in the centre half of that
+	CRect client;
+	GetClientRect(&client);
+	GetPipeRect(rect);
+
+	// push in from the pipe circle
+	int x1 = client.left;
+	int x2 = client.right;
+	int y1 = rect->bottom + 2;
+	int y2 = client.bottom;
+
+	rect->SetRect(x1, y1, x2, y2);
+}
+
+
+
+int CStaticLaser::GetPipeRect(CRect* rect)
+{
+	GetClientRect(rect);
+	int x0 = (rect->left + rect->right) / 2;
+	int y0 = (rect->top + rect->bottom) / 2;
+
+	int radius1 = min(rect->Width(), rect->Height()) / 2;
+
+	if (rect->Width() > rect->Height())
+	{
+		rect->right = x0 + radius1;
+		rect->left = x0 - radius1;
+	}
+	else
+	{
+
+		rect->top = y0 - radius1;
+		rect->bottom = y0 + radius1;
+	}
+	return radius1;
+}
+
 
 void CStaticLaser::GetRGBRect(CRect* rect)
 {
@@ -350,6 +373,64 @@ void CStaticLaser::ResetRGBData()
 	m_rgbData.SetSize(0);
 }
 
+// arecord of the laser offsets is being kept by the steering function
+void CStaticLaser::DrawLaserOffset(CDC* pDC)
+{
+	if (!m_laserControl.IsLaserOn())
+		return;
+
+	if (m_pParent == NULL || !::IsWindow(m_pParent->m_hWnd))
+		return;
+
+	// build an array of offsets and position
+	LASER_POS lastPos;
+	m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::STATUS_GET_LAST_LASER_POS, (WPARAM)&lastPos);
+	if (lastPos.gap_filt != FLT_MAX)
+		m_laserPos.Add(CDoublePoint(lastPos.pos, lastPos.gap_filt));
+
+	if (m_laserPos.GetSize() == 0)
+		return;
+
+	double minGap = FLT_MAX;
+	double maxGap = -FLT_MAX;
+	double minPos = FLT_MAX;
+	double maxPos = -FLT_MAX;
+
+	for (int i = 0; i < m_laserPos.GetSize(); ++i)
+	{
+		minGap = min(minGap, m_laserPos[i].y);
+		maxGap = max(maxGap, m_laserPos[i].y);
+
+		minPos = min(minPos, m_laserPos[i].x);
+		maxPos = max(maxPos, m_laserPos[i].x);
+	}
+
+	if (minPos == maxPos)
+		return;
+
+	CRect rect;
+	GetOffsetRect(&rect);
+	if (rect.Width() <= 0 || rect.Height() <= 0)
+		return;
+
+	int scanLength = (int)m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::STATUS_GET_SCAN_LENGTH);
+	minGap = min(minGap, -1);
+	maxGap = max(maxGap, 1);
+
+	double scaleX = (double)rect.Width() / (double)scanLength; //  (maxPos - minPos);
+	double scaleY = (double)rect.Height() / (maxGap - minGap);
+
+	CPen pen(PS_SOLID, 0, RGB(250, 10, 10));
+	pDC->SelectObject(&pen);
+	for (int i = 0; i < m_laserPos.GetSize(); ++i)
+	{
+		int x = rect.left + (int)((m_laserPos[i].x - minPos) * scaleX + 0.5);
+		int y = rect.bottom - (int)((m_laserPos[i].y - minGap) * scaleY + 0.5);
+		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
+	}
+
+}
+
 
 // draw the profile returned by the laser within the above circle
 void CStaticLaser::DrawLaserProfile(CDC* pDC)
@@ -361,6 +442,10 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 
 	CPen PenBlack(PS_SOLID, 0, RGB(0, 0, 0));
+	COLORREF colourCrawler = RGB(10, 250, 250);
+	CPen PenCrawler(PS_DASHDOT, 1, colourCrawler);
+	CBrush BrushCrawler(colourCrawler);
+
 	pDC->SelectObject(&PenBlack);
 	pDC->MoveTo(m_disp_rect.left, m_disp_rect.bottom);
 	pDC->LineTo(m_disp_rect.right, m_disp_rect.bottom);
@@ -388,41 +473,49 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 //	m_disp_width_factor = ((double)m_disp_rect.Width()) / (double)SENSOR_WIDTH; // set in OnSize()
 	m_disp_height_factor = ((double)m_disp_rect.Height()) / (m_disp_height_max- m_disp_height_min);
 
+	// m_measure2.weld_cap_pix.x is shifted to the centre (i.e the weld does not move, the crawler does)
+	int shift = (int)(SENSOR_WIDTH / 2 - m_measure2.weld_cap_pix.x);
+
 	for (int i = 0; i <= SENSOR_WIDTH; i++)
 	{
 		double val = m_hitBuffer[i];
 //		int val = m_profile.hits[i].pos1;
 		if (val >= 1 && val <= SENSOR_HEIGHT - 1)
 		{
-			CPoint pt = GetScreenPixel(i, val);
+			CPoint pt = GetScreenPixel(i+shift, val);
 			pDC->SetPixel(pt, RGB(250, 50, 50));
 		}
 	}
 
-	// draw a vertical linje to represent the scanner
-	CPen PenCrawler(PS_DASHDOT, 0, RGB(10, 10, 250));
+	// draw a dot to represent the scanner
 	pDC->SelectObject(&PenCrawler);
 	pDC->SetROP2(R2_COPYPEN);
-	pDC->MoveTo((m_disp_rect.left + m_disp_rect.right) / 2, m_disp_rect.top);
-	pDC->LineTo((m_disp_rect.left + m_disp_rect.right) / 2, m_disp_rect.bottom);
+	pDC->SelectObject(&BrushCrawler);
+	pDC->SelectObject(&PenCrawler);
+	double y1 = max(m_measure2.GetDnSideWeldHeight(), m_measure2.GetUpSideWeldHeight());
+	double y2 = (y1 + m_measure2.weld_cap_pix.y) / 2;
+	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-m_measure2.weld_cap_pix.x + shift, y2);
+	pDC->Ellipse(pt1.x - 5, pt1.y - 5, pt1.x + 5, pt1.y + 5);
+	pDC->MoveTo(pt1.x, pt1.y - 10);
+	pDC->LineTo(pt1.x, pt1.y + 10);
 
 	// draw a vertical line at the weld centre
 	// the values are in (mm) not laser pixels
-	CPoint pt = GetScreenPixel(m_measure2.weld_cap_pix.x, m_measure2.weld_cap_pix.y);
+	CPoint pt = GetScreenPixel(m_measure2.weld_cap_pix.x+shift, m_measure2.weld_cap_pix.y);
 	CPen penWeldCentre(PS_SOLID, 0, RGB(10, 255, 10));
 	pDC->SelectObject(&penWeldCentre);
 	pDC->MoveTo(pt.x, m_disp_rect.bottom);
 	pDC->LineTo(pt.x, m_disp_rect.top);
 
-	CPoint pt11 = GetScreenPixel(m_measure2.weld_left / 2, m_measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel(m_measure2.weld_left, m_measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel((m_measure2.weld_left+shift) / 2, m_measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel(m_measure2.weld_left+shift, m_measure2.GetDnSideWeldHeight());
 	CPen PenPrimaryEdge(PS_SOLID, 1, RGB(10, 10, 250));
 	pDC->SelectObject(&PenPrimaryEdge);
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel(m_measure2.weld_right, m_measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel((m_measure2.weld_right + SENSOR_WIDTH) / 2, m_measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel(m_measure2.weld_right+shift, m_measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel((m_measure2.weld_right+shift + SENSOR_WIDTH) / 2, m_measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 /*

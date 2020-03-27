@@ -144,6 +144,10 @@
 #define IDC_STATIC_LEFT                 1096
 #define IDC_STATIC_RIGHT                1097
 #define IDC_BUTTON_RESET_STATUS         1098
+#define IDC_STATIC_WELD_OFFSET          1099
+#define IDC_STATIC_WELD_WIDTH           1100
+#define IDC_STATIC_WELD_LR_DIFF         1101
+#define IDC_STATIC_WELD_HEIGHT          1102
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
@@ -152,7 +156,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1099
+#define _APS_NEXT_CONTROL_VALUE         1100
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

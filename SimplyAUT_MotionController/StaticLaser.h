@@ -31,13 +31,15 @@ public:
 	void DrawLaserProfile(CDC*);
 	void DrawRGBProfile(CDC*);
 	void DrawCrawlerLocation(CDC*);
+	void DrawLaserOffset(CDC*);
 	void SetCrawlerLocation(CPoint pt);
 	double GetPipeCircumference();
 	double GetCrawlerLocation();
-	int   GetMagStatus(int);
-	int GetPipeRect(CRect*);
-	void GetLaserProfile();
-	void  GetLaserRect(CRect*);
+	int		GetMagStatus(int);
+	int 	GetPipeRect(CRect*);
+	void	GetOffsetRect(CRect*);
+	void	GetLaserProfile();
+	void	GetLaserRect(CRect*);
 	void  GetRGBRect(CRect*);
 	CDoublePoint GetJointPos() { return m_joint_pos; }
 	CDoublePoint GetEdgePos(int ind) { return m_edge_pos[ind]; }
@@ -46,6 +48,7 @@ public:
 	void   ResetRGBData();
 	double GetAverageRGBValue();
 	void   GetLaserMeasurment(LASER_MEASURES* meas) {*meas = m_measure2;	}
+	void   ResetLaserOffsetList() { m_laserPos.SetSize(0); }
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
@@ -69,6 +72,7 @@ public:
 	CArray<int, int>  m_rgbData;
 	int				m_rgbSum; // use to calculate the average
 	int				m_rgbCount;
+	CArray<CDoublePoint, CDoublePoint> m_laserPos;
 
 //	CStaticLaserProfile m_wndLaserProfile;
 	CLaserControl& m_laserControl;

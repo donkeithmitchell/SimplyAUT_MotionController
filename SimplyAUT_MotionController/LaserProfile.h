@@ -5,6 +5,8 @@
 // CDialogLaser dialog
 class CMotionControl;
 class CLaserControl;
+struct LASER_MEASURES;
+
 
 // thjese are constants so do not need to be in the clasas
 // they will not vary from instanc ew to instance
@@ -15,7 +17,7 @@ class CStaticLaserProfile : public CWnd
 	DECLARE_DYNAMIC(CStaticLaserProfile)
 
 public:
-	CStaticLaserProfile(CLaserControl&, COLORREF bgColour);   // standard constructor
+	CStaticLaserProfile(CLaserControl&, LASER_MEASURES&, COLORREF bgColour);   // standard constructor
 	virtual ~CStaticLaserProfile();
 	void Init(CWnd*, UINT);
 
@@ -32,19 +34,19 @@ public:
 
 	Profile			m_profile;
 //	Measurement		m_measure1;
-	LASER_MEASURES  m_measure2;
-	double			m_hitBuffer[2*SENSOR_WIDTH];
+	LASER_MEASURES&  m_measure2;
+	double			 m_hitBuffer[2*SENSOR_WIDTH];
 
 
 
 	CLaserControl& m_laserControl;
-	CString		m_jointPos_str;
-	CString		m_gapVal_str;
-	CString		m_edgesPos_str;
-	CString		m_mismVal_str;
+//	CString		m_jointPos_str;
+//	CString		m_gapVal_str;
+//	CString		m_edgesPos_str;
+//	CString		m_mismVal_str;
 	int			m_profile_count;
-	BOOL		m_valid_edges;
-	BOOL		m_valid_joint_pos;
+//	BOOL		m_valid_edges;
+//	BOOL		m_valid_joint_pos;
 	COLORREF    m_bgColour;
 	CString		m_ROI_str;
 	int			m_ROI_stage;

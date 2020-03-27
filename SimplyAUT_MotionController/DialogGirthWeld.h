@@ -32,6 +32,7 @@ public:
 	BOOL	CheckVisibleTab();
 	LRESULT UserSteer(BOOL bRight, BOOL bDown);
 	UINT    ThreadStopMotors(void);
+	UINT    ThreadWaitForMotorsToStop();
 	UINT	ThreadGoToHome(void);
 	UINT	ThreadRunManual(BOOL);
 	void	SendDebugMessage(const CString&);
@@ -46,11 +47,17 @@ public:
 	void    StartReadMagStatus(BOOL);
 	void    StartMeasuringLaser(BOOL);
 	void    GetLaserProfile();
+	BOOL	SetSlewSpeed(double fSpeed);
+	double  GetSlewSpeed(const char* axis);
+	BOOL    GoToPosition(double pos);
+	BOOL    WaitForMotorsToStop();
+	BOOL    WaitForMotorsToStart();
 
-	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION};
-	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_NOTE_RGB, TIMER_NOTE_STEERING, TIMER_GET_LASER_PROFILE
-	};
-	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_MAG_STATUS};
+
+	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL};
+	enum{ MC_SET_SLEW_SPEED=0, MC_GOTO_POSITION, MC_GET_SLEW_SPEED};
+	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_NOTE_RGB, TIMER_NOTE_STEERING, TIMER_GET_LASER_PROFILE};
+	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_GET_LAST_LASER_POS, STATUS_GET_SCAN_LENGTH, STATUS_MAG_STATUS/*this must be last*/	};
 	enum{ NAVIGATE_GET_MEASURE=0, NAVIGATE_SEND_DEBUG_MSG, NAVIGATE_GET_MOTOR_POS, NAVIGATE_GET_MOTOR_SPEED, NAVIGATE_SET_MOTOR_SPEED};
 
 	// Dialog Data
@@ -70,6 +77,7 @@ public:
 	afx_msg LRESULT OnUserStopMotorFinished(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserStaticParameter(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserWeldNavigation(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserMotionControl(WPARAM, LPARAM);
 
 	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
@@ -90,7 +98,7 @@ public:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	BOOL	m_bPaused;
-	BOOL    m_bResumed;
+	BOOL    m_bResumeScan;
 	int     m_nTimerCount;
 	double  m_fMotorSpeed;
 	double  m_fMotorAccel;
@@ -187,4 +195,5 @@ public:
 	CString m_szSteeringGapVel;
 	CString m_szSteeringLRDiff;
 	CString m_szSteeringGapAccel;
+	afx_msg void OnStnClickedStaticTempBoard();
 };

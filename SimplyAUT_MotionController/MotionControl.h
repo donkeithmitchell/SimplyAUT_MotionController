@@ -20,14 +20,15 @@ public:
 	void SendErrorMessage(const CString&);
 	void EnableControls();
 	void StopMotors();
+	BOOL WaitForMotorsToStop();
 	double EncoderCountToDistancePerSecond(int encoderCount)const;
 	int DistancePerSecondToEncoderCount(double DistancePerSecond)const;
 	int    AxisDirection(GCStringIn axis)const;
 	void   ZeroPositions();
-	BOOL   GoToPosition(double pos, double fSpeed, double fAccel);
+	BOOL   GoToPosition(double pos, double fSpeed, double fAccel, BOOL bWait);
 	BOOL   SteerMotors(double fSpeed, BOOL bRight, double rate);
-	void   SetSlewSpeed(double A, double B, double C, double D);
-	void   SetSlewSpeed(double speed);
+	BOOL   SetSlewSpeed(double A, double B, double C, double D);
+	BOOL   SetSlewSpeed(double speed);
 	void   GoToHomePosition();
 	double GetAvgMotorPosition();
 

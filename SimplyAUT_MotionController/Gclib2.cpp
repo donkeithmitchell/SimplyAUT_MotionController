@@ -282,12 +282,150 @@ BOOL Gclib::GoToPosition(int A, int B, int C, int D)
 
 BOOL Gclib::WaitForMotorsToStop()
 {
+//    int err = ei_motioncomplete("ABCD");
     GReturn ret1 = GMotionComplete("A");
     GReturn ret2 = GMotionComplete("B");
     GReturn ret3 = GMotionComplete("C");
     GReturn ret4 = GMotionComplete("D");
 
     return ret1 == G_NO_ERROR && ret2 == G_NO_ERROR && ret3 == G_NO_ERROR && ret4 == G_NO_ERROR;
+}
+
+int Gclib::dr_motioncomplete(GCStringIn axes)
+{
+    GReturn rc;
+    GDataRecord r;
+
+
+    int original_dr;
+    GCmdI("MG_DR", &original_dr); //grab the current DR value
+    GRecordRate(100); //set up DR to 10Hz
+
+    int len = strlen(axes);
+    UW* axis_status;
+    for (int i = 0; i < len; /*blank*/) //iterate through all chars in axes to make the axis mask
+    {
+        rc = GRecord(&r, G_DR);
+        //support just A-H
+        switch (axes[i])
+        {
+        case 'A':
+            axis_status = &r.dmc4000.axis_a_status;
+            break;
+        case 'B':
+            axis_status = &r.dmc4000.axis_b_status;
+            break;
+        case 'C':
+            axis_status = &r.dmc4000.axis_c_status;
+            break;
+        case 'D':
+            axis_status = &r.dmc4000.axis_d_status;
+            break;
+        case 'E':
+            axis_status = &r.dmc4000.axis_e_status;
+            break;
+        case 'F':
+            axis_status = &r.dmc4000.axis_f_status;
+            break;
+        case 'G':
+            axis_status = &r.dmc4000.axis_g_status;
+            break;
+        case 'H':
+            axis_status = &r.dmc4000.axis_h_status;
+            break;
+        default:
+            axis_status = 0;
+        }
+
+        if (axis_status)
+            if (!(*axis_status & 0x8000)) //bit 15 is "Move in progress"
+                i++;
+    }
+
+    char buf[16];
+    sprintf_s(buf, sizeof(buf), "DR %d", original_dr);
+    GCmd(buf); //restore DR
+
+    return G_NO_ERROR;
+}
+
+int Gclib::ei_motioncomplete(GCStringIn axes) //Motion Complete with interrupts.
+{
+    char buf[1024]; //traffic buffer
+    GReturn rc = 0;
+    GStatus status;
+    unsigned char axis_mask = 0xFF; //bit mask of running axes, axes arg is trusted to provide running axes. Low bit indicates running.
+
+    int len = strlen(axes);
+    for (int i = 0; i < len; i++) //iterate through all chars in axes to make the axis mask
+    {
+        //support just A-H
+        switch (axes[i])
+        {
+        case 'A':
+            axis_mask &= 0xFE;
+            break;
+        case 'B':
+            axis_mask &= 0xFD;
+            break;
+        case 'C':
+            axis_mask &= 0xFB;
+            break;
+        case 'D':
+            axis_mask &= 0xF7;
+            break;
+        case 'E':
+            axis_mask &= 0xEF;
+            break;
+        case 'F':
+            axis_mask &= 0xDF;
+            break;
+        case 'G':
+            axis_mask &= 0xBF;
+            break;
+        case 'H':
+            axis_mask &= 0x7F;
+            break;
+        }
+    }
+    sprintf_s(buf, sizeof(buf), "EI %u", (unsigned char)~axis_mask);
+    GCmd( buf); //send EI axis mask to set up interrupt events.
+
+    while (axis_mask != 0xFF) //wait for all interrupts to come in
+    {
+        if ((rc = GInterrupt(&status)) == G_NO_ERROR)
+        {
+            switch (status)
+            {
+            case 0xD0: //Axis A complete
+                axis_mask |= 0x01;
+                break;
+            case 0xD1: //Axis B complete
+                axis_mask |= 0x02;
+                break;
+            case 0xD2: //Axis C complete
+                axis_mask |= 0x04;
+                break;
+            case 0xD3: //Axis D complete
+                axis_mask |= 0x08;
+                break;
+            case 0xD4: //Axis E complete
+                axis_mask |= 0x10;
+                break;
+            case 0xD5: //Axis F complete
+                axis_mask |= 0x20;
+                break;
+            case 0xD6: //Axis G complete
+                axis_mask |= 0x40;
+                break;
+            case 0xD7: //Axis H complete
+                axis_mask |= 0x80;
+                break;
+            }
+        }
+    }
+
+    return rc;
 }
 
 
@@ -398,6 +536,28 @@ CString Gclib::GCmdT(GCStringIn command)
     delete[] trimmed_response;
 
     return str;
+}
+
+GReturn Gclib::GCmdI(GCStringIn command, int* value)
+{
+    SetLastError();
+    if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
+        return G_GCLIB_ERROR;
+    }
+
+    GReturn rc = ::GCmdI(m_ConnectionHandle, command, value);
+    if (rc != G_NO_ERROR)
+    {
+        GSize bytes_read = 0;
+        GReturn rc2 = ::GCommand(m_ConnectionHandle, "TC1", m_Buffer, m_BufferSize, &bytes_read);
+        ::AfxMessageBox(CString("GCmd(") + _T(command)
+            + _T(") ") + GError(rc) + _T(" ") + _T(m_Buffer));
+        return rc;
+    }
+
+    return G_NO_ERROR;
 }
 
 GReturn Gclib::GCmd(GCStringIn command)
@@ -524,6 +684,24 @@ GReturn Gclib::GArrayUpload(const GCStringIn array_name, GOption first, GOption 
     
     GReturn rc = ::GArrayUpload(m_ConnectionHandle, array_name, first, last, delim, buffer, buffer_len);
 
+    if (rc != G_NO_ERROR)
+    {
+        SetLastError(GError(rc));
+        return rc;
+    }
+    return G_NO_ERROR;
+}
+
+GReturn Gclib::GRecordRate(double period_ms)
+{
+    SetLastError();
+    if (this == NULL || !IsConnected())
+    {
+        SetLastError(_T("Not Connected"));
+        return G_GCLIB_ERROR;
+    }
+
+    GReturn rc = ::GRecordRate(m_ConnectionHandle, period_ms);
     if (rc != G_NO_ERROR)
     {
         SetLastError(GError(rc));

@@ -23,12 +23,13 @@ CDialogLaser::CDialogLaser(CMotionControl& motion, CLaserControl& laser, CWnd* p
 	: CDialogEx(IDD_DIALOG_LASER, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
-	, m_wndProfile(laser, RGB(10, 10, 10))
+	, m_wndProfile(laser, m_measure2, RGB(10, 10, 10))
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
+	m_bAutoLaser = FALSE;
 
 	m_LaserPower = 0;
 	m_CameraShutter = 0;
@@ -133,13 +134,28 @@ LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 {
 	CString str;
 
-	GetDlgItem(IDC_JOINTPOS_EDIT)->SetWindowTextA(m_wndProfile.m_jointPos_str);
-	GetDlgItem(IDC_GAPVALUE_EDIT)->SetWindowTextA(m_wndProfile.m_gapVal_str);
-	GetDlgItem(IDC_EDGESPOS_EDIT)->SetWindowTextA(m_wndProfile.m_edgesPos_str);
-	GetDlgItem(IDC_MISMATCHVALUE_EDIT)->SetWindowTextA(m_wndProfile.m_mismVal_str);
+	double h1_mm, v1_mm;
+	double h2_mm, v2_mm;
 
-	str.Format("%d", m_wndProfile.m_profile_count);
-	GetDlgItem(IDC_PROFILECOUNT_EDIT)->SetWindowTextA(str);
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix.x, (int)m_measure2.weld_cap_pix.y, h1_mm, v1_mm);
+	double weld_cap_height = v1_mm;
+	str.Format("%.1f mm", h1_mm);
+	GetDlgItem(IDC_STATIC_WELD_OFFSET)->SetWindowTextA(str);
+
+	// the width of the weld
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_left, (int)m_measure2.GetDnSideWeldHeight(), h1_mm, v1_mm);
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_right, (int)m_measure2.GetUpSideWeldHeight(), h2_mm, v2_mm);
+	double avg_side_height = (v1_mm + v2_mm) / 2;
+	str.Format("%.1f mm", h2_mm - h1_mm);
+	GetDlgItem(IDC_STATIC_WELD_WIDTH)->SetWindowTextA(str);
+
+	// differnece in height left to right
+	str.Format("%.1f mm", fabs(v2_mm - v1_mm));
+	GetDlgItem(IDC_STATIC_WELD_LR_DIFF)->SetWindowTextA(str);
+
+	// differnece in height left to right
+	str.Format("%.1f mm", fabs(weld_cap_height - avg_side_height));
+	GetDlgItem(IDC_STATIC_WELD_HEIGHT)->SetWindowTextA(str);
 
 	return 0L;
 

@@ -5,7 +5,7 @@
 #include "Gclib2.h"
 
 //static const  double COUNTS_PER_TURN = 768000.0;
-static const  double COUNTS_PER_TURN = (768000.0 / 0.68);
+static const  double COUNTS_PER_TURN = (768000.0 * 1.5); //  0.68);
 static const double WHEEL_DIAMETER = 50.0; // MM
 static double PI = 4 * atan(1.0);
 
@@ -23,7 +23,7 @@ CMotionControl::~CMotionControl()
     {
         StopMotors();
         m_pGclib->StopMotors(); //stop all motion and programs
-        m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+        WaitForMotorsToStop(); //Block until motion is complete on vector plane S
         m_pGclib->MotorsOff();
     }
 
@@ -117,7 +117,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 
     SendDebugMessage(_T("Initialization of the Galil..."));
     m_pGclib->StopMotors(); //stop all motion and programs
-    m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+    WaitForMotorsToStop(); //Block until motion is complete on vector plane S
 
     m_pGclib->GCommand(_T("KP*=1.05"));     // proportional constant
     m_pGclib->GCommand(_T("KI*=0"));        // integrator
@@ -149,7 +149,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 void CMotionControl::ZeroPositions()
 {
     m_pGclib->StopMotors(); //stop all motion and programs
-    m_pGclib->WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+    WaitForMotorsToStop(); //Block until motion is complete on vector plane S
     m_pGclib->DefinePosition(0);        // all to zero
 }
 void CMotionControl::GoToHomePosition()
@@ -163,7 +163,7 @@ void CMotionControl::GoToHomePosition()
 }
     
 
-BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
+BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel, BOOL bWaitToStop)
 {
     CString str;
 
@@ -189,20 +189,49 @@ BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel)
 
     // now wait for the mnotors to stop
     // this xshould be called by a thread
-    m_pGclib->WaitForMotorsToStop();
-    double posA1 = GetMotorPosition("A");
-    double posB1 = GetMotorPosition("B");
-    double posC1 = GetMotorPosition("C");
-    double posD1 = GetMotorPosition("D");
+    if (bWaitToStop)
+    {
+        WaitForMotorsToStop();
+        double posA1 = GetMotorPosition("A");
+        double posB1 = GetMotorPosition("B");
+        double posC1 = GetMotorPosition("C");
+        double posD1 = GetMotorPosition("D");
 
-    m_pGclib->StopMotors();
+        m_pGclib->StopMotors();
+    }
+    return TRUE;
+}
+
+BOOL CMotionControl::WaitForMotorsToStop()
+{
+    double accel = 0;
+    double fSA = FLT_MAX;
+    double fSB = FLT_MAX;
+    double fSC = FLT_MAX;
+    double fSD = FLT_MAX;
+
+    // must bet motor stopped for at least 10 ms
+    int count = 0;
+    while (count < 4)
+    {
+        m_pGclib->WaitForMotorsToStop();
+
+        fSA = GetMotorSpeed("A", accel);
+        fSB = GetMotorSpeed("B", accel);
+        fSC = GetMotorSpeed("C", accel);
+        fSD = GetMotorSpeed("D", accel);
+
+        count += (fSA == 0 && fSB == 0 && fSC == 0 && fSD == 0);
+        Sleep(1);
+    }
+
     return TRUE;
 }
 
 void CMotionControl::StopMotors()
 {
     m_pGclib->StopMotors();    // stop all motors
-    m_pGclib->WaitForMotorsToStop(); 
+    WaitForMotorsToStop(); 
 }
 BOOL CMotionControl::SetMotorJogging(double speed, double accel)
 {
@@ -302,18 +331,18 @@ int CMotionControl::DistancePerSecondToEncoderCount(double DistancePerSecond)con
     return encoderCount;
 }
 
-void CMotionControl::SetSlewSpeed(double A_mm_sec, double B_mm_sec, double C_mm_sec, double D_mm_sec)
+BOOL CMotionControl::SetSlewSpeed(double A_mm_sec, double B_mm_sec, double C_mm_sec, double D_mm_sec)
 {
     int A = AxisDirection("A") * DistancePerSecondToEncoderCount(A_mm_sec);
     int B = AxisDirection("B") * DistancePerSecondToEncoderCount(B_mm_sec);
     int C = AxisDirection("C") * DistancePerSecondToEncoderCount(C_mm_sec);
     int D = AxisDirection("D") * DistancePerSecondToEncoderCount(D_mm_sec);
-    m_pGclib->SetSlewSpeed(A, B, C, D);
+    return m_pGclib->SetSlewSpeed(A, B, C, D);
 }
 
-void CMotionControl::SetSlewSpeed(double speed_mm_sec)
+BOOL CMotionControl::SetSlewSpeed(double speed_mm_sec)
 {
-    SetSlewSpeed(speed_mm_sec, speed_mm_sec, speed_mm_sec, speed_mm_sec);
+    return SetSlewSpeed(speed_mm_sec, speed_mm_sec, speed_mm_sec, speed_mm_sec);
 }
 
 // steer to the right (TRUE0 or left (FALSE)
@@ -338,10 +367,10 @@ BOOL CMotionControl::SteerMotors(double fSpeed, BOOL bRight, double rate)
     // slow down the right hand motors ("B", "C")
     // if ending the turn, then rate=1
     if (bRight)
-        spB = spC = rate * spA;
+        spB = spC = rate * (spA + spD)/2;
     // slow down the left hand motors
     else
-        spA = spD = rate * spC;
+        spA = spD = rate * (spB + spC)/2;
 
     return SetMotorJogging(spA, spB, spC, spD, accelA);
 }
