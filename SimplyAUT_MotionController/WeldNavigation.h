@@ -21,19 +21,13 @@ struct LASER_POS
 struct POS_MANOEVER
 {
 	POS_MANOEVER() {memset(this, 0x0, sizeof(POS_MANOEVER)); }
+	double gap_prev;
 	double gap_start;
 	double gap_end_man;
-	double gap_end_drive;
-	double vel_start;
-	double vel_target;
-	double vel_after;
 	double turn_rate;
-	double manoeuvre_speed;
-	double manoeuvre_accel;
 	double manoeuvre_pos;
 	int  manoeuvre_time; // ms
-	int  drive_time1;
-	int drive_time2;
+	int turn_direction;
 	clock_t time_start;
 	clock_t time_end;
 };
@@ -50,8 +44,8 @@ public:
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
-	LASER_POS GetLastNotedPosition();
-	void      StartSteeringMotors(int nSteer, double speed=0);
+	LASER_POS GetLastNotedPosition(int ago_mm);
+	void      StartSteeringMotors(int nSteer, double speed=0, double offset=0);
 	UINT      ThreadSteerMotors();
 	UINT      ThreadNoteLaser();
 	void      GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
@@ -78,6 +72,7 @@ private:
 	HANDLE m_hThreadNoteLaser;
 	LASER_POS m_last_pos;
 	double m_fMotorSpeed;
+	double m_fWeldOffset;
 	CWnd* m_pParent;
 	UINT m_nMsg;
 };

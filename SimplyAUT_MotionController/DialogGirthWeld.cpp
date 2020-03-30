@@ -282,6 +282,8 @@ LRESULT CDialogGirthWeld::OnUserSteerRight(WPARAM wParam, LPARAM)
 }
 LRESULT CDialogGirthWeld::UserSteer(BOOL bRight, BOOL bDown)
 {
+#define TURN_TIME 20
+#define TURN_FRACTION 0.85
 	// set a timer to perform the steer
 	// slowly change the left right speeds to the desired
 	m_motionControl.SetLastManoeuvrePosition();
@@ -289,18 +291,16 @@ LRESULT CDialogGirthWeld::UserSteer(BOOL bRight, BOOL bDown)
 //	return 0;
 
 	// ramp up to the desired rate over about 500 ms
-	for (int i = 0; i < 500; i += 20)
+	for (int i = 0; i < TURN_TIME; i += 20)
 	{
 		// in 25 steps, adjust the rate from 1.00 -> +/-0.8
-		double fraction = ((i + 20.0) / 500.0) * 0.20; // 0 -> 0.2
-		double rate = (bDown) ? 1.0 - fraction : 0.8 + fraction;
+		double fraction = ((i + 20.0) / TURN_TIME) * (1.0- TURN_FRACTION); // 0 -> 0.2
+		double rate = (bDown) ? 1.0 - fraction : TURN_FRACTION + fraction;
 
 		if( !bDown )
-			m_motionControl.SteerMotors(m_fMotorSpeed, bDown, rate);
-		else if( bRight )
-			m_motionControl.SteerMotors(m_fMotorSpeed, bDown, -rate);
+			m_motionControl.SteerMotors(m_fMotorSpeed, bRight, rate);
 		else
-			m_motionControl.SteerMotors(m_fMotorSpeed, bDown, rate);
+			m_motionControl.SteerMotors(m_fMotorSpeed, bRight, rate);
 		Sleep(500 / 20);
 	}
 	return 0L;
@@ -404,7 +404,7 @@ void CDialogGirthWeld::NoteSteering()
 
 	// if tim=0, then thre is no data
 	// this is thread safe
-	LASER_POS pos = m_weldNavigation.GetLastNotedPosition();
+	LASER_POS pos = m_weldNavigation.GetLastNotedPosition(0);
 	if (pos.time_noted == 0)
 		return;
 
@@ -877,7 +877,7 @@ void CDialogGirthWeld::StartSteeringMotors(int nSteer)
 	if (nSteer)
 	{
 		double accel, speed = GetRequestedMotorSpeed(accel); // this uses a SendMessage, and must not be called from a thread
-		m_weldNavigation.StartSteeringMotors(nSteer, speed);
+		m_weldNavigation.StartSteeringMotors(nSteer, speed, m_fLROffset);
 		m_wndLaser.ResetLaserOffsetList();
 		m_motionControl.ResetLastManoeuvrePosition();
 		StartReadMagStatus(nSteer == 0); // takes too mjuch time
@@ -1331,7 +1331,7 @@ LRESULT CDialogGirthWeld::OnUserStaticParameter(WPARAM wParam, LPARAM lParam)
 	case STATUS_GET_LAST_LASER_POS:
 	{
 		LASER_POS* lastPos = (LASER_POS*)lParam;
-		*lastPos = m_weldNavigation.GetLastNotedPosition();
+		*lastPos = m_weldNavigation.GetLastNotedPosition(0);
 		break;
 	}
 	case STATUS_MAG_STATUS + 0:

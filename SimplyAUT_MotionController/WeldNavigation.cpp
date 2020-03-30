@@ -13,8 +13,8 @@ enum { SOURCE_RAW_GAP = 0, SOURCE_FILT_GAP, SOURCE_RAW_VEL };
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres
 #define GAP_FILTER_MIN__WIDTH		10 // mm (filter over last 50 mm, 2nd order, so can handle variations)
 #define GAP_FILTER_MAX__WIDTH		100 // mm (filter over last 50 mm, 2nd order, so can handle variations)
-#define VEL_FILTER_MIN_WIDTH		5
-#define VEL_FILTER_MAX_WIDTH		10
+#define VEL_FILTER_MIN_WIDTH		10
+#define VEL_FILTER_MAX_WIDTH		200
 //#define VEL_FILTER_WIDTH			10 // mm (filter over last 10 mm
 #define GAP_VELOCITY_WIDTH			20 // mm 
 #define GAP_BUFFER_LEN              200 // samples
@@ -46,6 +46,7 @@ CWeldNavigation::CWeldNavigation()
 	m_hThreadSteerMotors = NULL;
 	m_hThreadNoteLaser = NULL;
 	m_fMotorSpeed = FLT_MAX;
+	m_fWeldOffset = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
 	m_last_pos.Reset();
@@ -304,14 +305,15 @@ static double CalcGapVelocity(const CArray<LASER_POS, LASER_POS >& buff1, double
 	double coeff[3];
 	// filter the last 50 mm
 	// 1st order, only want the slope
-	if (GetGapCoefficients(buff1, last_manoeuvre_pos, coeff, 2/*ORDER*/, SOURCE_FILT_GAP/*source*/, GAP_FILTER_MIN__WIDTH, GAP_FILTER_MAX__WIDTH))
+	if (GetGapCoefficients(buff1, last_manoeuvre_pos, coeff, 2/*ORDER*/, SOURCE_FILT_GAP/*source*/, VEL_FILTER_MIN_WIDTH, VEL_FILTER_MAX_WIDTH))
 	{
 		int nSize = (int)buff1.GetSize();
 		double pos2 = buff1[nSize - 1].pos;
 		double vel = 2*coeff[2] * pos2 + coeff[1]; //  1000 * coeff[1]; // mm/M
 		return 1000.0 * vel;
 	}
-	else if (GetGapCoefficients(buff1, last_manoeuvre_pos, coeff, 1/*ORDER*/, SOURCE_FILT_GAP/*source*/, GAP_FILTER_MIN__WIDTH, GAP_FILTER_MIN__WIDTH))
+	else 
+		if (GetGapCoefficients(buff1, last_manoeuvre_pos, coeff, 1/*ORDER*/, SOURCE_FILT_GAP/*source*/, VEL_FILTER_MIN_WIDTH, VEL_FILTER_MIN_WIDTH))
 	{
 		int nSize = (int)buff1.GetSize();
 		double pos2 = buff1[nSize - 1].pos;
@@ -323,10 +325,25 @@ static double CalcGapVelocity(const CArray<LASER_POS, LASER_POS >& buff1, double
 }
 
 
-LASER_POS CWeldNavigation::GetLastNotedPosition()
+LASER_POS CWeldNavigation::GetLastNotedPosition(int ago_mm)
 {
+	LASER_POS ret;
 	m_crit1.Lock();
-	LASER_POS ret = m_last_pos;
+	int nSize = (int)m_listLaserPositions.GetSize();
+	if(ago_mm == 0 )
+		ret = m_last_pos;
+	else if( nSize > 0 )
+	{
+		double pos2 = m_listLaserPositions[nSize - 1].pos; // want the one that is at least ago_mm prior to this
+		for (int i = nSize - 1; i >= 0; --i)
+		{
+			if (pos2 - m_listLaserPositions[i].pos > ago_mm)
+			{
+				ret = m_listLaserPositions[i];
+				break;
+			}
+		}
+	}
 	m_crit1.Unlock();
 	return ret;
 }
@@ -458,12 +475,27 @@ BOOL CWeldNavigation::NoteNextLaserPosition()
 	return TRUE;
 }
 
-void CWeldNavigation::StartSteeringMotors(int nSteer, double motor_speed/*=0*/)
+static void DeleteSteeringFile()
+{
+	char my_documents[MAX_PATH];
+	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result == S_OK)
+	{
+		FILE* fp = NULL;
+		CString szFile;
+		szFile.Format("%s\\test2.txt", my_documents);
+		::DeleteFile(szFile)
+	}
+}
+
+
+void CWeldNavigation::StartSteeringMotors(int nSteer, double motor_speed/*=0*/, double offset/*=0*/)
 {
 	StopSteeringMotors();
 	if ( nSteer)
 	{
 		m_fMotorSpeed = motor_speed;
+		m_fWeldOffset = offset;
 		m_bSteerMotors = TRUE;
 		m_crit1.Lock();
 		m_crit1.Lock();
@@ -474,6 +506,8 @@ void CWeldNavigation::StartSteeringMotors(int nSteer, double motor_speed/*=0*/)
 		m_crit2.Unlock();
 		m_last_pos.Reset();
 		m_crit1.Unlock();
+
+		DeleteSteeringFile();
 		if( nSteer & 0x1 )
 			m_hThreadNoteLaser = AfxBeginThread(::ThreadNoteLaser, this);
 		if( nSteer & 0x2 )
@@ -535,43 +569,54 @@ UINT CWeldNavigation::ThreadSteerMotors()
 	char my_documents[MAX_PATH];
 	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
 
+	// always wait 25 mm from last manoeuvre before checking anything, to let things settle
 	CArray<CDoublePoint, CDoublePoint> listVel;
+	int wait_manoeuvre_mm = 25;
+	int wait_manoeuvre_time_ms = (int)(1000 * wait_manoeuvre_mm / m_fMotorSpeed + 0.5);
+	int compare_gap_mm = 10;
+	clock_t last_manoeuvre_time = 0;
+
 	while (m_bSteerMotors)
 	{
-		// a seperate thread is setting this value
-		m_crit1.Lock();
-		if (m_listLaserPositions.GetSize() == 0 || m_last_pos.pos - m_listLaserPositions[0].pos < MIN_TRAVEL_DIST)
-		{
-			m_crit1.Unlock();
-			Sleep(1); // avoid a tight loop
-			continue;
-		}
+		// avoid rtisk of a tight loop
+		Sleep(10);
 
-		double pos = m_last_pos.pos;
-		double gap_dist = m_last_pos.gap_filt;	// current distance from the weld
-		double gap_vel1 = m_last_pos.vel_filt;	// current mm/M to the weld
-		time_first = m_listLaserPositions[0].time_noted; // clock() value of the first measure
-		if (gap_dist == FLT_MAX || gap_vel1 == FLT_MAX)
-		{
-			m_crit1.Unlock();
-			Sleep(1); // avoid a tight loop
-			continue;
-		}
-		
-		// now calculate the desired angle (mm/M) to the weld to be at the weld in about 100 mm (NAVIGATION_TARGET_DIST_MM)
-		// this is simply the current distancve frtom the weld over 0.1 M
-		// a -Ve gap is to the left, a +Ve to the right
-		// if to the left, then need to steer to the right (thus -1000)
-		double gap_vel2 = -1000 * m_last_pos.gap_filt / NAVIGATION_TARGET_DIST_MM; // mm/M
-		m_crit1.Unlock();
 
-		// the change in direction that is required
-		// do nothing if already in the correct direction
-		if( fabs(gap_vel2 - gap_vel1) < 1 )
-		{
-			Sleep(1); // avoid a tight loop
+		// make sure that have 
+		// insure that have travelled for at least 1/2 second since start or the last manoeuvre
+		if (clock() - last_manoeuvre_time < wait_manoeuvre_mm)
 			continue;
-		}
+		// note where are now, and where was 25 mm ago
+		// assume that after travelling (compare_gap_mm) will know if driving toward or away from the weld
+		LASER_POS this_pos = GetLastNotedPosition(0);				// where is the crawler now
+		LASER_POS prev_pos = GetLastNotedPosition(compare_gap_mm);	// where weas it compare_gap_mm ago
+
+		// note how far from the weld now, and at what position
+		// also note where was 1/2 second ago
+
+		// where is the crawler, and is it crawling toward or away from the weld
+		// +Ve is to the left, -Ve to the right
+		double gap_dist1 = prev_pos.gap_filt;
+		double gap_dist2 = this_pos.gap_filt;
+		if (gap_dist1 == FLT_MAX || gap_dist2 == FLT_MAX)
+			continue;
+
+		// the crawler is already travelling the the desired direction
+		// how long will it take to get there
+		double vel = (this_pos.pos > prev_pos.pos) ? (gap_dist2 - gap_dist1) / (this_pos.pos - prev_pos.pos) : 0; // mm/mm
+		double travel_time = (fabs(gap_dist2 - gap_dist1) > 0.1 && vel != 0) ? fabs(1000 * gap_dist2 / m_fMotorSpeed / vel) : 0; // ms to get to the weld
+																		   // note which direction to turn, or if to stay the course
+		// +1 = drive to the left
+		// -1 = drive to the right
+		int dir = 0;
+		if (gap_dist1 > 0 /*to the left*/ && gap_dist2 > gap_dist1 /*driving to the left*/)
+			dir = -1; // drive to the right
+		else if (gap_dist1 > 0 /*to the left*/ && gap_dist2 < gap_dist1 /*driving to the right*/)
+			dir = (travel_time < 2000) ? 0 : -1; // stay the course
+		else if (gap_dist1 < 0 /*to the right*/ && gap_dist2 < gap_dist1 /*driving to the right*/)
+			dir = 1; // drive to the left
+		else if (gap_dist1 < 0 /*to the right*/ && gap_dist2 > gap_dist1 /*driving to the left*/)
+			dir = (travel_time < 2000) ? 0 : 1; // stay the course
 
 		// keep a record of manoeuvres
 		// will use this to insure that don't calculate gap or velocity across a manoeuvre
@@ -579,93 +624,91 @@ UINT CWeldNavigation::ThreadSteerMotors()
 		m_crit2.Lock();
 		int nSize2 = (int)m_listManoevers.GetSize();
 		m_listManoevers.SetSize(++nSize2);
-		m_listManoevers[nSize2 - 1].manoeuvre_pos = pos; // at what ms did this manoeuvre begin
-		m_listManoevers[nSize2 - 1].time_start = clock(); // at what ms did this manoeuvre begin
-		m_listManoevers[nSize2 - 1].gap_start = gap_dist; // what offset were we trying to corect
-		m_listManoevers[nSize2 - 1].vel_start = gap_vel1; // how long is this manoeuvre going to last
-		m_listManoevers[nSize2 - 1].vel_target = gap_vel2; // how long is this manoeuvre going to last
+		m_listManoevers[nSize2 - 1].manoeuvre_pos = this_pos.pos;	// at what ms did this manoeuvre begin
+		m_listManoevers[nSize2 - 1].time_start = clock();			// at what ms did this manoeuvre begin
+		m_listManoevers[nSize2 - 1].gap_prev = gap_dist1;			// what was the gap 50 mm ago
+		m_listManoevers[nSize2 - 1].gap_start = gap_dist2;			// what offset were we trying to corect
+		m_listManoevers[nSize2 - 1].turn_direction = dir;		// trying to turn to tyhe right or left
 		m_crit2.Unlock();
 
-		// calculkate how fast to sterr the crawler
-		// the further to go, the faster to turn, so doesn';t take too long
-		// ideally can get to where going within a sdecond or two
-		double turn_rate = CalculateTurnRate(gap_dist, gap_vel1, gap_vel2);
+		// if the direction = 0, then do nothing
+		if (dir == 0)
+			continue;
 
-
-
-		// enact this steering manoeuvre
-		// change the wheels by 5%, until measure the desired direction
-		// if travel.x < 0 then want to travel to the right (left wheels faster)
-		double change = (gap_vel2 < gap_vel1) ? -(turn_rate * m_fMotorSpeed / 100.0) : (turn_rate * m_fMotorSpeed / 100.0);
-		double speedLeft = m_fMotorSpeed - change / 2;
-		double speedRight = m_fMotorSpeed + change / 2;
+		// set the left/right wheels at 85% of each other
+		double turn_rate = 0.90; //  0.90; //  0.85;
+		double speedLeft = m_fMotorSpeed - dir * (1 - turn_rate) * m_fMotorSpeed / 2;
+		double speedRight = m_fMotorSpeed + dir * (1 - turn_rate) * m_fMotorSpeed / 2;
 		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft };
 
+		// note the position, and do not look at velocity for at least 500m ms
+		// the velocity is unstable at start of turn
+		last_manoeuvre_time = this_pos.time_noted;
 		SetMotorSpeed(speed1);
 
-		// now watch unmtil gewt to 1/2 way to the desired velocity or gap width
-		// whichever comes first (avoid overshoot)
-		// note the current time, so that can calculate how fast the direction is changing
+		// leave at this turn rate for 2000 ms, or until the gap is 1/2 of the previous
 		clock_t t1 = clock();
-		double max_accel = 0;
-
-		// stop when 1/2 way to the desired velociuty to avoid over-shoot
-		// also limit to a maximum time
-		clock_t t11 = clock();
-		double stop_vel = gap_vel1 + 1*(gap_vel2 - gap_vel1) / 2;
-		while (m_bSteerMotors && clock()-t11 < MAX_STEERING_TIME)
+		double pos1 = this_pos.pos; // where was at the start of the manoeuvre
+		while (m_bSteerMotors && clock()-t1 < MAX_STEERING_TIME)
 		{
-			// wait a ms, then check the direction
-			Sleep(1);
+			// avoid a tight loop
+			Sleep(10);
+			LASER_POS last_pos = GetLastNotedPosition(0);// whjere is the crawler now
+			double gap_dist3 = last_pos.gap_filt;
 
-			LASER_POS last_pos = GetLastNotedPosition(); // make thread safe
-			if (last_pos.gap_filt == FLT_MAX || last_pos.vel_filt == FLT_MAX)
-				continue;
+			// have travelled far enouygh to check
+	//		if ( last_pos.pos - pos1 >= wait_manoeuvre_mm )
+			{
+				// must have valid values to work with
+				if (gap_dist3 == FLT_MAX)
+					continue;
 
-			// check if have achieved the desired gap velocity
-			// when have will straighten back out
-			// note how fast this change is taking place, so that can change back before getting there
-			double change = last_pos.vel_filt - gap_vel1;
-			double accel = 1000*change / (clock() - t1); // (mm/M per ms) will not be zero due to sleep(1) above
-			max_accel = max(max_accel, fabs(accel));
+				// is it at least 1/2 way to the weld
+				if (fabs(gap_dist3) < 0.10 || fabs(gap_dist3) < fabs(gap_dist2) / 2)
+					break;
+			}
 
-			// at the 1/2 way point of the gap
-			// if go all the way, there will be over shoot
-			if (fabs(last_pos.gap_filt) < fabs(gap_dist/2))
-				break;
-
-			// check if are at or have exceed 1/2 way to the deisred velocty
-			if (gap_vel2 > gap_vel1 && last_pos.vel_filt >= stop_vel)
-				break;
-			if (gap_vel2 < gap_vel1 && last_pos.vel_filt <= stop_vel)
-				break;
-
-			listVel.Add(CDoublePoint(last_pos.pos, last_pos.vel_filt));
+			// note the position and gap distance at this time
+			listVel.Add(CDoublePoint(last_pos.pos, last_pos.gap_filt));
 		}
-		clock_t manoeuvre_time = clock()-t1;
 
 		// set back to driving straight (but in new direction)
-		// no need to set back to straight, then next calculation will determine the best directiojn
-		// NO, LEAVE IN THE MANOEVER DIRECTION, NEXT MANOEVER WILL DESIRED NEW DIRECTION
-//		double speed2[] = { m_fMotorSpeed ,m_fMotorSpeed ,m_fMotorSpeed ,m_fMotorSpeed };
-//		SetMotorSpeed(speed2);
+		// it has been noted that the direction to/from the weld will be only about 60% of that during the turn
+		clock_t manoeuvre_time = clock() - last_manoeuvre_time;
 
-		LASER_POS last_pos = GetLastNotedPosition(); // make thread safe
+		last_manoeuvre_time = clock();
+		double speed2[] = { m_fMotorSpeed ,m_fMotorSpeed ,m_fMotorSpeed ,m_fMotorSpeed };
+		SetMotorSpeed(speed2);
+
+		// note the location for 25 mm
+		while (m_bSteerMotors && clock() - t1 < MAX_STEERING_TIME)
+		{
+			// avoid a tight loop
+			Sleep(10);
+
+			LASER_POS last_pos = GetLastNotedPosition(0);// whjere is the crawler now
+			double gap_dist3 = last_pos.gap_filt;
+
+			if (last_pos.pos - pos1 >= wait_manoeuvre_mm)
+				break;
+
+			// note the position and gap distance at this time
+			listVel.Add(CDoublePoint(last_pos.pos, last_pos.gap_filt));
+		}
+
+		// note where are now that have asked to straighten out
+		LASER_POS last_pos = GetLastNotedPosition(0);
 
 		// get the raw gap position for this so don't need the critical section
 		m_crit2.Lock();
-		m_listManoevers[nSize2 - 1].turn_rate = turn_rate;				// time to get to 1/2 way point
-		m_listManoevers[nSize2 - 1].manoeuvre_time = manoeuvre_time;				// time to get to 1/2 way point
-		m_listManoevers[nSize2 - 1].manoeuvre_accel = max_accel;					// maximum acceleration seen during this time
-		m_listManoevers[nSize2 - 1].vel_after = (last_pos.vel_filt == FLT_MAX) ? 9999 : last_pos.vel_filt;		// the velocity seen after the 1/2 way point
+		m_listManoevers[nSize2 - 1].turn_rate = turn_rate;														// rate of the turn
+		m_listManoevers[nSize2 - 1].manoeuvre_time = manoeuvre_time;											// time to get to 1/2 way point
 		m_listManoevers[nSize2 - 1].gap_end_man = (last_pos.gap_filt==FLT_MAX) ? 9999 : last_pos.gap_filt;		// the gap seen at the 1/2 way point
-		m_listManoevers[nSize2 - 1].time_end = clock();															// at what ms did this manoeuvre end
-
-		// will take this many metres to make the manoeuvre
-//		double drive_dist = (last_pos.gap_vel == FLT_MAX ) ? 9999 : fabs(1000*last_pos.gap_filt / last_pos.gap_vel); // mm
-//		int drive_time1 = (int)(1000 * drive_dist / m_fMotorSpeed + 0.5); // mks
-//		m_listManoevers[nSize2 - 1].drive_time1 = 0; //  drive_time1; // at what ms did this manoeuvre begin
+		m_listManoevers[nSize2 - 1].time_end = last_manoeuvre_time;												// at what ms did this manoeuvre end
 		m_crit2.Unlock();
+
+		// now last_pos.pos away from the weld
+		// travelling at last_pos.vel_filt towards it
 
 		// drive until the gap is zero
 		// the above drive time is only an estimate
@@ -707,20 +750,17 @@ UINT CWeldNavigation::ThreadSteerMotors()
 	szFile.Format("%s\\manoeuvres.txt", my_documents);
 	if (fopen_s(&fp, szFile, "a") == 0 && fp != NULL)
 	{
-		fprintf(fp, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			"Pos", "gap1", "Rate", "vel1", "vel2", "vel3", "gap2");
+		fprintf(fp, "Pos\tgap1\tgap2\tdir\tgap3\n");
 
 		m_crit2.Lock();
 		int nSize2 = (int)m_listManoevers.GetSize();
 		for (int i = 0; i < nSize2; ++i)
 		{
-			fprintf(fp, "%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n",
+			fprintf(fp, "%.1f\t%.1f\t%.1f\t%d\t%.1f\n",
 				m_listManoevers[i].manoeuvre_pos,
+				m_listManoevers[i].gap_prev,
 				m_listManoevers[i].gap_start,
-				m_listManoevers[i].turn_rate,
-				m_listManoevers[i].vel_start,
-				m_listManoevers[i].vel_target,
-				m_listManoevers[i].vel_after,
+				m_listManoevers[i].turn_direction,
 				m_listManoevers[i].gap_end_man);
 
 			// now output all the noted velocities from this time until the next time
@@ -728,7 +768,7 @@ UINT CWeldNavigation::ThreadSteerMotors()
 			{
 				if (listVel[j].x >= m_listManoevers[i].manoeuvre_pos && (i == nSize2 - 1 || listVel[j].x < m_listManoevers[i + 1].manoeuvre_pos))
 				{
-					fprintf(fp, "%.1f\t\t\t\t%.1f\t\t\n",
+					fprintf(fp, "%.1f\t\t%.1f\n",
 						listVel[j].x,
 						listVel[j].y);
 				}
