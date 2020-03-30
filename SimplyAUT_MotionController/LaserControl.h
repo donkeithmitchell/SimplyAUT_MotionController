@@ -23,6 +23,7 @@ struct LASER_MEASURES
 	CDoublePoint weld_cap_mm;
 	double us_coeff[2];
 	double ds_coeff[2];
+	double measure_pos; // position that was at when took measure
 	int weld_left;
 	int weld_right;
 	int status;
@@ -47,7 +48,7 @@ public:
 	BOOL GetLaserStatus(SensorStatus& SensorStatus);
 	BOOL GetLaserMeasurment(Measurement&);
 	BOOL CalcLaserMeasures_old(const Hits[], LASER_MEASURES&, double*);
-	BOOL CalcLaserMeasures(const Hits[], LASER_MEASURES&, double*);
+	BOOL CalcLaserMeasures(const Hits[], LASER_MEASURES&, double pos, double*);
 	BOOL SetLaserMeasurment(const Measurement&);
 	BOOL SetAutoLaserCheck(BOOL);
 	BOOL SetLaserIntensity(int nLaserPower);

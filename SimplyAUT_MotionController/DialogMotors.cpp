@@ -20,9 +20,9 @@ CDialogMotors::CDialogMotors(CMotionControl& motion, CMagControl& mag, const GAL
 	, m_magControl(mag)
 	, m_nGalilState(nState)
 
-	, m_szMotorSpeed(_T("50.0"))
+	, m_szMotorSpeed(_T("20.0"))
 	, m_szMotorAccel(_T("25.0"))
-	, m_fMotorSpeed(50.0)
+	, m_fMotorSpeed(20.0)
 	, m_fMotorAccel(25.0)
 
 	, m_szMotorA(_T(""))

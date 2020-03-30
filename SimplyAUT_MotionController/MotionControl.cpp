@@ -15,6 +15,7 @@ CMotionControl::CMotionControl()
     m_pParent = NULL;
     m_nMsg = 0;
 	m_pGclib = NULL;
+    m_manoeuvre_pos = FLT_MAX;
 }
 
 CMotionControl::~CMotionControl()
@@ -372,8 +373,21 @@ BOOL CMotionControl::SteerMotors(double fSpeed, BOOL bRight, double rate)
     else
         spA = spD = rate * (spB + spC)/2;
 
-    return SetMotorJogging(spA, spB, spC, spD, accelA);
+    return SetSlewSpeed(spA, spB, spC, spD);
+//    return SetMotorJogging(spA, spB, spC, spD, accelA);
 }
+double g_manoeuvre_pos = FLT_MAX;
+double CMotionControl::GetLastManoeuvrePosition()const
+{ 
+    return m_manoeuvre_pos; 
+}
+
+void CMotionControl::SetLastManoeuvrePosition() 
+{ 
+    m_manoeuvre_pos = g_manoeuvre_pos = GetAvgMotorPosition();
+}
+
+
 
 double CMotionControl::GetAvgMotorPosition()
 {

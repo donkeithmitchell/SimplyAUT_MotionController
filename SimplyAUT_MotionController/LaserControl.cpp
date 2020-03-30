@@ -463,7 +463,7 @@ static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 
 
 
-BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measures, double buffer[])
+BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measures, double pos, double buffer[])
 {
 	measures.status = -1;
 	if (!IsConnected() || !IsLaserOn())
@@ -580,6 +580,7 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	::polyfit(m_polyX, m_polyY, j, 1, measures.us_coeff);
 
 	// now convert the laser units to mm
+	measures.measure_pos = pos;
 	measures.status = 0;
 	return TRUE;
 }

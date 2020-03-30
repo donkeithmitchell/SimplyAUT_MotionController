@@ -31,7 +31,11 @@ public:
 	BOOL   SetSlewSpeed(double speed);
 	void   GoToHomePosition();
 	double GetAvgMotorPosition();
-
+	double GetLastManoeuvrePosition()const;
+	void   ResetLastManoeuvrePosition() { m_manoeuvre_pos = FLT_MAX; }
+	void   SetLastManoeuvrePosition();
+private:
+	double m_manoeuvre_pos;
 	Gclib* m_pGclib;
 	CWnd* m_pParent;
 	UINT  m_nMsg;

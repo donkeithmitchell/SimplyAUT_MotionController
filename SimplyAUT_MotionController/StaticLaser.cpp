@@ -199,9 +199,9 @@ void CStaticLaser::GetLaserRect(CRect* rect)
 	GetPipeRect(rect);
 
 	// push in from the pipe circle
-	int x1 = rect->left + rect->Width() / 6;
-	int x2 = rect->right - rect->Width() / 6;
-	int y1 = rect->top + rect->Height() / 8;
+	int x1 = rect->left + rect->Width() / 10;
+	int x2 = rect->right - rect->Width() / 10;
+	int y1 = rect->top + rect->Height() / 10;
 	int y2 = (rect->bottom + rect->top) / 2;
 	rect->SetRect(x1, y1, x2, y2);
 }
@@ -498,6 +498,22 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	pDC->Ellipse(pt1.x - 5, pt1.y - 5, pt1.x + 5, pt1.y + 5);
 	pDC->MoveTo(pt1.x, pt1.y - 10);
 	pDC->LineTo(pt1.x, pt1.y + 10);
+
+	// now annotate the gap to the opposite side equal height of the craw3erl dot
+	CString text;
+	double h1_mm, v1_mm;
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix.x, (int)m_measure2.weld_cap_pix.y, h1_mm, v1_mm);
+	text.Format("%.1f", fabs(h1_mm));
+	pDC->SetTextColor(RGB(10, 10, 10));
+	pDC->SetBkMode(TRANSPARENT);
+
+	CSize sz = pDC->GetTextExtent(text);
+
+	int x0 = (m_disp_rect.left + m_disp_rect.right) / 2;
+	if (pt1.x > x0)
+		pDC->TextOutA((m_disp_rect.left + x0) / 2 - sz.cx, (m_disp_rect.bottom + m_disp_rect.top) / 2, text);
+	else
+		pDC->TextOutA((x0 + m_disp_rect.right) / 2, (m_disp_rect.bottom + m_disp_rect.top) / 2, text); 
 
 	// draw a vertical line at the weld centre
 	// the values are in (mm) not laser pixels

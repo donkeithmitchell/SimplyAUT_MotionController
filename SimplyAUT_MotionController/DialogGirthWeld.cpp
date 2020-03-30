@@ -282,8 +282,27 @@ LRESULT CDialogGirthWeld::OnUserSteerRight(WPARAM wParam, LPARAM)
 }
 LRESULT CDialogGirthWeld::UserSteer(BOOL bRight, BOOL bDown)
 {
-	double rate = (bDown) ? 0.95 : 1.00;
-	m_motionControl.SteerMotors(m_fMotorSpeed, bDown, rate);
+	// set a timer to perform the steer
+	// slowly change the left right speeds to the desired
+	m_motionControl.SetLastManoeuvrePosition();
+//	m_motionControl.SteerMotors(m_fMotorSpeed, bDown, bDown ? 1.0 : 0.8);
+//	return 0;
+
+	// ramp up to the desired rate over about 500 ms
+	for (int i = 0; i < 500; i += 20)
+	{
+		// in 25 steps, adjust the rate from 1.00 -> +/-0.8
+		double fraction = ((i + 20.0) / 500.0) * 0.20; // 0 -> 0.2
+		double rate = (bDown) ? 1.0 - fraction : 0.8 + fraction;
+
+		if( !bDown )
+			m_motionControl.SteerMotors(m_fMotorSpeed, bDown, rate);
+		else if( bRight )
+			m_motionControl.SteerMotors(m_fMotorSpeed, bDown, -rate);
+		else
+			m_motionControl.SteerMotors(m_fMotorSpeed, bDown, rate);
+		Sleep(500 / 20);
+	}
 	return 0L;
 }
 
@@ -374,7 +393,7 @@ void CDialogGirthWeld::GetLaserProfile()
 {
 	if (m_laserControl.GetProfile(m_profile))
 	{
-		m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, m_hitBuffer);
+		m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, m_motionControl.GetAvgMotorPosition(), m_hitBuffer);
 	}
 }
 
@@ -386,7 +405,7 @@ void CDialogGirthWeld::NoteSteering()
 	// if tim=0, then thre is no data
 	// this is thread safe
 	LASER_POS pos = m_weldNavigation.GetLastNotedPosition();
-	if (pos.tim == 0)
+	if (pos.time_noted == 0)
 		return;
 
 	// note the fioltered gap distance
@@ -396,19 +415,14 @@ void CDialogGirthWeld::NoteSteering()
 		m_szSteeringGapDist.Format("%.1f mm", pos.gap_filt);
 	GetDlgItem(IDC_STATIC_STEERING_GAP)->SetWindowText(m_szSteeringGapDist);
 
-	if (pos.vel_raw == FLT_MAX)
+	if (pos.vel_filt == FLT_MAX)
 		m_szSteeringGapVel = _T("");
 	else
-		m_szSteeringGapVel.Format("%.1f mm/M", pos.vel_raw);
+		m_szSteeringGapVel.Format("%.1f mm/M", pos.vel_filt);
 	GetDlgItem(IDC_STATIC_STEERING_GAP_VEL)->SetWindowText(m_szSteeringGapVel);
 
-	if (pos.vel_filt == FLT_MAX)
-		m_szSteeringGapAccel = _T("");
-	else
-		m_szSteeringGapAccel.Format("%.1f mm/M", pos.vel_filt);
-	GetDlgItem(IDC_STATIC_STEERING_GAP_ACCEL)->SetWindowText(m_szSteeringGapAccel);
+//	GetDlgItem(IDC_STATIC_STEERING_GAP_ACCEL)->SetWindowText(m_szSteeringGapAccel);
 
-//	m_szSteeringLRDiff.Format("%.1f", pos.motor_lr);
 //	GetDlgItem(IDC_STATIC_STEERING_LR_DIFF)->SetWindowText(m_szSteeringLRDiff);
 }
 /*
@@ -816,24 +830,26 @@ void CDialogGirthWeld::OnClickedButtonManual()
 		m_bResumeScan = FALSE;
 
 		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_MANUAL : GALIL_IDLE;
-		if(m_nGalilState == GALIL_MANUAL )
+		if (m_nGalilState == GALIL_MANUAL)
+		{
 			SetButtonBitmaps();
+
+			m_fMotorSpeed = GetRequestedMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
+			m_laserControl.TurnLaserOn(TRUE);
+			m_magControl.ResetEncoderCount();
+			m_magControl.EnableMagSwitchControl(FALSE);
+			m_magControl.ResetEncoderCount();
+
+			SetRunTime(0);
+			// set a time to manage the steering
+			// adjust the location every ( 10 mm)
+			StartNotingMotorSpeed(TRUE);
+			StartMeasuringLaser(TRUE);
+			//		StartNotingRGBData(TRUE);
+			StartSteeringMotors(0x3);
+		}
 		else
 			m_buttonManual.EnableWindow(FALSE);
-
-		m_fMotorSpeed = GetRequestedMotorSpeed(m_fMotorAccel); // this uses a SendMessage, and must not be called from a thread
-		m_laserControl.TurnLaserOn(TRUE);
-		m_magControl.ResetEncoderCount();
-		m_magControl.EnableMagSwitchControl(FALSE);
-		m_magControl.ResetEncoderCount();
-
-		SetRunTime(0);
-		// set a time to manage the steering
-		// adjust the location every ( 10 mm)
-		StartNotingMotorSpeed(TRUE);
-		StartMeasuringLaser(TRUE);
-//		StartNotingRGBData(TRUE);
-		StartSteeringMotors(TRUE);
 
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunManual, (LPVOID)this)->m_hThread;
 	}
@@ -856,28 +872,32 @@ void CDialogGirthWeld::StartReadMagStatus(BOOL bSet)
 		m_pParent->SendMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_MAG_STATUS_ON, bSet);
 }
 
-void CDialogGirthWeld::StartSteeringMotors(BOOL bSet)
+void CDialogGirthWeld::StartSteeringMotors(int nSteer)
 {
-	if (bSet)
+	if (nSteer)
 	{
 		double accel, speed = GetRequestedMotorSpeed(accel); // this uses a SendMessage, and must not be called from a thread
-		m_weldNavigation.StartSteeringMotors(TRUE, speed);
+		m_weldNavigation.StartSteeringMotors(nSteer, speed);
 		m_wndLaser.ResetLaserOffsetList();
-		StartReadMagStatus(!bSet); // takes too mjuch time
+		m_motionControl.ResetLastManoeuvrePosition();
+		StartReadMagStatus(nSteer == 0); // takes too mjuch time
 		SetTimer(TIMER_NOTE_STEERING, 500, NULL); // this speed does not need to be the same as that used to manage the steerin g
 
 	}
 	else
 	{
 		KillTimer(TIMER_NOTE_STEERING);
-		m_weldNavigation.StartSteeringMotors(FALSE);
+		m_weldNavigation.StartSteeringMotors(0x0);
 	}
 }
 
 void CDialogGirthWeld::StartMeasuringLaser(BOOL bSet)
 {
 	if (bSet)
-		SetTimer(TIMER_GET_LASER_PROFILE, 100, NULL);
+	{
+		int delay = max((int)(1/*mm*/ * 1000.0 / m_fMotorSpeed + 0.5), 1);
+		SetTimer(TIMER_GET_LASER_PROFILE, delay/2, NULL);
+	}
 	else
 		KillTimer(TIMER_GET_LASER_PROFILE);
 }
@@ -1190,10 +1210,11 @@ void CDialogGirthWeld::RunMotors()
 
 			if (m_motionControl.SetMotorJogging(speed, accel))
 			{
+				m_motionControl.ResetLastManoeuvrePosition();
 				m_laserControl.TurnLaserOn(TRUE);
 				m_magControl.EnableMagSwitchControl(FALSE);
 				m_magControl.ResetEncoderCount();
-//				StartSteeringMotors(TRUE);
+				StartSteeringMotors(0x1); // track only
 				StartNotingRGBData(TRUE);
 				StartMeasuringLaser(TRUE);
 				StartNotingMotorSpeed(TRUE);
@@ -1214,10 +1235,11 @@ void CDialogGirthWeld::RunMotors()
 			SetRunTime(0);
 			if (m_motionControl.SetMotorJogging(-speed, accel))
 			{
+				m_motionControl.ResetLastManoeuvrePosition();
 				m_laserControl.TurnLaserOn(TRUE);
 				m_magControl.EnableMagSwitchControl(FALSE);
 				m_magControl.ResetEncoderCount();
-//				StartSteeringMotors(TRUE);
+				StartSteeringMotors(0x1); // track only
 				StartNotingRGBData(TRUE);
 				StartMeasuringLaser(TRUE);
 				StartNotingMotorSpeed(TRUE);
@@ -1251,6 +1273,12 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 			m_wndLaser.GetLaserMeasurment(pMeas);
 			return pMeas->status == 0;
 		}
+		case NAVIGATE_LAST_MAN_POSITION:
+		{
+			double* pos = (double*)lParam;
+			*pos = m_motionControl.GetLastManoeuvrePosition();
+			return 1L;
+		}
 		case NAVIGATE_GET_MOTOR_POS:
 		{
 			double* pos = (double*)lParam;
@@ -1270,6 +1298,7 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 		case NAVIGATE_SET_MOTOR_SPEED:
 		{
 			const double* speed = (double*)lParam;
+			m_motionControl.SetLastManoeuvrePosition();
 			m_motionControl.SetSlewSpeed(speed[0],speed[1],speed[2],speed[3]);
 			return 1L;
 		}
@@ -1356,7 +1385,7 @@ LRESULT CDialogGirthWeld::OnUserStopMotorFinished(WPARAM, LPARAM)
 	if (!m_bPaused)
 		m_fScanStart = FLT_MAX;
 
-	StartSteeringMotors(FALSE);
+	StartSteeringMotors(0x0);
 	StartNotingRGBData(FALSE);
 
 	SetRunTime(INT_MAX); // an invalid value ends it

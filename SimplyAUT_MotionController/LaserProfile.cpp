@@ -342,7 +342,7 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 	// will truy every 50 ms, but only draw every 500 ms
 	m_profile_count++;
 
-	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, m_hitBuffer);
+	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, 0, m_hitBuffer);
 	m_pParent->PostMessageA(m_nMsg);
 
 	CWnd::OnTimer(nIDEvent);
