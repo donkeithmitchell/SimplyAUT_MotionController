@@ -302,7 +302,7 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 		maxVal = max(maxVal, m_rgbData[i]);
 	}
 
-	double scaleX = (double)rect.Width() / 25.0;
+	double scaleX = (double)rect.Width() / 250.0;
 	double scaleY = (double)rect.Height() / (double)(maxVal);
 
 	// note the median value
@@ -357,7 +357,7 @@ int CStaticLaser::AddRGBData(const int& value)
 		m_rgbSum += value;
 		m_rgbCount++;
 
-		while (m_rgbData.GetSize() > 25)
+		while (m_rgbData.GetSize() > 250)
 		{
 			m_rgbSum -= m_rgbData[0];
 			m_rgbCount--;
@@ -473,8 +473,8 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 //	m_disp_width_factor = ((double)m_disp_rect.Width()) / (double)SENSOR_WIDTH; // set in OnSize()
 	m_disp_height_factor = ((double)m_disp_rect.Height()) / (m_disp_height_max- m_disp_height_min);
 
-	// m_measure2.weld_cap_pix.x is shifted to the centre (i.e the weld does not move, the crawler does)
-	int shift = (int)(SENSOR_WIDTH / 2 - m_measure2.weld_cap_pix.x);
+	// m_measure2.weld_cap_pix2.x is shifted to the centre (i.e the weld does not move, the crawler does)
+	int shift = (int)(SENSOR_WIDTH / 2 - m_measure2.weld_cap_pix2.x);
 
 	for (int i = 0; i <= SENSOR_WIDTH; i++)
 	{
@@ -493,8 +493,8 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	pDC->SelectObject(&BrushCrawler);
 	pDC->SelectObject(&PenCrawler);
 	double y1 = max(m_measure2.GetDnSideWeldHeight(), m_measure2.GetUpSideWeldHeight());
-	double y2 = (y1 + m_measure2.weld_cap_pix.y) / 2;
-	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-m_measure2.weld_cap_pix.x + shift, y2);
+	double y2 = (y1 + m_measure2.weld_cap_pix2.y) / 2;
+	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-m_measure2.weld_cap_pix2.x + shift, y2);
 	pDC->Ellipse(pt1.x - 5, pt1.y - 5, pt1.x + 5, pt1.y + 5);
 	pDC->MoveTo(pt1.x, pt1.y - 10);
 	pDC->LineTo(pt1.x, pt1.y + 10);
@@ -502,7 +502,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	// now annotate the gap to the opposite side equal height of the craw3erl dot
 	CString text;
 	double h1_mm, v1_mm;
-	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix.x, (int)m_measure2.weld_cap_pix.y, h1_mm, v1_mm);
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix2.x, (int)m_measure2.weld_cap_pix2.y, h1_mm, v1_mm);
 	text.Format("%.1f", fabs(h1_mm));
 	pDC->SetTextColor(RGB(10, 10, 10));
 	pDC->SetBkMode(TRANSPARENT);
@@ -517,7 +517,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 
 	// draw a vertical line at the weld centre
 	// the values are in (mm) not laser pixels
-	CPoint pt = GetScreenPixel(m_measure2.weld_cap_pix.x+shift, m_measure2.weld_cap_pix.y);
+	CPoint pt = GetScreenPixel(m_measure2.weld_cap_pix2.x+shift, m_measure2.weld_cap_pix2.y);
 	CPen penWeldCentre(PS_SOLID, 0, RGB(10, 255, 10));
 	pDC->SelectObject(&penWeldCentre);
 	pDC->MoveTo(pt.x, m_disp_rect.bottom);

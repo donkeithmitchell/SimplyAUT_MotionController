@@ -34,7 +34,9 @@ public:
 	double GetLastManoeuvrePosition()const;
 	void   ResetLastManoeuvrePosition() { m_manoeuvre_pos = FLT_MAX; }
 	void   SetLastManoeuvrePosition();
+	int    GetDestinationPosition()const {return m_nGotoPosition;	}
 private:
+	int m_nGotoPosition;
 	double m_manoeuvre_pos;
 	Gclib* m_pGclib;
 	CWnd* m_pParent;

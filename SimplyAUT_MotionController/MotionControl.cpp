@@ -14,6 +14,7 @@ CMotionControl::CMotionControl()
 {
     m_pParent = NULL;
     m_nMsg = 0;
+    m_nGotoPosition = 0;
 	m_pGclib = NULL;
     m_manoeuvre_pos = FLT_MAX;
 }
@@ -155,6 +156,7 @@ void CMotionControl::ZeroPositions()
 }
 void CMotionControl::GoToHomePosition()
 {
+    m_nGotoPosition = 0;
     m_pGclib->GCommand("PA 0,0,0,0");
     m_pGclib->GCommand("SH");           // enable all axes
     if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
@@ -173,6 +175,7 @@ BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel, B
     m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(fAccel));
     SetSlewSpeed(fSpeed);
 
+    m_nGotoPosition = (int)(pos_mm + 0.5);
     int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
     int posA = AxisDirection("A") * pos_cnt;
     int posB = AxisDirection("B") * pos_cnt;

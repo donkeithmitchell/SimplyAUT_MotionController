@@ -148,6 +148,9 @@
 #define IDC_STATIC_WELD_WIDTH           1100
 #define IDC_STATIC_WELD_LR_DIFF         1101
 #define IDC_STATIC_WELD_HEIGHT          1102
+#define IDC_CHECK_SHIFT_TO_CENTRE       1103
+#define IDC_CHECK_SHIFT_TO_CENTRE2      1104
+#define IDC_CHECK_SHOW_RAW_DATA         1104
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
@@ -156,7 +159,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1100
+#define _APS_NEXT_CONTROL_VALUE         1104
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

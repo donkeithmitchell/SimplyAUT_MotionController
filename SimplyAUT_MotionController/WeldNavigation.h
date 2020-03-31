@@ -15,7 +15,7 @@ struct LASER_POS
 	double  vel_filt;
 	double  dummy8;
 	clock_t time_noted;	// time that measure taken (ms)
-	long    dummy4;
+	long    rgb_sum;;
 };
 
 struct POS_MANOEVER
@@ -26,6 +26,7 @@ struct POS_MANOEVER
 	double gap_end_man;
 	double turn_rate;
 	double manoeuvre_pos;
+	double gap_vel;
 	int  manoeuvre_time; // ms
 	int turn_direction;
 	clock_t time_start;
@@ -40,12 +41,12 @@ class CDoublePoint;
 class CWeldNavigation
 {
 public:
-	CWeldNavigation();
+	CWeldNavigation(const CMotionControl&);
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
 	LASER_POS GetLastNotedPosition(int ago_mm);
-	void      StartSteeringMotors(int nSteer, double speed=0, double offset=0);
+	void      StartSteeringMotors(int nSteer, double speed, double accel, double offset);
 	UINT      ThreadSteerMotors();
 	UINT      ThreadNoteLaser();
 	void      GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
@@ -62,7 +63,7 @@ private:
 	BOOL    GetMotorSpeed(double speed[]);
 	BOOL    SetMotorSpeed(const double speed[]);
 
-
+	const CMotionControl& m_motionControl;
 	CArray<LASER_POS, LASER_POS> m_listLaserPositions;
 	CArray<POS_MANOEVER, POS_MANOEVER> m_listManoevers;
 	CCriticalSection m_crit1;
@@ -72,6 +73,7 @@ private:
 	HANDLE m_hThreadNoteLaser;
 	LASER_POS m_last_pos;
 	double m_fMotorSpeed;
+	double m_fMotorAccel;
 	double m_fWeldOffset;
 	CWnd* m_pParent;
 	UINT m_nMsg;

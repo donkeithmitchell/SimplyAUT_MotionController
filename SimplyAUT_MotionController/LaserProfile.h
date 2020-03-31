@@ -17,7 +17,7 @@ class CStaticLaserProfile : public CWnd
 	DECLARE_DYNAMIC(CStaticLaserProfile)
 
 public:
-	CStaticLaserProfile(CLaserControl&, LASER_MEASURES&, COLORREF bgColour);   // standard constructor
+	CStaticLaserProfile(CLaserControl&, LASER_MEASURES&, const BOOL& rShift, const BOOL& rRaw, COLORREF bgColour);   // standard constructor
 	virtual ~CStaticLaserProfile();
 	void Init(CWnd*, UINT);
 
@@ -31,7 +31,8 @@ public:
 
 	CWnd* m_pParent;
 	UINT	m_nMsg;
-
+	const BOOL&		m_rShiftToCentre;
+	const BOOL&		m_rShowRawData;
 	Profile			m_profile;
 //	Measurement		m_measure1;
 	LASER_MEASURES&  m_measure2;

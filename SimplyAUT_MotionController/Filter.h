@@ -6,7 +6,8 @@ public:
 
 	void IIR_HighCut(double* tin, int srate, double freq);
 	void IIR_LowCut(double* tin, int srate, double freq);
-
+	void Butter_lc_r4(double* tin, double* work1, double* work2, double* coef, int nsamp);
+	int GetLowCutCoeff(int srate, double* coef, int LC);
 
 private:
 	int GetSize()const { return m_work.GetSize(); }
@@ -40,3 +41,4 @@ private:
 
 	CArray<double, double> m_work;
 };
+

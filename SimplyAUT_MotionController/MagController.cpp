@@ -306,7 +306,7 @@ UINT CMagControl::ThreadReadSocket()
 {
     static clock_t total_time = 0;
     static clock_t max_time = 0;
-    int total_count = 0;
+    static int total_count = 0;
 
     clock_t recv_time = 0;
     memset(m_strBuffer, 0x0, SOCKET_BUFF_LENGTH);
@@ -357,22 +357,28 @@ UINT CMagControl::ThreadReadSocket()
     }
 
     m_eventSocket.SetEvent();
-
+/*
     total_time += recv_time;
     total_count++;
     max_time = max(max_time, recv_time);
 
-    if (recv_time > 10)
+    char my_documents[MAX_PATH];
+    HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+
+    FILE* fp = NULL;
+    CString str2;
+    str2.Format("%s\\ReadSocket.txt", my_documents);
+    if (fopen_s(&fp, str2, "a") == 0 && fp != NULL)
     {
         CString temp = _T(m_strBuffer);
         int len3 = temp.Find("\r");
         if (len3 != -1)
             temp = temp.Left(len3);
 
-        CString str2;
-        str2.Format("ThreadReadSocket: len: %d,  max: %d, this: %d ms, avg: %d: %s", byte_count, max_time, recv_time, total_time / total_count, temp);
-        SendDebugMessage(str2);
+        fprintf(fp, "len: %d,  max: %d, this: %d ms, avg: %d: %s\n", byte_count, max_time, recv_time, total_time / total_count, temp);
+        fclose(fp);
     }
+*/
     return 0;
 }
 

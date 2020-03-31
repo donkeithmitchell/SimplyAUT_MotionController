@@ -17,10 +17,12 @@ static char THIS_FILE[] = __FILE__;
 
 //////////////////////////////////////////
 IMPLEMENT_DYNAMIC(CStaticLaserProfile, CWnd)
-CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, LASER_MEASURES& meas, COLORREF bgColour)
+CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, LASER_MEASURES& meas, const BOOL& rShift, const BOOL& rRaw, COLORREF bgColour)
 	: CWnd()
 	, m_laserControl(laser)
 	, m_measure2(meas)
+	, m_rShiftToCentre(rShift)
+	, m_rShowRawData(rRaw)
 	, m_bgColour(bgColour)
 {
 	m_pParent = NULL;
@@ -216,6 +218,9 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	CPen PenSecondaryEdge(PS_DOT, 1, RGB(250, 250, 10));
 	CPen PenTrackingPoint(PS_DOT, 2, RGB(10, 200, 10));
 
+	pDC->SetROP2(R2_COPYPEN);
+	pDC->SetBkMode(TRANSPARENT);
+
 	// erase the rectangle to draw into
 	//////////////////////////////////////
 	CBrush brushErase(m_bgColour);
@@ -224,31 +229,38 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	if (!m_laserControl.IsLaserOn())
 		return;
 
-	// m_measure2.weld_cap_pix.x is shifted to the centre (i.e the weld does not move, the crawler does)
-	int shift = (int)(SENSOR_WIDTH / 2 - m_measure2.weld_cap_pix.x);
+	// m_measure2.weld_cap_pix2.x is shifted to the centre (i.e the weld does not move, the crawler does)
+	int shift = m_rShiftToCentre ? (int)(SENSOR_WIDTH / 2 - m_measure2.weld_cap_pix2.x) : 0;
 
 	// Display Profile as a RED line
 	///////////////////////////////////
 	pDC->SelectObject(&PenTrackingPoint);
 	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
-		if (m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
+		CPoint pt = GetScreenPixel(i + shift, m_hitBuffer[i]);
+		if (pt.x >= rect.left && pt.x < rect.right)
+			pDC->SetPixel(pt, RGB(250, 50, 50));
+
+		if (m_rShowRawData && m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
 		{
-			CPoint pt = GetScreenPixel(i+shift, m_hitBuffer[i]);
-			if( pt.x >= rect.left && pt.x < rect.right)
-				pDC->SetPixel(pt, RGB(250,50,50));
+			CPoint pt = GetScreenPixel((double)(i + shift), (double)m_profile.hits[i].pos1);
+			if (pt.x >= rect.left && pt.x < rect.right)
+				pDC->SetPixel(pt, RGB(50, 250, 50));
 		}
 	}
 
 
 	// draw a dot at the crawler location
 	pDC->SelectObject(&PenCrawler);
-	pDC->SetROP2(R2_COPYPEN);
 	pDC->SelectObject(&BrushCrawler);
 	double y1 = max(m_measure2.GetDnSideWeldHeight(), m_measure2.GetUpSideWeldHeight());
-	double y2 = (y1 + m_measure2.weld_cap_pix.y) / 2;
-	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-m_measure2.weld_cap_pix.x + shift, y2);
-	CPoint pt2 = GetScreenPixel(m_measure2.weld_cap_pix.x - shift, m_measure2.weld_cap_pix.y);
+	double y2 = (y1 + m_measure2.weld_cap_pix2.y) / 2;
+	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-m_measure2.weld_cap_pix2.x + shift, y2);
+	CPoint pt2 = GetScreenPixel(m_measure2.weld_cap_pix2.x - shift, m_measure2.weld_cap_pix2.y);
+
+	// used to draw the weld centre, both from S/W (pt3) and F/W (pt4)
+	CPoint pt3 = GetScreenPixel(m_measure2.weld_cap_pix2.x + shift, m_measure2.weld_cap_pix2.y);
+	CPoint pt4 = GetScreenPixel(m_measure2.weld_cap_pix1.x + shift, m_measure2.weld_cap_pix1.y);
 
 	pDC->Ellipse(pt1.x - 5, pt1.y - 5, pt1.x + 5, pt1.y + 5);
 	pDC->MoveTo(pt1.x, min(pt1.y,pt2.y) - 20);
@@ -256,22 +268,28 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 
 
 	// draw the weld location as a short verticval line
-	CPen penWeldCentre(PS_DOT, 0, RGB(10, 255, 10));
-	pDC->SelectObject(&penWeldCentre);
-	pDC->MoveTo(pt2.x, pt2.y-20);
-	pDC->LineTo(pt2.x, pt2.y+20);
+	CPen penWeldCentre1(PS_DOT, 0, RGB(10, 255, 10));
+	pDC->SelectObject(&penWeldCentre1);
+	pDC->MoveTo(pt3.x, pt3.y - 20);
+	pDC->LineTo(pt3.x, pt3.y + 20);
+
+	// draw the weld location as a short verticval line
+	CPen penWeldCentre2(PS_DASHDOT, 0, RGB(10, 255, 10));
+	pDC->SelectObject(&penWeldCentre2);
+	pDC->MoveTo(pt4.x, pt4.y - 20);
+	pDC->LineTo(pt4.x, pt4.y + 20);
 
 	// draw the hgith of the dsown and up sides
 	// alread have points at the inside of the sides, now need the outside point
 	//////////////////////////////////////////////////////
 	pDC->SelectObject(&PenSecondaryEdge);
-	CPoint pt11 = GetScreenPixel((m_measure2.weld_left+shift)/2, m_measure2.GetDnSideStartHeight());
+	CPoint pt11 = GetScreenPixel(m_measure2.weld_left_start+shift, m_measure2.GetDnSideStartHeight());
 	CPoint pt12 = GetScreenPixel(m_measure2.weld_left+shift, m_measure2.GetDnSideWeldHeight());
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
 	CPoint pt21 = GetScreenPixel(m_measure2.weld_right+shift, m_measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel((m_measure2.weld_right+shift+SENSOR_WIDTH)/2, m_measure2.GetUpSideEndHeight());
+	CPoint pt22 = GetScreenPixel(m_measure2.weld_right_end+shift, m_measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 

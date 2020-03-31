@@ -66,4 +66,8 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnClickedButtonRoiReset();
+	BOOL m_bShiftToCentre;
+	afx_msg void OnClickedCheckShiftToCentre();
+	BOOL m_bShowRawData;
+	afx_msg void OnClickedCheckShowRawData();
 };

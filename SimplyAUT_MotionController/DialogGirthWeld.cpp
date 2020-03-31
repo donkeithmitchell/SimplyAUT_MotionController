@@ -54,6 +54,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
+	, m_weldNavigation(motion)
 	, m_wndLaser(laser, mag, m_profile, m_measure2, m_hitBuffer)
 	, m_nGalilState(nState)
 
@@ -62,7 +63,6 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_szDistToScan(_T("1000.0"))
 	, m_szScanOverlap(_T("50.0"))
 
-	, m_fLROffset(0.0)
 	, m_fScanCirc(1000.0)
 	, m_fDistToScan(1000.0)
 	, m_fDistScanned(10.0)
@@ -96,6 +96,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_fMotorAccel = 0;
 	m_nGaililStateBackup = GALIL_IDLE;
 	m_fScanStart = FLT_MAX;
+	m_rgbLast = 0;
 
 	m_szLaserEdge[0] = _T("---");
 	m_szLaserEdge[1] = _T("---");
@@ -126,10 +127,9 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SPIN_OVERLAP, m_spinScanOverlap);
 
 	DDX_Text(pDX, IDC_EDIT_LR_OFFSET, m_szLROffset);
-	DDX_Text(pDX, IDC_EDIT_LR_OFFSET, m_fLROffset);
 	if (m_bCheck)
 	{
-		DDV_MinMaxDouble(pDX, m_fLROffset, 0.0, 10.0);
+		DDV_MinMaxDouble(pDX, GetLeftRightOffset(), -10.0, 10.0);
 	}
 	DDX_Text(pDX, IDC_EDIT_CIRC, m_szScanCirc);
 	DDX_Text(pDX, IDC_EDIT_CIRC, m_fScanCirc);
@@ -221,6 +221,7 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_MESSAGE(WM_MOTION_CONTROL,			&CDialogGirthWeld::OnUserMotionControl)
 	
 	ON_STN_CLICKED(IDC_STATIC_TEMP_BOARD, &CDialogGirthWeld::OnStnClickedStaticTempBoard)
+	ON_EN_CHANGE(IDC_EDIT_LR_OFFSET, &CDialogGirthWeld::OnChangeEditLrOffset)
 END_MESSAGE_MAP()
 
 
@@ -375,8 +376,8 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 	{
 //		RGB_DATA rgb;
 //		rgb.sum = m_magControl.GetRGBValues(rgb.red, rgb.green, rgb.blue);
-		int sum = m_magControl.GetRGBSum();
-		m_wndLaser.AddRGBData(sum);
+		m_rgbLast = m_magControl.GetRGBSum();
+		m_wndLaser.AddRGBData(m_rgbLast);
 		break;
 	}
 	case TIMER_NOTE_STEERING:
@@ -637,18 +638,61 @@ HBRUSH CDialogGirthWeld::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	return hbr;
 }
 
+double CDialogGirthWeld::GetLeftRightOffset()const
+{
+	double val = atof(m_szLROffset);
+	if (val < 0)
+		return val;
+	else if (m_szLROffset.Find("R") != -1)
+		return -val;
+	else
+		return val;
+}
+
+
+void CDialogGirthWeld::FormatLeftRightOffset(double offset)
+{
+	if (offset > 0)
+		m_szLROffset.Format("%.1f L", offset);
+	else if (offset < 0)
+		m_szLROffset.Format("%.1f R", -offset);
+	else
+		m_szLROffset.Format("0.0");
+}
+
 void CDialogGirthWeld::OnDeltaposSpinLrOffset(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
 	// TODO: Add your control notification handler code here
 	int inc = pNMUpDown->iDelta;
 	UpdateData(TRUE);
-	m_fLROffset += (inc > 0) ? 0.1 : -0.1;
-	m_fLROffset = min(max(m_fLROffset, 0.0), 10);
+	double offset = GetLeftRightOffset();
+	offset += (inc > 0) ? 0.1 : -0.1;
+	offset = min(max(offset, -10.0), 10);
+	FormatLeftRightOffset(offset);
 	UpdateData(FALSE);
 
 	*pResult = 0;
 }
+
+
+void CDialogGirthWeld::OnChangeEditLrOffset()
+{
+	// TODO:  If this is a RICHEDIT control, the control will not
+	// send this notification unless you override the CDialogEx::OnInitDialog()
+	// function and call CRichEditCtrl().SetEventMask()
+	// with the ENM_CHANGE flag ORed into the mask.
+
+	// TODO:  Add your control notification handler code here
+	if (!m_bInit)
+		return;
+
+	UpdateData(TRUE);
+	double offset = GetLeftRightOffset();
+	FormatLeftRightOffset(offset);
+	UpdateData(FALSE);
+}
+
 
 void CDialogGirthWeld::OnDeltaposSpinScanCirc(NMHDR* pNMHDR, LRESULT* pResult)
 {
@@ -845,7 +889,7 @@ void CDialogGirthWeld::OnClickedButtonManual()
 			// adjust the location every ( 10 mm)
 			StartNotingMotorSpeed(TRUE);
 			StartMeasuringLaser(TRUE);
-			//		StartNotingRGBData(TRUE);
+			StartNotingRGBData(TRUE); // 911
 			StartSteeringMotors(0x3);
 		}
 		else
@@ -877,7 +921,7 @@ void CDialogGirthWeld::StartSteeringMotors(int nSteer)
 	if (nSteer)
 	{
 		double accel, speed = GetRequestedMotorSpeed(accel); // this uses a SendMessage, and must not be called from a thread
-		m_weldNavigation.StartSteeringMotors(nSteer, speed, m_fLROffset);
+		m_weldNavigation.StartSteeringMotors(nSteer, speed, accel, GetLeftRightOffset());
 		m_wndLaser.ResetLaserOffsetList();
 		m_motionControl.ResetLastManoeuvrePosition();
 		StartReadMagStatus(nSteer == 0); // takes too mjuch time
@@ -887,7 +931,7 @@ void CDialogGirthWeld::StartSteeringMotors(int nSteer)
 	else
 	{
 		KillTimer(TIMER_NOTE_STEERING);
-		m_weldNavigation.StartSteeringMotors(0x0);
+		m_weldNavigation.StartSteeringMotors(0x0, 0,0,0);
 	}
 }
 
@@ -1271,6 +1315,7 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 		{
 			LASER_MEASURES* pMeas = (LASER_MEASURES*)lParam;
 			m_wndLaser.GetLaserMeasurment(pMeas);
+			pMeas->rgb_sum = m_rgbLast;
 			return pMeas->status == 0;
 		}
 		case NAVIGATE_LAST_MAN_POSITION:
@@ -1574,3 +1619,4 @@ void CDialogGirthWeld::OnStnClickedStaticTempBoard()
 {
 	// TODO: Add your control notification handler code here
 }
+

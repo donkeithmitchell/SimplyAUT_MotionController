@@ -20,6 +20,8 @@ CLaserControl::CLaserControl()
     m_nMsg = 0;
 	memset(m_polyX, 0x0, sizeof(m_polyX));
 	memset(m_polyY, 0x0, sizeof(m_polyY));
+	memset(m_work_buffer1, 0x0, sizeof(m_work_buffer1));
+	memset(m_work_buffer2, 0x0, sizeof(m_work_buffer2));
 }
 
 CLaserControl::~CLaserControl()
@@ -460,14 +462,19 @@ static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 	else
 		return 0;
 }
-
-
-
-BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measures, double pos, double buffer[])
+BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measures2, double pos, double buffer[])
 {
-	measures.status = -1;
+	measures2.status = -1;
 	if (!IsConnected() || !IsLaserOn())
 		return FALSE;
+
+	// also get the F/W measures
+	Measurement measures1;
+	if (GetLaserMeasurment(measures1))
+	{
+		measures2.weld_cap_pix1.x = measures1.mp[0].x;
+		measures2.weld_cap_pix1.y = measures1.mp[0].y;
+	}
 
 	// calculate the average, min and max values
 // gety rid of not set values
@@ -486,15 +493,17 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	for (int i = SENSOR_WIDTH; i < SENSOR_WIDTH + FILTER_MARGIN; ++i)
 		buffer[i] = buffer[SENSOR_WIDTH-1];
 
-	// note that this filter will leave the last 20 or so values invalid
-	m_filter.IIR_HighCut(buffer, 100, 5.0);
+	m_filter.IIR_HighCut(buffer, 100, 2.5);
 
+	// this filter addedded delay, remove it
+	int shift = 15;
+	for (int i = SENSOR_WIDTH - 1; i >= shift; --i)
+		buffer[i] = buffer[i - shift];
 
-	double sum = 0;
 	int maxInd = -1;
 	int minInd = -1;
 
-	int cnt = 0;
+	double sum1 = 0;
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
 		if (minInd == -1 || buffer[i] < buffer[minInd])
@@ -503,17 +512,56 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 			maxInd = i;
 
 		// also note the average
-		sum +=buffer[i];
-		cnt++;
+		sum1 +=buffer[i];
 	}
+	double avgPos = sum1 / SENSOR_WIDTH;
 
-	double avgPos = sum / cnt;
+	// get the SD (this includes the weld data)
+	// set the edge threshold as 1 SD above the average
+	double sum2 = 0;
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+	{
+
+		// also note the average
+		double val = buffer[i] - avgPos;
+		sum2 += val * val;
+	}
+	double sd = sqrt(sum2 / SENSOR_WIDTH);
+
+	// now recalculate the sd and average not including the weld data
+	sum1 = 0;
+	int cnt = 0;
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+	{
+		if (buffer[i] < avgPos + sd)
+		{
+			sum1 += buffer[i];
+			cnt++;
+		}
+	}
+	avgPos = sum1 / cnt;
+
+	sum2 = 0;
+	cnt = 0;
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+	{
+		if (buffer[i] < avgPos + sd)
+		{
+			double val = buffer[i] - avgPos;
+			sum2 += val * val;
+			cnt++;
+		}
+	}
+	sd = sqrt(sum2 / cnt);
+
 
 	// the threshold is 1/2 way from average to maxVal
 	// incase following a gap, not a weld cap, check which is larget
 	// average to minimum or average to maximum
 	int dir = 1; //  (maxPos - avgPos) > (avgPos - minPos) ? 1 : -1;
-	double threshold = (dir == 1) ? (buffer[maxInd] + avgPos) / 2 : (buffer[minInd] + avgPos) / 2;
+//	double threshold = (dir == 1) ? (buffer[maxInd] + avgPos) / 2 : (buffer[minInd] + avgPos) / 2;
+//	double threshold = (dir == 1) ? (buffer[maxInd] + medPos) / 2 : (buffer[minInd] + medPos) / 2;
+	double threshold = (dir == 1) ? (buffer[maxInd] + avgPos + sd) / 2 : (buffer[minInd] - avgPos - sd) / 2;
 
 	// now note the start and end of this region above the threshold 
 	int i1, i2;
@@ -546,42 +594,44 @@ BOOL CLaserControl::CalcLaserMeasures(const Hits hits[], LASER_MEASURES& measure
 	::polyfit(m_polyX, m_polyY, j, 2, coeff);
 
 	// now differentiate the coeff to dind the location of the maximum
-	measures.weld_cap_pix.x = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
-	measures.weld_cap_pix.y = coeff[2] * measures.weld_cap_pix.x * measures.weld_cap_pix.x + coeff[1] * measures.weld_cap_pix.x + coeff[0];
-	measures.weld_left = i1;
-	measures.weld_right = i2;
+	measures2.weld_cap_pix2.x = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
+	measures2.weld_cap_pix2.y = coeff[2] * measures2.weld_cap_pix2.x * measures2.weld_cap_pix2.x + coeff[1] * measures2.weld_cap_pix2.x + coeff[0];
+	measures2.weld_left = i1;
+	measures2.weld_right = i2;
 
 	// convert laser pixels to mm
 	// will draw with pixels, but navigate with mm
-	ConvPixelToMm((int)(measures.weld_cap_pix.x + 0.5), (int)(measures.weld_cap_pix.y + 0.5), measures.weld_cap_mm.x, measures.weld_cap_mm.y);
+	ConvPixelToMm((int)(measures2.weld_cap_pix2.x + 0.5), (int)(measures2.weld_cap_pix2.y + 0.5), measures2.weld_cap_mm.x, measures2.weld_cap_mm.y);
 
 	// get a 1st order fit to the left
 	// use only the first 1/2 of the data
 	j = 0;
-	for (int i = i1 / 2; i < i1; ++i)
+	measures2.weld_left_start = measures2.weld_left / 4;
+	for (int i = measures2.weld_left_start; i < measures2.weld_left; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = buffer[i];
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
-	::polyfit(m_polyX, m_polyY, j, 1, measures.ds_coeff);
+	::polyfit(m_polyX, m_polyY, j, 1, measures2.ds_coeff);
 
-	// now get the slop of the up side
+	// now get the slope of the up side
 	// get a 1st order fit to the left
 	j = 0;
-	for (int i = i2; i < (i2 + SENSOR_WIDTH) / 2; ++i)
+	measures2.weld_right_end = SENSOR_WIDTH - (SENSOR_WIDTH - measures2.weld_right) / 4;
+	for (int i = measures2.weld_right; i < measures2.weld_right_end; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = buffer[i];
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
-	::polyfit(m_polyX, m_polyY, j, 1, measures.us_coeff);
+	::polyfit(m_polyX, m_polyY, j, 1, measures2.us_coeff);
 
 	// now convert the laser units to mm
-	measures.measure_pos = pos;
-	measures.status = 0;
+	measures2.measure_pos = pos; 
+	measures2.status = 0;
 	return TRUE;
 }
 
@@ -678,19 +728,20 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 	::polyfit(m_polyX, m_polyY, j, 2, coeff);
 
 	// now differentiate the coeff to dind the location of the maximum
-	measures.weld_cap_pix.x = (coeff[2] == 0) ? maxInd : -coeff[1] / (2 * coeff[2]);
-	measures.weld_cap_pix.y = coeff[2] * measures.weld_cap_pix.x * measures.weld_cap_pix.x + coeff[1] * measures.weld_cap_pix.x + coeff[0];
+	measures.weld_cap_pix2.x = (coeff[2] == 0) ? maxInd : -coeff[1] / (2 * coeff[2]);
+	measures.weld_cap_pix2.y = coeff[2] * measures.weld_cap_pix2.x * measures.weld_cap_pix2.x + coeff[1] * measures.weld_cap_pix2.x + coeff[0];
 	measures.weld_left = i1;
 	measures.weld_right = i2;
 
 	// convert laser pixels to mm
 	// will draw with pixels, but navigate with mm
-	ConvPixelToMm((int)(measures.weld_cap_pix.x + 0.5), (int)(measures.weld_cap_pix.y + 0.5), measures.weld_cap_mm.x, measures.weld_cap_mm.y);
+	ConvPixelToMm((int)(measures.weld_cap_pix2.x + 0.5), (int)(measures.weld_cap_pix2.y + 0.5), measures.weld_cap_mm.x, measures.weld_cap_mm.y);
 
 	// get a 1st order fit to the left
 	// use only the first 1/2 of the data
 	j = 0;
-	for (int i = i1 / 2; i < i1; ++i)
+	measures.weld_left_start = measures.weld_left / 4;
+	for (int i = measures.weld_left_start; i < measures.weld_left; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = buffer[i];
@@ -702,7 +753,8 @@ BOOL CLaserControl::CalcLaserMeasures_old(const Hits hits[], LASER_MEASURES& mea
 	// now get the slope of the up side
 	// get a 1st order fit to the left
 	j = 0;
-	for (int i = i2; i < (i2 + SENSOR_WIDTH) / 2; ++i)
+	measures.weld_right_end = SENSOR_WIDTH - (SENSOR_WIDTH - measures.weld_right) / 4;
+	for (int i = measures.weld_right; i < measures.weld_right_end; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = buffer[i];

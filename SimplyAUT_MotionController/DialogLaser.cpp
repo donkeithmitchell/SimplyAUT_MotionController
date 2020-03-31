@@ -23,7 +23,9 @@ CDialogLaser::CDialogLaser(CMotionControl& motion, CLaserControl& laser, CWnd* p
 	: CDialogEx(IDD_DIALOG_LASER, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
-	, m_wndProfile(laser, m_measure2, RGB(10, 10, 10))
+	, m_wndProfile(laser, m_measure2, m_bShiftToCentre, m_bShowRawData, RGB(10, 10, 10))
+	, m_bShiftToCentre(TRUE)
+	, m_bShowRawData(FALSE)
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -60,6 +62,8 @@ void CDialogLaser::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_TEMPERATURE_EDIT, m_temperature_edit);
 	DDX_Text(pDX, IDC_LASERPOWER_EDIT, m_LaserPower);
 	DDX_Text(pDX, IDC_SHUTTER_EDIT, m_CameraShutter);
+	DDX_Check(pDX, IDC_CHECK_SHIFT_TO_CENTRE, m_bShiftToCentre);
+	DDX_Check(pDX, IDC_CHECK_SHOW_RAW_DATA, m_bShowRawData);
 }
 
 
@@ -76,6 +80,8 @@ BEGIN_MESSAGE_MAP(CDialogLaser, CDialogEx)
 	ON_BN_CLICKED(IDC_ROI_BUTTON, OnRoiButton)
 	ON_MESSAGE(WM_USER_UPDATE_DIALOG, OnUserUpdateDialog)
 	ON_BN_CLICKED(IDC_BUTTON_ROI_RESET, &CDialogLaser::OnClickedButtonRoiReset)
+	ON_BN_CLICKED(IDC_CHECK_SHIFT_TO_CENTRE, &CDialogLaser::OnClickedCheckShiftToCentre)
+	ON_BN_CLICKED(IDC_CHECK_SHOW_RAW_DATA, &CDialogLaser::OnClickedCheckShowRawData)
 END_MESSAGE_MAP()
 
 
@@ -137,7 +143,7 @@ LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 	double h1_mm, v1_mm;
 	double h2_mm, v2_mm;
 
-	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix.x, (int)m_measure2.weld_cap_pix.y, h1_mm, v1_mm);
+	m_laserControl.ConvPixelToMm((int)m_measure2.weld_cap_pix2.x, (int)m_measure2.weld_cap_pix2.y, h1_mm, v1_mm);
 	double weld_cap_height = v1_mm;
 	str.Format("%.1f mm", h1_mm);
 	GetDlgItem(IDC_STATIC_WELD_OFFSET)->SetWindowTextA(str);
@@ -320,4 +326,20 @@ void CDialogLaser::OnClickedButtonRoiReset()
 	m_wndProfile.m_ROI_str.Format("(%d,%d)(%d,%d)", (int)rect_roi.left, (int)rect_roi.top, (int)rect_roi.right, (int)rect_roi.bottom);
 	m_laserControl.SetCameraRoi(rect_roi);
 	UpdateData(FALSE);
+}
+
+
+void CDialogLaser::OnClickedCheckShiftToCentre()
+{
+	// TODO: Add your control notification handler code here
+	if (m_bInit)
+		UpdateData(TRUE);
+}
+
+
+void CDialogLaser::OnClickedCheckShowRawData()
+{
+	// TODO: Add your control notification handler code here
+	if (m_bInit)
+		UpdateData(TRUE);
 }

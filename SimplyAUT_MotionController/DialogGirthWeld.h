@@ -52,6 +52,8 @@ public:
 	BOOL    GoToPosition(double pos);
 	BOOL    WaitForMotorsToStop();
 	BOOL    WaitForMotorsToStart();
+	double  GetLeftRightOffset()const;
+	void    FormatLeftRightOffset(double);
 
 
 	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL};
@@ -103,6 +105,7 @@ public:
 	double  m_fMotorSpeed;
 	double  m_fMotorAccel;
 	clock_t	m_nRunStart;
+	int     m_rgbLast;
 
 	CBitmap	m_bitmapPause;
 	CBitmap	m_bitmapGoRight;
@@ -138,7 +141,6 @@ public:
 	CString   m_szLaserEdge[3];
 	CString   m_szLaserJoint;
 
-	double m_fLROffset;
 	double m_fScanCirc;
 	double m_fDistToScan;
 	double m_fDistScanned;
@@ -196,4 +198,5 @@ public:
 	CString m_szSteeringLRDiff;
 	CString m_szSteeringGapAccel;
 	afx_msg void OnStnClickedStaticTempBoard();
+	afx_msg void OnChangeEditLrOffset();
 };
