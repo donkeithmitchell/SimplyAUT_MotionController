@@ -27,7 +27,7 @@ public:
 #endif
 	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_LASER, TAB_MAG, TAB_SCAN, TAB_STATUS};
 	enum {MSG_SEND_DEBUGMSG = 0, MSG_ERROR_MSG, MSG_SETBITMAPS, MSG_GETSCANSPEED, MSG_GETACCEL, MSG_SHOW_MOTOR_SPEEDS, 
-		MSG_MAG_STATUS_ON, MSG_GET_MAG_STATUS}; // insure that MSG_GET_MAG_STATUS is the last in the list
+		MSG_MAG_STATUS_ON}; 
 
 
 	protected:
@@ -59,7 +59,6 @@ protected:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	int		m_nSel;
-	int     m_magStatus[6];
 
 
 	// Generated message map functions

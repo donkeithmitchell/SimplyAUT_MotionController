@@ -17,6 +17,7 @@ CMotionControl::CMotionControl()
     m_nGotoPosition = 0;
 	m_pGclib = NULL;
     m_manoeuvre_pos = FLT_MAX;
+    m_bMotorsRunning = FALSE;
 }
 
 CMotionControl::~CMotionControl()
@@ -141,7 +142,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 
   //  StopMotors();
  
-    EnableControls();
+//  EnableControls();
     return TRUE; //  SetMotorSpeed(dScanSpeed);
 }
 
@@ -240,6 +241,28 @@ void CMotionControl::StopMotors()
 BOOL CMotionControl::SetMotorJogging(double speed, double accel)
 {
     return SetMotorJogging(speed, speed, speed, speed, accel);
+}
+
+BOOL CMotionControl::AreTheMotorsRunning()
+{
+    m_critMotorsRunning.Lock();
+    BOOL ret = m_bMotorsRunning;
+    m_critMotorsRunning.Unlock();
+
+    return ret;
+}
+
+void CMotionControl::NoteIfMotorsRunning()
+{
+    int accel;
+    int speedA = m_pGclib->GetMotorSpeed("A", accel); // thjis is in counts, want the speed in mm/sec
+    int speedB = m_pGclib->GetMotorSpeed("B", accel); // thjis is in counts, want the speed in mm/sec
+    int speedC = m_pGclib->GetMotorSpeed("C", accel); // thjis is in counts, want the speed in mm/sec
+    int speedD = m_pGclib->GetMotorSpeed("D", accel); // thjis is in counts, want the speed in mm/sec
+
+    m_critMotorsRunning.Lock();
+    m_bMotorsRunning = (speedA != 0 || speedB != 0 || speedC != 0 || speedD != 0);
+    m_critMotorsRunning.Unlock();
 }
 
 double CMotionControl::GetMotorSpeed(GCStringIn axis, double& rAccel)
@@ -379,16 +402,28 @@ BOOL CMotionControl::SteerMotors(double fSpeed, BOOL bRight, double rate)
     return SetSlewSpeed(spA, spB, spC, spD);
 //    return SetMotorJogging(spA, spB, spC, spD, accelA);
 }
-double g_manoeuvre_pos = FLT_MAX;
-double CMotionControl::GetLastManoeuvrePosition()const
+double CMotionControl::GetLastManoeuvrePosition()
 { 
-    return m_manoeuvre_pos; 
+    m_critLastManoeuvre.Lock();
+    double pos = m_manoeuvre_pos; 
+    m_critLastManoeuvre.Unlock();
+    return pos;
 }
 
 void CMotionControl::SetLastManoeuvrePosition() 
 { 
-    m_manoeuvre_pos = g_manoeuvre_pos = GetAvgMotorPosition();
+    m_critLastManoeuvre.Lock();
+    m_manoeuvre_pos = GetAvgMotorPosition();
+    m_critLastManoeuvre.Unlock();
 }
+
+void CMotionControl::ResetLastManoeuvrePosition() 
+{ 
+    m_critLastManoeuvre.Lock();
+    m_manoeuvre_pos = FLT_MAX;
+    m_critLastManoeuvre.Unlock();
+}
+
 
 
 

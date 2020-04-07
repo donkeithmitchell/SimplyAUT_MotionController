@@ -4,6 +4,10 @@
 #include <Ws2tcpip.h>
 
 static BOOL g_sensor_initialised = FALSE;
+#ifdef _DEBUG_TIMING
+clock_t g_ThreadReadSocketTime = 0;
+int g_ThreadReadSocketCount = 0;
+#endif
 
 enum{MAG_REG_HW=1, 
     MAG_REG_FW_MAJ,
@@ -43,10 +47,18 @@ CMagControl::CMagControl()
     memset(m_strBuffer, 0x0, sizeof(m_strBuffer));
     memset(&m_sockaddr_in, 0x0, sizeof(m_strBuffer));
 
+    for (int i = 0; i < 6; ++i)
+        m_magStatus[i] = INT_MAX;
+    
     m_nConnect = 0;
     m_server  = INVALID_SOCKET;
     m_hTheadReadSocket = NULL;
     m_hTheadConnectSocket = NULL;
+    m_fRGBCalibration = FLT_MAX;
+
+    m_rgbData.SetSize(0);
+    m_rgbCalibration.Reset();
+    m_rgbPos = FLT_MAX;
 }
 
 CMagControl::~CMagControl()
@@ -161,28 +173,32 @@ UINT CMagControl::ThreadConnectSocket()
     return 0;
 }
 
-int CMagControl::GetMagRGBCalibration()
+int CMagControl::GetRGBCalibrationValue()
 {
     int nValue = GetMagRegister(MAG_REG_RGB_CAL);
     return nValue;
-
+}
+double CMagControl::GetUserRGBCalibration()
+{
+    return m_fRGBCalibration;
 }
 
-BOOL CMagControl::SetMagRGBCalibration(int nCal)
+BOOL CMagControl::SetMagRGBCalibrationValue(double fCal)
 {
     CString str;
     if (!IsConnected())
         return FALSE;
 
-    str.Format("RW %d %d\n", MAG_REG_RGB_CAL, nCal);
+    m_fRGBCalibration = fCal;
+    str.Format("RW %d %.0f\n", MAG_REG_RGB_CAL, fCal);
     int nRecv = Send(str);
     Sleep(SOCKET_RECV_DELAY);
 
     nRecv = GetMagRegister(MAG_REG_RGB_CAL);
-    return nRecv == nCal;
+    return nRecv == (int)(fCal+0.5);
 }
 
-int  CMagControl::GetMagStatus(int status[6])
+int  CMagControl::GetMagStatus()
 {
     if (!IsConnected())
         return 0;
@@ -202,19 +218,22 @@ int  CMagControl::GetMagStatus(int status[6])
     if (strncmp(buff, "$STA,",5) != 0)
         return 0;
 
-    memset(status, 0x0, 6 * sizeof(int));
+    m_critMagStatus.Lock();
+    memset(m_magStatus, 0x0, 6 * sizeof(int));
     int ret = sscanf_s(buff + 5, "%d,%d,%d,%d,%d,%d",
-        status + MAG_STAT_IND_SC,
-        status + MAG_IND_ENC_DIR,
-        status + MAG_IND_RGB_LINE,
-        status + MAG_IND_MAG_ON,
-        status + MAG_IND_ENC_CNT,
-        status + MAG_IND_MAG_LOCKOUT);
+        m_magStatus + MAG_STAT_IND_SC,
+        m_magStatus + MAG_IND_ENC_DIR,
+        m_magStatus + MAG_IND_RGB_LINE,
+        m_magStatus + MAG_IND_MAG_ON,
+        m_magStatus + MAG_IND_ENC_CNT,
+        m_magStatus + MAG_IND_MAG_LOCKOUT);
 
     // insure that unread values are invalidated
     for (int i = ret; i < 6; ++i)
-        status[i] = INT_MAX;
+        m_magStatus[i] = INT_MAX;
 
+    m_critMagStatus.Unlock();
+    
     return ret;
 }
 
@@ -267,6 +286,8 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
     m_eventSocket.ResetEvent();
     m_strBuffer[0] = 0;
 
+    // recv() is in a thread as it does not return until it received the requested number of bytes
+    // if it hangs, it is possibloe to terminate the thread
     memset(buff, 0x0, nSize);
  //   ThreadReadSocket();
     m_hTheadReadSocket = ::AfxBeginThread(::ThreadReadSocket, this);
@@ -297,29 +318,20 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 
     return len;
 }
-
 // read bytes from the socket until get the terminating character (\r)
 // tried to read the initial block as 10 characters, then 1 per after that
 // unbless a significant delay prior to asking for characters, would return NULL characters
 // the intial delay removed any advantage of asking for a larger block
 UINT CMagControl::ThreadReadSocket()
 {
-    static clock_t total_time = 0;
-    static clock_t max_time = 0;
-    static int total_count = 0;
-
-    clock_t recv_time = 0;
     memset(m_strBuffer, 0x0, SOCKET_BUFF_LENGTH);
 
     char stop_char = '\n';
-    int byte_count = 0;
+    clock_t t1 = clock();
     for (int i = 0; i < SOCKET_BUFF_LENGTH - 1; i += 1)
     {
         // there are no responses less than 0 characters
-        clock_t t2 = clock();
         int nRecv = ::recv(m_server, m_strBuffer + i, 1, 0);
-        recv_time = clock() - t2;
-        byte_count += nRecv;
 
         if (nRecv == 0 || nRecv == SOCKET_ERROR)
         {
@@ -348,6 +360,11 @@ UINT CMagControl::ThreadReadSocket()
         }
     }
 
+#ifdef _DEBUG_TIMING
+    g_ThreadReadSocketTime += clock() - t1;
+    g_ThreadReadSocketCount++;
+#endif  
+
     size_t len = strlen(m_strBuffer);
     if (len > 0 && m_strBuffer[0] == '\r')
     {
@@ -357,28 +374,7 @@ UINT CMagControl::ThreadReadSocket()
     }
 
     m_eventSocket.SetEvent();
-/*
-    total_time += recv_time;
-    total_count++;
-    max_time = max(max_time, recv_time);
 
-    char my_documents[MAX_PATH];
-    HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
-
-    FILE* fp = NULL;
-    CString str2;
-    str2.Format("%s\\ReadSocket.txt", my_documents);
-    if (fopen_s(&fp, str2, "a") == 0 && fp != NULL)
-    {
-        CString temp = _T(m_strBuffer);
-        int len3 = temp.Find("\r");
-        if (len3 != -1)
-            temp = temp.Left(len3);
-
-        fprintf(fp, "len: %d,  max: %d, this: %d ms, avg: %d: %s\n", byte_count, max_time, recv_time, total_time / total_count, temp);
-        fclose(fp);
-    }
-*/
     return 0;
 }
 
@@ -542,4 +538,129 @@ void CMagControl::SendErrorMessage(const CString& msg)
         m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
     }
 }
+
+int CMagControl::GetMagStatus(int ind)
+{
+    m_critMagStatus.Lock();
+    int ret = m_magStatus[ind];
+    m_critMagStatus.Unlock();
+    return ret;
+}
+
+BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser)
+{
+    // get the minimum point and aassume that is the line
+    // get the median value of all, and use 1/2 way from minimum to median as threshold
+    int nSize = (int)m_rgbData.GetSize();
+    if (nSize == 0)
+        return FALSE;
+
+    CArray<double, double> X, Y;
+    X.SetSize(nSize);
+    Y.SetSize(nSize);
+
+    int minInd = 0;
+    int maxInd = 0;
+    for (int i = 0; i < nSize; ++i)
+    {
+        // ignore the first 10 mm
+        if (m_rgbData[i].x > 10)
+        {
+            if (minInd == -1 || m_rgbData[i].y < m_rgbData[minInd].y)
+                minInd = i;
+            if (maxInd == -1 || m_rgbData[i].y > m_rgbData[maxInd].y)
+                maxInd = i;
+        }
+    }
+
+
+    // niow get the median of all the values
+    for (int i = 0; i < nSize; ++i)
+        Y[i] = m_rgbData[i].y;
+
+    qsort(Y.GetData(), nSize, sizeof(double), ::MinMaxR8);
+    double median = Y[nSize / 2];
+    m_rgbCalibration.median = median;
+
+    int i1, i2;
+    double threshold;
+    if (bWithLaser)
+    {
+        threshold = m_rgbData[maxInd].y - 2 * (m_rgbData[maxInd].y - median) / 3;
+
+        // about the minimum, look for the threshold and model as a 2nd ordert
+        for (i1 = maxInd; i1 >= 0 && m_rgbData[i1].y > threshold; --i1);
+        for (i2 = maxInd; i2 < nSize && m_rgbData[i2].y > threshold; ++i2);
+    }
+    else
+    {
+        threshold = m_rgbData[minInd].y + (median - m_rgbData[minInd].y) / 4;
+
+        // about the minimum, look for the threshold and model as a 2nd ordert
+        for (i1 = minInd; i1 >= 0 && m_rgbData[i1].y < threshold; --i1);
+        for (i2 = minInd; i2 < nSize && m_rgbData[i2].y < threshold; ++i2);
+    }
+    i1 = max(i1, 0);
+    i2 = min(i2, nSize - 1);
+
+    int cnt2 = 0;
+    for (int i = i1; i <= i2; ++i)
+    {
+        X[cnt2] = m_rgbData[i].x;
+        Y[cnt2] = m_rgbData[i].y;
+        cnt2++;
+    }
+
+    if (cnt2 >= 3)
+    {
+        double coeff[3];
+        polyfit(X.GetData(), Y.GetData(), cnt2, 2, coeff);
+
+        m_rgbCalibration.pos = -coeff[1] / (2 * coeff[2]);
+        m_rgbCalibration.rgb = threshold;
+    }
+    else
+    {
+        int ind = bWithLaser ? (i2 + i1) / 2 : minInd;
+        m_rgbCalibration.pos = m_rgbData[ind].x;
+        m_rgbCalibration.rgb = threshold;
+    }
+
+    return TRUE;
+}
+
+void CMagControl::ResetRGBCalibration()
+{
+    m_rgbData.SetSize(0);
+    m_rgbCalibration.Reset();
+    m_rgbPos = FLT_MAX;
+}
+
+CDoublePoint CMagControl::GetRGBCalibrationData(int ind)const
+{
+    CDoublePoint ret;
+    if (ind >= 0 && ind < m_rgbData.GetSize() )
+        ret = m_rgbData[ind];
+
+    return ret;
+}
+
+
+void CMagControl::NoteRGBCalibration(double pos, double val, int nLength)
+{
+
+    // get the current position and RGB values
+    int len = (int)m_rgbData.GetSize();
+    if (pos != FLT_MAX && (len == 0 || pos > m_rgbData[len - 1].x))
+    {
+        if (val != FLT_MAX)
+        {
+            // set grow by to the maximum length
+            m_rgbData.SetSize(++len, nLength);
+            m_rgbData[len - 1].x = pos;
+            m_rgbData[len - 1].y = val;
+        }
+    }
+}
+
 

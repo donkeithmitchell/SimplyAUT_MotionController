@@ -2,6 +2,7 @@
 #include "StaticLaser.h"
 #include "WeldNavigation.h"
 #include "SimplyAUT_MotionController.h"
+#include "StaticMag.h"
 #include "button.h"
 
 // CDialogGirthWeld dialog
@@ -29,38 +30,48 @@ public:
 	void	Init(CWnd* pParent, UINT nMsg);
 	void	ShowMotorSpeeds();
 	void    ShowMotorPosition();
+	void    ShowRGBStatus();
 	BOOL	CheckVisibleTab();
 	LRESULT UserSteer(BOOL bRight, BOOL bDown);
 	UINT    ThreadStopMotors(void);
-	UINT    ThreadWaitForMotorsToStop();
 	UINT	ThreadGoToHome(void);
-	UINT	ThreadRunManual(BOOL);
+	UINT	ThreadRunScan();
 	void	SendDebugMessage(const CString&);
+	void	SendErrorMessage(const CString&);
 	void    ShowLaserTemperature();
 	void    ShowLaserStatus();
-	int		GetMagStatus(int nStat);
-	void	SetRunTime(int);
-	void    NoteSteering();
-	void    StartNotingRGBData(BOOL);
+	void	SetNoteRunTime(BOOL);
+//	void    StartNotingRGBData(BOOL);
 	void	StartNotingMotorSpeed(BOOL);
 	void    StartSteeringMotors(BOOL);
 	void    StartReadMagStatus(BOOL);
 	void    StartMeasuringLaser(BOOL);
 	void    GetLaserProfile();
+	void	NoteIfMotorsRunning();
 	BOOL	SetSlewSpeed(double fSpeed);
 	double  GetSlewSpeed(const char* axis);
+	void    StopMotors();
+	double  GetRGBSum();
 	BOOL    GoToPosition(double pos);
+	double	GetAvgMotorPosition();
+	BOOL    ZeroPositions();
 	BOOL    WaitForMotorsToStop();
 	BOOL    WaitForMotorsToStart();
 	double  GetLeftRightOffset()const;
 	void    FormatLeftRightOffset(double);
-
+	void    NoteRunTime();
+	void    NoteRGBSum();
+	double	GetDestinationPosition();
+	void    StartRecording(int);
+	void	NoteRGBCalibration();
+	double	GetCalibrationValue();
 
 	enum { WM_STEER_LEFT = WM_USER + 1, WM_STEER_RIGHT, WM_STOPMOTOR_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL};
-	enum{ MC_SET_SLEW_SPEED=0, MC_GOTO_POSITION, MC_GET_SLEW_SPEED};
-	enum { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_STATUS, TIMER_RUN_TIME, TIMER_NOTE_RGB, TIMER_NOTE_STEERING, TIMER_GET_LASER_PROFILE};
-	enum { STATUS_GET_CIRC = 0, STATUS_GETLOCATION, STATUS_SHOWLASERSTATUS, STATUS_GET_LAST_LASER_POS, STATUS_GET_SCAN_LENGTH, STATUS_MAG_STATUS/*this must be last*/	};
-	enum{ NAVIGATE_GET_MEASURE=0, NAVIGATE_SEND_DEBUG_MSG, NAVIGATE_GET_MOTOR_POS, NAVIGATE_LAST_MAN_POSITION, NAVIGATE_GET_MOTOR_SPEED, NAVIGATE_SET_MOTOR_SPEED};
+	enum { MC_SET_SLEW_SPEED = 0, MC_GOTO_POSITION, MC_ZERO_POSITION, MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS };
+	enum TIMER_GW { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_TEMPERATURE, TIMER_LASER_STATUS1, TIMER_RGB_STATUS, TIMER_RUN_TIME, 
+		TIMER_NOTE_RGB, TIMER_GET_LASER_PROFILE, TIMER_ARE_MOTORS_RUNNING, TIMER_NOTE_CALIBRATION	};
+	enum { STATUS_GETLOCATION=0, STATUS_SHOWLASERSTATUS};
+	enum{ NAVIGATE_SEND_DEBUG_MSG=0, NAVIGATE_SET_MOTOR_SPEED};
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -84,25 +95,23 @@ public:
 	GALIL_STATE&	m_nGalilState;
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
-	CMagControl& m_magControl;
+	CMagControl&	m_magControl;
 	HANDLE			m_hThreadRunMotors;
 	GALIL_STATE		m_nGaililStateBackup;
 	CWeldNavigation m_weldNavigation;
-
-	Profile				m_profile;
-	LASER_MEASURES	m_measure2;
-	double			m_hitBuffer[2*SENSOR_WIDTH];
-
-
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	BOOL	m_bPaused;
+	BOOL    m_bAborted;
+	BOOL    m_bScanning;
+	int     m_nCalibratingRGB;
 	BOOL    m_bResumeScan;
 	int     m_nTimerCount;
 	double  m_fMotorSpeed;
+	double	m_fDestinationPosition;
 	double  m_fMotorAccel;
 	clock_t	m_nRunStart;
 	int     m_rgbLast;
@@ -121,7 +130,10 @@ public:
 	CBitmap	m_bitmapLaserLoading;	// blue
 
 	CStatic		    m_staticLaser;
+	CStatic		    m_staticMag;
 	CStaticLaser	m_wndLaser;
+	CStaticMag		m_wndMag;
+
 
 	BOOL			m_nScanType;
 	CSpinButtonCtrl m_spinLROffset;
@@ -134,7 +146,7 @@ public:
 	CString m_szDistToScan;
 	CString m_szScannedDist;
 
-	double  m_fScanStart;
+	double  m_fScanStartPos;
 	CString m_szHomeDist;
 	CString m_szScanOverlap;
 
@@ -145,11 +157,10 @@ public:
 	double m_fDistToScan;
 	double m_fDistScanned;
 	double m_fScanOverlap;
+	double m_fScanLength;
 
 	CButton m_buttonPause;
-	CButton m_buttonCalib;
 	CButton m_buttonManual;
-	CButton m_buttonAuto;
 	CButton m_buttonZeroHome;
 	CButton m_buttonGoHome;
 	CButton m_buttonBack;
@@ -158,8 +169,11 @@ public:
 	CButton m_buttonFwd;
 	CButton m_buttonLaserStatus;
 
-	BOOL m_bReturnToHome;
+	BOOL m_bStartScanAtHomePos;
 	BOOL m_bReturnToStart;
+	BOOL m_bSeekAndStartAtLine;
+	BOOL m_bSeekStartLineInReverse;
+	double m_fSeekAndStartAtLine;
 
 	CBrush	m_brRed;
 	CBrush	m_brGreen;
@@ -174,9 +188,7 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 
 	afx_msg void OnClickedButtonPause();
-	afx_msg void OnClickedButtonCalib();
-	afx_msg void OnClickedButtonManual();
-	afx_msg void OnClickedButtonAuto();
+	afx_msg void OnClickedButtonScan();
 	afx_msg void OnClickedButtonFwd();
 	afx_msg void OnClickedButtonBack();
 	afx_msg void OnClickedButtonLeft();
@@ -187,16 +199,16 @@ public:
 	afx_msg void OnClickedButtonGoHome();
 	afx_msg void OnRadioScanType();
 	afx_msg void OnClickedCheckGoToHome();
-	afx_msg void OnClickedCheckGoToStart();
-	BOOL m_bSeekReverse;
+	afx_msg void OnClickedCheckReturnToStart();
+	afx_msg void OnStnClickedStaticTempBoard();
+	afx_msg void OnChangeEditLrOffset();
+	afx_msg void OnClickedCheckSeekStartLine();
+
 	CString m_szTempBoard;
 	CString m_szTempLaser;
 	CString m_szTempSensor;
 	CString m_szRunTime;
-	CString m_szSteeringGapDist;
-	CString m_szSteeringGapVel;
-	CString m_szSteeringLRDiff;
-	CString m_szSteeringGapAccel;
-	afx_msg void OnStnClickedStaticTempBoard();
-	afx_msg void OnChangeEditLrOffset();
+	CString m_szRGBValue;
+	CString m_szRGBLinePresent;
+	CString m_szRGBCalibration;
 };

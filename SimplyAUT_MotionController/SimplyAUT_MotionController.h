@@ -15,7 +15,7 @@
 // See SimplyAUT_MotionController.cpp for the implementation of this class
 //
 
-enum GALIL_STATE { GALIL_IDLE = 0, GALIL_CALIB, GALIL_MANUAL, GALIL_AUTO, GALIL_FWD, GALIL_BACK, GALIL_GOHOME };
+enum GALIL_STATE { GALIL_IDLE = 0, GALIL_SCAN, GALIL_FWD, GALIL_BACK, GALIL_GOHOME };
 enum SCAN_TYPE { SCANTYPE_CIRC = 0, SCANTYPE_DIST };
 
 class CSimplyAUTMotionControllerApp : public CWinApp

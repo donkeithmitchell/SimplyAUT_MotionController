@@ -14,16 +14,16 @@ struct LASER_TEMPERATURE
 struct LASER_MEASURES
 {
 	LASER_MEASURES() { memset(this, 0x0, sizeof(LASER_MEASURES)); status = -1; }
-	double GetDnSideWeldHeight()const { return ds_coeff[1] * weld_left + ds_coeff[0]; }
-	double GetDnSideStartHeight()const { return ds_coeff[1] * weld_left_start + ds_coeff[0]; }
-	double GetUpSideWeldHeight()const { return us_coeff[1] * weld_right + us_coeff[0]; }
-	double GetUpSideEndHeight()const { return us_coeff[1] * weld_right_end + us_coeff[0]; }
+	double GetDnSideWeldHeight()const { return ds_coeff[2] * weld_left * weld_left + ds_coeff[1] * weld_left + ds_coeff[0]; }
+	double GetDnSideStartHeight()const { return ds_coeff[2] * weld_left_start * weld_left_start  + ds_coeff[1] * weld_left_start + ds_coeff[0]; }
+	double GetUpSideWeldHeight()const { return us_coeff[2] * weld_right * weld_right  + us_coeff[1] * weld_right + us_coeff[0]; }
+	double GetUpSideEndHeight()const { return us_coeff[2] * weld_right_end * weld_right_end  + us_coeff[1] * weld_right_end + us_coeff[0]; }
 
 	CDoublePoint weld_cap_pix1; // from F/W
 	CDoublePoint weld_cap_pix2; // from S/W
 	CDoublePoint weld_cap_mm;
-	double us_coeff[2];
-	double ds_coeff[2];
+	double us_coeff[3];
+	double ds_coeff[3];
 	double measure_pos; // position that was at when took measure
 	int weld_left;
 	int weld_right;
@@ -51,13 +51,13 @@ public:
 	BOOL GetLaserTemperature(LASER_TEMPERATURE&);
 	BOOL GetLaserStatus(SensorStatus& SensorStatus);
 	BOOL GetLaserMeasurment(Measurement&);
-	BOOL CalcLaserMeasures_old(const Hits[], LASER_MEASURES&, double*);
-	BOOL CalcLaserMeasures(const Hits[], LASER_MEASURES&, double pos, double*);
+	BOOL CalcLaserMeasures_old(LASER_MEASURES&);
+	BOOL CalcLaserMeasures(double pos);
 	BOOL SetLaserMeasurment(const Measurement&);
 	BOOL SetAutoLaserCheck(BOOL);
 	BOOL SetLaserIntensity(int nLaserPower);
 	BOOL SetCameraShutter(int nCameraShutter);
-	BOOL GetProfile(Profile& profile);
+	BOOL GetProfile();
 	BOOL GetProfilemm(Profilemm* pProfile, int hit_no);
 	void Frm_Find_Sensors();
 	int  GetSerialNumber();
@@ -67,11 +67,20 @@ public:
 	BOOL SetLaserOptions(int opt1, int opt2, int opt3, int opt4);
 	BOOL GetLaserVersion(unsigned short& major, unsigned short& minor);
 	BOOL ConvPixelToMm(int row, int col, double& sw, double& hw);
+	LASER_MEASURES GetLaserMeasures2();
+	void GetLaserHits(MT_Hits_Pos hits[], double hitBuffer[], int nSize);
+	void SetLaserMeasures2(const LASER_MEASURES& meas);
 
 	double m_polyX[SENSOR_WIDTH];
 	double m_polyY[SENSOR_WIDTH];
 
 	CIIR_Filter m_filter;
+
+	CCriticalSection m_critMeasures;
+	Measurement		m_measure1;
+	LASER_MEASURES	m_measure2;
+	Profile			m_profile;
+	double			m_hitBuffer[2 * SENSOR_WIDTH];
 
 	double  m_work_buffer1[SENSOR_WIDTH];
 	double  m_work_buffer2[SENSOR_WIDTH];

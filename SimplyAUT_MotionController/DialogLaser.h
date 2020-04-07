@@ -25,7 +25,6 @@ public:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	CStaticLaserProfile m_wndProfile;
-	LASER_MEASURES      m_measure2;
 
 	BOOL	m_bAutoLaser;
 	CSliderCtrl	m_laser_power_sld;

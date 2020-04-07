@@ -39,6 +39,7 @@
 #define IDC_BUTTON_GALIL                1009
 #define IDC_STATIC_LASER                1010
 #define IDC_STATIC_RGB                  1011
+#define IDC_STATIC_MAG                  1011
 #define IDC_STATIC_GALIL                1012
 #define IDC_STATIC_LASER_IP             1013
 #define IDC_IPADDRESS_MAG               1014
@@ -93,7 +94,7 @@
 #define IDC_STATIC_MOTOR_A              1057
 #define IDC_BUTTON_LEFT                 1057
 #define IDC_STATIC_MOTOR_B              1058
-#define IDC_CHECK_AUTO_REVERSE          1058
+#define IDC_CHECK_SEEK_START_REVERSE    1058
 #define IDC_STATIC_MOTOR_C              1059
 #define IDC_STATIC_TEMP_BOARD           1059
 #define IDC_STATIC_MOTOR_A4             1060
@@ -104,17 +105,17 @@
 #define IDC_INITIALISE_BUTTON           1062
 #define IDC_STATIC_RUN_TIME             1062
 #define IDC_SERIALNUMBER_EDIT           1063
-#define IDC_STATIC_STEERING_GAP         1063
 #define IDC_LASER_BUTTON                1064
-#define IDC_STATIC_STEERING_GAP_VEL     1064
 #define IDC_TEMPERATURE_EDIT            1065
-#define IDC_STATIC_STEERING_LR_DIFF     1065
 #define IDC_MSG_EDIT                    1066
-#define IDC_STATIC_STEERING_GAP_ACCEL   1066
 #define IDC_LASERPOWER_BUTTON           1067
+#define IDC_STATIC_RGB_LINE             1067
 #define IDC_LASERPOWER_EDIT             1068
+#define IDC_STATIC_RGB_VALUE            1068
 #define IDC_SENSORVERSION_EDIT          1069
+#define IDC_STATIC_RGB_CALIBRATION      1069
 #define IDC_CALIBRATIONVERSION_EDIT     1070
+#define IDC_CHECK_SEEK_START_LINE       1070
 #define IDC_AUTOLASER_CHECK             1071
 #define IDC_PROFILECOUNT_EDIT           1072
 #define IDC_LASERPOWER_SLIDER           1073
@@ -137,8 +138,9 @@
 #define IDC_STATIC_MAG_RGB              1089
 #define IDC_BUTTON_MAG_ON               1090
 #define IDC_BUTTON_ROI_RESET            1091
+#define IDC_STATIC_RGB_STATUS           1091
 #define IDC_EDIT_RGB_CAL                1092
-#define IDC_BUTTON1                     1093
+#define IDC_BUTTON_SET_CALIBRATION      1093
 #define IDC_STATIC_MAG_RGB_CAL          1094
 #define IDC_STATIC_MAG_RGB_LINE         1095
 #define IDC_STATIC_LEFT                 1096
@@ -149,8 +151,16 @@
 #define IDC_STATIC_WELD_LR_DIFF         1101
 #define IDC_STATIC_WELD_HEIGHT          1102
 #define IDC_CHECK_SHIFT_TO_CENTRE       1103
-#define IDC_CHECK_SHIFT_TO_CENTRE2      1104
 #define IDC_CHECK_SHOW_RAW_DATA         1104
+#define IDC_BUTTON_RGB_CALIBRATION      1104
+#define IDC_EDIT_RGB_CALIBRATION        1105
+#define IDC_EDIT_RGB_SPEED              1106
+#define IDC_CHECK_USE_LASER             1108
+#define IDC_CHECK_RETURN_TO_START       1109
+#define IDC_EDIT1                       1109
+#define IDC_EDIT_SEEK_START_LINE        1109
+#define IDC_STATIC_FWD                  1110
+#define IDC_STATIC_BACK                 1111
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
@@ -159,7 +169,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1104
+#define _APS_NEXT_CONTROL_VALUE         1112
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

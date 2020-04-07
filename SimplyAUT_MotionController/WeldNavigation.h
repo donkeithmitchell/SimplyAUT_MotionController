@@ -13,7 +13,7 @@ struct LASER_POS
 	double  gap_filt;	// distance to the weld (mm)
 	double  vel_raw;
 	double  vel_filt;
-	double  dummy8;
+	double  last_manoeuvre_pos;
 	clock_t time_noted;	// time that measure taken (ms)
 	long    rgb_sum;;
 };
@@ -21,12 +21,19 @@ struct LASER_POS
 struct POS_MANOEVER
 {
 	POS_MANOEVER() {memset(this, 0x0, sizeof(POS_MANOEVER)); }
-	double gap_prev;
-	double gap_start;
-	double gap_end_man;
+	double gap0;
+	double gap1;
+	double gap2;
+	double gap3;
 	double turn_rate;
-	double manoeuvre_pos;
+	double pos0;
+	double pos1;
+	double pos2;
+	double pos3;
 	double gap_vel;
+	double turn_time1;
+	double turn_time2;
+	double turn_time3;
 	int  manoeuvre_time; // ms
 	int turn_direction;
 	clock_t time_start;
@@ -41,37 +48,36 @@ class CDoublePoint;
 class CWeldNavigation
 {
 public:
-	CWeldNavigation(const CMotionControl&);
+	CWeldNavigation(CMotionControl&, CLaserControl&);
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
 	LASER_POS GetLastNotedPosition(int ago_mm);
 	void      StartSteeringMotors(int nSteer, double speed, double accel, double offset);
 	UINT      ThreadSteerMotors();
+	UINT      ThreadSteerMotors_try3();
+	UINT      ThreadSteerMotors_try2();
 	UINT      ThreadNoteLaser();
 	void      GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
+	CDoublePoint GetLastRGBValue();
+	BOOL		IsNavigating()const;
 
 private:
 	void	StopSteeringMotors();
 //	CDoublePoint CalculateLeftRightTravel(double gap, double vel1, double vel2);
 	double	CalculateTurnRate(double gap, double vel1, double vel2);
-	BOOL	GetLaserMeasurment(LASER_MEASURES& measure);
 	void	Wait(int delay);
 	void	SendDebugMessage(const CString& msg);
-	double  GetAvgMotorPosition();
-	double  GetLastManoeuvrePosition();
-	BOOL    GetMotorSpeed(double speed[]);
 	BOOL    SetMotorSpeed(const double speed[]);
 
-	const CMotionControl& m_motionControl;
+	CMotionControl& m_motionControl;
+	CLaserControl& m_laserControl;
+
 	CArray<LASER_POS, LASER_POS> m_listLaserPositions;
-	CArray<POS_MANOEVER, POS_MANOEVER> m_listManoevers;
 	CCriticalSection m_crit1;
-	CCriticalSection m_crit2;
 	BOOL m_bSteerMotors;
 	HANDLE m_hThreadSteerMotors;
 	HANDLE m_hThreadNoteLaser;
-	LASER_POS m_last_pos;
 	double m_fMotorSpeed;
 	double m_fMotorAccel;
 	double m_fWeldOffset;

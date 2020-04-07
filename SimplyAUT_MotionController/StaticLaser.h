@@ -17,15 +17,17 @@ struct RGB_DATA
 // CStaticLaser dialog
 class CLaserControl;
 class CMagControl;
+class CMotionControl;
+class CWeldNavigation;
+
 class CStaticLaser : public CWnd
 {
 	DECLARE_DYNAMIC(CStaticLaser)
 
 public:
-	CStaticLaser(CLaserControl&, CMagControl&, const Profile&, const LASER_MEASURES&, const double*);
+	CStaticLaser(CMotionControl&, CLaserControl&, CMagControl&, CWeldNavigation&, const double&);
 
 	virtual ~CStaticLaser();
-	void Init(CWnd*, UINT);
 
 	void Create(CWnd* pParent);
 	void DrawLaserProfile(CDC*);
@@ -33,9 +35,6 @@ public:
 	void DrawCrawlerLocation(CDC*);
 	void DrawLaserOffset(CDC*);
 	void SetCrawlerLocation(CPoint pt);
-	double GetPipeCircumference();
-	double GetCrawlerLocation();
-	int		GetMagStatus(int);
 	int 	GetPipeRect(CRect*);
 	void	GetOffsetRect(CRect*);
 	void	GetLaserProfile();
@@ -47,21 +46,13 @@ public:
 	int    AddRGBData(const int&);
 	void   ResetRGBData();
 	double GetAverageRGBValue();
-	void   GetLaserMeasurment(LASER_MEASURES* meas) {*meas = m_measure2;	}
 	void   ResetLaserOffsetList() { m_laserPos.SetSize(0); }
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
-	CWnd*	m_pParent;
-	UINT	m_nMsg;
 	double	m_fHomeAng;
+	const double&	m_fScanLength;
 
-	const Profile&			m_profile;
-	const LASER_MEASURES&   m_measure2;
-	const double*	m_hitBuffer;
-//	Measurement 	m_measure1;
-//	int				m_profile_count;
-//	int				m_image_count;
 	CDoublePoint    m_joint_pos;
 	CDoublePoint    m_edge_pos[3];
 	double			m_disp_width_factor;
@@ -77,6 +68,9 @@ public:
 //	CStaticLaserProfile m_wndLaserProfile;
 	CLaserControl& m_laserControl;
 	CMagControl& m_magControl;
+	CMotionControl& m_motionControl;
+	CWeldNavigation& m_weldNavigation;
+
 	CPoint m_ptMouse;
 
 // Dialog Data

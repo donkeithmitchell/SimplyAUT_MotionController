@@ -17,10 +17,9 @@ static char THIS_FILE[] = __FILE__;
 
 //////////////////////////////////////////
 IMPLEMENT_DYNAMIC(CStaticLaserProfile, CWnd)
-CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, LASER_MEASURES& meas, const BOOL& rShift, const BOOL& rRaw, COLORREF bgColour)
+CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, const BOOL& rShift, const BOOL& rRaw, COLORREF bgColour)
 	: CWnd()
 	, m_laserControl(laser)
-	, m_measure2(meas)
 	, m_rShiftToCentre(rShift)
 	, m_rShowRawData(rRaw)
 	, m_bgColour(bgColour)
@@ -33,7 +32,6 @@ CStaticLaserProfile::CStaticLaserProfile(CLaserControl& laser, LASER_MEASURES& m
 	m_disp_width_factor = 1;
 	m_disp_height_factor = 1;
 	m_disp_height = 0;
-	memset(m_hitBuffer, 0x0, sizeof(m_hitBuffer));
 }
 
 CStaticLaserProfile::~CStaticLaserProfile()
@@ -229,21 +227,26 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	if (!m_laserControl.IsLaserOn())
 		return;
 
-	// m_measure2.weld_cap_pix2.x is shifted to the centre (i.e the weld does not move, the crawler does)
-	int shift = m_rShiftToCentre ? (int)(SENSOR_WIDTH / 2 - m_measure2.weld_cap_pix2.x) : 0;
+	// measure2.weld_cap_pix2.x is shifted to the centre (i.e the weld does not move, the crawler does)
+	MT_Hits_Pos hits[SENSOR_WIDTH];
+	double hitBuffer[SENSOR_WIDTH];
+	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
+	m_laserControl.GetLaserHits(hits, hitBuffer, SENSOR_WIDTH);
+
+	int shift = m_rShiftToCentre ? (int)(SENSOR_WIDTH / 2 - measure2.weld_cap_pix2.x) : 0;
 
 	// Display Profile as a RED line
 	///////////////////////////////////
 	pDC->SelectObject(&PenTrackingPoint);
 	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
-		CPoint pt = GetScreenPixel(i + shift, m_hitBuffer[i]);
+		CPoint pt = GetScreenPixel(i + shift, hitBuffer[i]);
 		if (pt.x >= rect.left && pt.x < rect.right)
 			pDC->SetPixel(pt, RGB(250, 50, 50));
 
-		if (m_rShowRawData && m_profile.hits[i].pos1 > 0 && m_profile.hits[i].pos1 < SENSOR_HEIGHT)
+		if (m_rShowRawData && hits[i] > 0 && hits[i] < SENSOR_HEIGHT)
 		{
-			CPoint pt = GetScreenPixel((double)(i + shift), (double)m_profile.hits[i].pos1);
+			CPoint pt = GetScreenPixel((double)(i + shift), (double)hits[i]);
 			if (pt.x >= rect.left && pt.x < rect.right)
 				pDC->SetPixel(pt, RGB(50, 250, 50));
 		}
@@ -253,14 +256,14 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	// draw a dot at the crawler location
 	pDC->SelectObject(&PenCrawler);
 	pDC->SelectObject(&BrushCrawler);
-	double y1 = max(m_measure2.GetDnSideWeldHeight(), m_measure2.GetUpSideWeldHeight());
-	double y2 = (y1 + m_measure2.weld_cap_pix2.y) / 2;
-	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-m_measure2.weld_cap_pix2.x + shift, y2);
-	CPoint pt2 = GetScreenPixel(m_measure2.weld_cap_pix2.x - shift, m_measure2.weld_cap_pix2.y);
+	double y1 = max(measure2.GetDnSideWeldHeight(), measure2.GetUpSideWeldHeight());
+	double y2 = (y1 + measure2.weld_cap_pix2.y) / 2;
+	CPoint pt1 = GetScreenPixel(SENSOR_WIDTH-measure2.weld_cap_pix2.x + shift, y2);
+	CPoint pt2 = GetScreenPixel(measure2.weld_cap_pix2.x - shift, measure2.weld_cap_pix2.y);
 
 	// used to draw the weld centre, both from S/W (pt3) and F/W (pt4)
-	CPoint pt3 = GetScreenPixel(m_measure2.weld_cap_pix2.x + shift, m_measure2.weld_cap_pix2.y);
-	CPoint pt4 = GetScreenPixel(m_measure2.weld_cap_pix1.x + shift, m_measure2.weld_cap_pix1.y);
+	CPoint pt3 = GetScreenPixel(measure2.weld_cap_pix2.x + shift, measure2.weld_cap_pix2.y);
+	CPoint pt4 = GetScreenPixel(measure2.weld_cap_pix1.x + shift, measure2.weld_cap_pix1.y);
 
 	pDC->Ellipse(pt1.x - 5, pt1.y - 5, pt1.x + 5, pt1.y + 5);
 	pDC->MoveTo(pt1.x, min(pt1.y,pt2.y) - 20);
@@ -283,13 +286,13 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	// alread have points at the inside of the sides, now need the outside point
 	//////////////////////////////////////////////////////
 	pDC->SelectObject(&PenSecondaryEdge);
-	CPoint pt11 = GetScreenPixel(m_measure2.weld_left_start+shift, m_measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel(m_measure2.weld_left+shift, m_measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel(measure2.weld_left_start+shift, measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel(measure2.weld_left+shift, measure2.GetDnSideWeldHeight());
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel(m_measure2.weld_right+shift, m_measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel(m_measure2.weld_right_end+shift, m_measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel(measure2.weld_right+shift, measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel(measure2.weld_right_end+shift, measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 
@@ -354,13 +357,13 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 	if (!m_laserControl.IsConnected() || !m_laserControl.IsLaserOn())
 		return;
 
-	if (!m_laserControl.GetProfile(m_profile))
+	if (!m_laserControl.GetProfile())
 		return;
 
 	// will truy every 50 ms, but only draw every 500 ms
 	m_profile_count++;
 
-	m_laserControl.CalcLaserMeasures(m_profile.hits, m_measure2, 0, m_hitBuffer);
+	m_laserControl.CalcLaserMeasures(0);
 	m_pParent->PostMessageA(m_nMsg);
 
 	CWnd::OnTimer(nIDEvent);
