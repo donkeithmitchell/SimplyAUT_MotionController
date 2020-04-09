@@ -15,9 +15,10 @@ static double PI = 4 * atan(1.0);
 
 IMPLEMENT_DYNAMIC(CStaticMag, CWnd)
 
-CStaticMag::CStaticMag(CMagControl& mag, const double& length)
+CStaticMag::CStaticMag(CMagControl& mag, const BOOL& bScanRev, const double& length)
 	: CWnd()
 	, m_magControl(mag)
+	, m_bScanReverse(bScanRev)
 	, m_fCalibrationLength(length)
 {
 	m_pParent = NULL;
@@ -131,18 +132,47 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	pDC->SetTextColor(RGB(250, 250, 250));
 	pDC->SetBkMode(TRANSPARENT);
 
-	double maxVal = 0;
+	double minX = FLT_MAX;
+	double maxX = -FLT_MAX;
+	double minY = 0;
+	double maxY = 0;
 	for (int i = 0; i < len; ++i)
-		maxVal = max(m_magControl.GetRGBCalibrationData(i).y, maxVal);
+	{
+		CDoublePoint pt = m_magControl.GetRGBCalibrationData(i);
+		minX = min(minX, pt.x);
+		maxX = max(maxX, pt.x);
+		minY = min(minY, pt.y);
+		maxY = max(maxY, pt.y);
+	}
 
 	// round this out to 20
-	int rem = (int)maxVal % 20;
-	maxVal += (rem > 0) ? (20 - rem) : 0;
+	minX = (minX > 0) ? (int)(minX + 0.5) : (int)(minX - 0.5);
+	int rem = (int)fabs(minX) % 20;
+	minX -= (rem > 0) ? (rem) : 0;
+
+	maxX = (maxX > 0) ? (int)(maxX + 0.5) : (int)(maxX - 0.5);
+	rem = (int)fabs(maxX) % 20;
+	maxX += (rem > 0) ? (20 - rem) : 0;
+
+	// round this out to 20
+	minY = (minY > 0) ? (int)(minY + 0.5) : (int)(minY - 0.5);
+	rem = (int)minY % 20;
+	minY -= (rem > 0) ? (rem) : 0;
+
+	// round this out to 20
+	maxY = (maxY > 0) ? (int)(maxY + 0.5) : (int)(maxY - 0.5);
+	rem = (int)maxY % 20;
+	maxY += (rem > 0) ? (20 - rem) : 0;
 
 	// scale to fit the run length
 	// scale from 0 -> 100
-	double disp_width_factor = ((double)m_disp_rect.Width()) / m_fCalibrationLength;
-	double disp_height_factor = ((double)m_disp_rect.Height()) / maxVal;
+	if(m_bScanReverse )
+		minX = min(minX, maxX - m_fCalibrationLength);
+	else
+		maxX = max(maxX, minX + m_fCalibrationLength);
+
+	double disp_width_factor = ((double)m_disp_rect.Width()) / (maxX-minX);
+	double disp_height_factor = ((double)m_disp_rect.Height()) / maxY;
 
 
 	pDC->MoveTo(rect.left, y1);
@@ -155,9 +185,9 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 		nticks = (int)m_fCalibrationLength / tick;
 	}
 
-	for (double pos = 0; pos < m_fCalibrationLength; pos += tick)
+	for (double pos = minX; pos <= maxX; pos += tick)
 	{
-		int x = (int)(rect.left + (pos)*disp_width_factor + 0.5);
+		int x = (int)(rect.left + (pos-minX)*disp_width_factor + 0.5);
 		pDC->MoveTo(x, y1 - 5);
 		pDC->LineTo(x, y1 + 5);
 
@@ -169,14 +199,14 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	pDC->MoveTo(rect.left, rect.bottom);
 	pDC->LineTo(rect.left, rect.top);
 	tick = 5;
-	nticks = (int)maxVal / tick;
+	nticks = (int)maxY / tick;
 	while (nticks > 5)
 	{
 		tick *= 2;
-		nticks = (int)maxVal / tick;
+		nticks = (int)maxY / tick;
 	}
 
-	for (int rgb = 0; rgb <= maxVal; rgb += tick)
+	for (int rgb = 0; rgb <= maxY; rgb += tick)
 	{
 		int y = (int)(rect.bottom - rgb * disp_height_factor + 0.5);
 
@@ -194,8 +224,9 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 
 	for (int i = 0; i < len; ++i)
 	{
-		int x = (int)(rect.left + (m_magControl.GetRGBCalibrationData(i).x - pos1) * disp_width_factor + 0.5);
-		int y = (int)(rect.bottom - m_magControl.GetRGBCalibrationData(i).y * disp_height_factor + 0.5);
+		CDoublePoint pt = m_magControl.GetRGBCalibrationData(i);
+		int x = (int)(rect.left + (pt.x-minX - pos1) * disp_width_factor + 0.5);
+		int y = (int)(rect.bottom - pt.y * disp_height_factor + 0.5);
 		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
 	}
 
@@ -206,7 +237,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 		CPen pen3(PS_DASH, 0, RGB(10, 250, 10));
 		pDC->SelectObject(&pen3);
 		
-		int x = (int)(rect.left + (pos2 - pos1) * disp_width_factor + 0.5);
+		int x = (int)(rect.left + (pos2-minX - pos1) * disp_width_factor + 0.5);
 		int y = (int)(rect.bottom - m_magControl.GetRGBCalibration().rgb * disp_height_factor + 0.5);
 
 		pDC->MoveTo(x, rect.bottom);
@@ -228,7 +259,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 		CBrush brush4( RGB(10, 255, 255));
 		pDC->SelectObject(&brush4);
 
-		int x = (int)(rect.left + (pos3 - pos1) * disp_width_factor + 0.5);
+		int x = (int)(rect.left + (pos3-minX - pos1) * disp_width_factor + 0.5);
 		int y = (int)(rect.bottom - median *disp_height_factor + 0.5);
 		pDC->Ellipse(x - radius, y - radius, x + radius, y + radius);
 	}

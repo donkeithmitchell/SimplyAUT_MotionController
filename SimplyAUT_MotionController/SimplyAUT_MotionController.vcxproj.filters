@@ -105,6 +105,9 @@
     <ClInclude Include="StaticMag.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DialogFiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">
@@ -165,6 +168,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="StaticMag.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogFiles.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -638,8 +638,8 @@ BOOL CLaserControl::CalcLaserMeasures( double pos )
 	// now differentiate the coeff to dind the location of the maximum
 	m_measure2.weld_cap_pix2.x = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
 	m_measure2.weld_cap_pix2.y = coeff[2] * m_measure2.weld_cap_pix2.x * m_measure2.weld_cap_pix2.x + coeff[1] * m_measure2.weld_cap_pix2.x + coeff[0];
-	m_measure2.weld_left = i1;
-	m_measure2.weld_right = i2;
+	m_measure2.weld_left_pix = i1;
+	m_measure2.weld_right_pix = i2;
 
 	// convert laser pixels to mm
 	// will draw with pixels, but navigate with mm
@@ -648,8 +648,8 @@ BOOL CLaserControl::CalcLaserMeasures( double pos )
 	// get a 1st order fit to the left
 	// use only the first 1/2 of the data
 	j = 0;
-	m_measure2.weld_left_start = m_measure2.weld_left / 4;
-	for (int i = m_measure2.weld_left_start; i < m_measure2.weld_left; ++i)
+	m_measure2.weld_left_start_pix = m_measure2.weld_left_pix / 4;
+	for (int i = m_measure2.weld_left_start_pix; i < m_measure2.weld_left_pix; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = m_hitBuffer[i];
@@ -661,8 +661,8 @@ BOOL CLaserControl::CalcLaserMeasures( double pos )
 	// now get the slope of the up side
 	// get a 1st order fit to the left
 	j = 0;
-	m_measure2.weld_right_end = SENSOR_WIDTH - (SENSOR_WIDTH - m_measure2.weld_right) / 4;
-	for (int i = m_measure2.weld_right; i < m_measure2.weld_right_end; ++i)
+	m_measure2.weld_right_end_pix = SENSOR_WIDTH - (SENSOR_WIDTH - m_measure2.weld_right_pix) / 4;
+	for (int i = m_measure2.weld_right_pix; i < m_measure2.weld_right_end_pix; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = m_hitBuffer[i];
@@ -671,8 +671,13 @@ BOOL CLaserControl::CalcLaserMeasures( double pos )
 	// calculate the Y value at i1 to be an estimate of the height on the left
 	::polyfit(m_polyX, m_polyY, j, 2, m_measure2.us_coeff);
 
+	ConvPixelToMm((int)m_measure2.weld_left_pix, (int)m_measure2.GetDnSideWeldHeight(), m_measure2.weld_left_mm, m_measure2.weld_left_height_mm);
+	ConvPixelToMm((int)m_measure2.weld_right_pix, (int)m_measure2.GetUpSideWeldHeight(), m_measure2.weld_right_mm, m_measure2.weld_right_height_mm);
+	ConvPixelToMm((int)m_measure2.weld_cap_pix2.x, (int)m_measure2.weld_cap_pix2.y, m_measure2.weld_cap_mm.x, m_measure2.weld_cap_mm.y);
+
+
 	// now convert the laser units to mm
-	m_measure2.measure_pos = pos; 
+	m_measure2.measure_pos_mm = pos; 
 	m_measure2.status = 0;
 	return TRUE;
 }
@@ -772,8 +777,8 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 	// now differentiate the coeff to dind the location of the maximum
 	measures.weld_cap_pix2.x = (coeff[2] == 0) ? maxInd : -coeff[1] / (2 * coeff[2]);
 	measures.weld_cap_pix2.y = coeff[2] * measures.weld_cap_pix2.x * measures.weld_cap_pix2.x + coeff[1] * measures.weld_cap_pix2.x + coeff[0];
-	measures.weld_left = i1;
-	measures.weld_right = i2;
+	measures.weld_left_pix = i1;
+	measures.weld_right_pix = i2;
 
 	// convert laser pixels to mm
 	// will draw with pixels, but navigate with mm
@@ -782,8 +787,8 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 	// get a 1st order fit to the left
 	// use only the first 1/2 of the data
 	j = 0;
-	measures.weld_left_start = measures.weld_left / 4;
-	for (int i = measures.weld_left_start; i < measures.weld_left; ++i)
+	measures.weld_left_start_pix = measures.weld_left_pix / 4;
+	for (int i = measures.weld_left_start_pix; i < measures.weld_left_pix; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = m_hitBuffer[i];
@@ -795,8 +800,8 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 	// now get the slope of the up side
 	// get a 1st order fit to the left
 	j = 0;
-	measures.weld_right_end = SENSOR_WIDTH - (SENSOR_WIDTH - measures.weld_right) / 4;
-	for (int i = measures.weld_right; i < measures.weld_right_end; ++i)
+	measures.weld_right_end_pix = SENSOR_WIDTH - (SENSOR_WIDTH - measures.weld_right_pix) / 4;
+	for (int i = measures.weld_right_pix; i < measures.weld_right_end_pix; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = m_hitBuffer[i];

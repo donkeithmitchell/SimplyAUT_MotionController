@@ -29,6 +29,7 @@ public:
 	CWnd* m_pParent;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
+	BOOL	m_bScanReverse;
 	int 	m_nCalibrating;
 	HANDLE	m_hThreadWaitCalibration;
 

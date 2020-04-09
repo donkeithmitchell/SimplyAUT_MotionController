@@ -556,15 +556,15 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	pDC->MoveTo(pt.x, m_disp_rect.bottom);
 	pDC->LineTo(pt.x, m_disp_rect.top);
 
-	CPoint pt11 = GetScreenPixel((measure2.weld_left+shift) / 2, measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel(measure2.weld_left+shift, measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel((measure2.weld_left_pix+shift) / 2, measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel(measure2.weld_left_pix+shift, measure2.GetDnSideWeldHeight());
 	CPen PenPrimaryEdge(PS_SOLID, 1, RGB(10, 10, 250));
 	pDC->SelectObject(&PenPrimaryEdge);
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel(measure2.weld_right+shift, measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel((measure2.weld_right+shift + SENSOR_WIDTH) / 2, measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel(measure2.weld_right_pix+shift, measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel((measure2.weld_right_pix+shift + SENSOR_WIDTH) / 2, measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 }
@@ -612,8 +612,12 @@ void CStaticLaser::GetLaserProfile()
 	{
 		m_joint_pos = measure2.weld_cap_mm;
 
-		m_laserControl.ConvPixelToMm((int)measure2.weld_left, (int)measure2.GetDnSideWeldHeight(), m_edge_pos[0].x, m_edge_pos[0].y);
-		m_laserControl.ConvPixelToMm((int)measure2.weld_right, (int)measure2.GetUpSideWeldHeight(), m_edge_pos[1].x, m_edge_pos[1].y);
+		m_edge_pos[0].x = measure2.weld_left_mm;
+		m_edge_pos[0].y = measure2.weld_left_height_mm;
+
+		m_edge_pos[0].x = measure2.weld_right_mm;
+		m_edge_pos[0].y = measure2.weld_right_height_mm;
+
 		m_edge_pos[2].x = m_edge_pos[1].x - m_edge_pos[0].x;
 		m_edge_pos[2].y = m_edge_pos[1].y - m_edge_pos[0].y;
 	}

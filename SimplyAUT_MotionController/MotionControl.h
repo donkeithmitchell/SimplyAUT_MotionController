@@ -26,10 +26,10 @@ public:
 	int DistancePerSecondToEncoderCount(double DistancePerSecond)const;
 	int    AxisDirection(GCStringIn axis)const;
 	void   ZeroPositions();
-	BOOL   GoToPosition(double pos, double fSpeed, double fAccel, BOOL bWait);
-	BOOL   SteerMotors(double fSpeed, BOOL bRight, double rate);
+	BOOL   GoToPosition(double pos, BOOL bWait);
+	BOOL   SteerMotors(double fSpeed, double rate);
 	BOOL   SetSlewSpeed(double A, double B, double C, double D);
-	BOOL   SetSlewSpeed(double speed);
+	BOOL   SetSlewSpeed(double speed, double accel);
 	void   GoToHomePosition();
 	double GetAvgMotorPosition();
 	double GetLastManoeuvrePosition();

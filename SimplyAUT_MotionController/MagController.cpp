@@ -24,7 +24,7 @@ enum{MAG_REG_HW=1,
 };
 
 #define SOCKET_RECV_DELAY 1
-#define SOCKET_RECV_TIMEOUT 2000
+#define SOCKET_RECV_TIMEOUT 500
 #define SOCKET_CONNECT_TIMEOUT 500
 
 
@@ -651,7 +651,7 @@ void CMagControl::NoteRGBCalibration(double pos, double val, int nLength)
 
     // get the current position and RGB values
     int len = (int)m_rgbData.GetSize();
-    if (pos != FLT_MAX && (len == 0 || pos > m_rgbData[len - 1].x))
+    if (pos != FLT_MAX && (len == 0 || fabs(pos - m_rgbData[len - 1].x) > 1))
     {
         if (val != FLT_MAX)
         {

@@ -76,6 +76,7 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_dlgLaser.Init(this, WM_DEGUG_MSG);
 	m_dlgMag.Init(this, WM_DEGUG_MSG);
 	m_dlgStatus.Init(this, WM_DEGUG_MSG);
+	m_dlgFiles.Init(this, WM_DEGUG_MSG);
 }
 
 void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
@@ -134,6 +135,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	m_tabControl.InsertItem(TAB_LASER, CString("Laser"));
 	m_tabControl.InsertItem(TAB_MAG, CString("Mag"));
 	m_tabControl.InsertItem(TAB_SCAN, CString("Scan"));
+	m_tabControl.InsertItem(TAB_FILES, CString("Files"));
 	m_tabControl.InsertItem(TAB_STATUS, CString("Status"));
 	m_tabControl.SetCurSel(m_nSel);
 
@@ -143,6 +145,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	m_dlgLaser.Create(&m_tabControl);
 	m_dlgMag.Create(&m_tabControl);
 	m_dlgStatus.Create(&m_tabControl);
+	m_dlgFiles.Create(&m_tabControl);
 
 	GetDlgItem(IDC_BUTTON_RESET_STATUS)->ShowWindow(SW_HIDE);
 
@@ -202,18 +205,19 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			m_dlgLaser.EnableControls();
 			m_dlgMag.EnableControls();
 			m_dlgStatus.EnableControls();
+			m_dlgFiles.EnableControls();
 			break;
 		}
 		case MSG_GETSCANSPEED:
 		{
 			double* pSpeed = (double*)lParam;
-			*pSpeed = m_dlgMotors.GetMotorSpeed();
+			*pSpeed = m_dlgGirthWeld.GetMotorSpeed();
 			break;
 		}
 		case MSG_GETACCEL:
 		{
 			double* pAccel = (double*)lParam;
-			*pAccel = m_dlgMotors.GetMotorAccel();
+			*pAccel = m_dlgGirthWeld.GetMotorAccel();
 			break;
 		}
 		case MSG_MAG_STATUS_ON:
@@ -221,6 +225,9 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			break;
 		case MSG_SHOW_MOTOR_SPEEDS:
 			m_dlgMotors.ShowMotorSpeeds();
+			break;
+		case MSG_UPDATE_FILE_LIST:
+			m_dlgFiles.UpdateFileList();
 			break;
 		}
 
@@ -312,6 +319,7 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 	m_dlgLaser.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgMag.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgStatus.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
+	m_dlgFiles.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 }
 
 
@@ -340,6 +348,7 @@ BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 	case TAB_SCAN: return m_dlgConnect.CheckVisibleTab();
 	case TAB_LASER: return m_dlgLaser.CheckVisibleTab();
 	case TAB_MAG: return m_dlgMag.CheckVisibleTab();
+	case TAB_FILES: return m_dlgFiles.CheckVisibleTab();
 	case TAB_STATUS: return m_dlgStatus.CheckVisibleTab();
 	default: return FALSE;
 	}
@@ -362,6 +371,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	ASSERT(IsWindow(m_dlgGirthWeld.m_hWnd));
 	ASSERT(IsWindow(m_dlgLaser.m_hWnd));
 	ASSERT(IsWindow(m_dlgMag.m_hWnd));
+	ASSERT(IsWindow(m_dlgFiles.m_hWnd));
 	ASSERT(IsWindow(m_dlgStatus.m_hWnd));
 
 	m_dlgConnect.ShowWindow(m_nSel == TAB_CONNECT ? SW_SHOW : SW_HIDE);
@@ -369,6 +379,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	m_dlgGirthWeld.ShowWindow(m_nSel == TAB_SCAN ? SW_SHOW : SW_HIDE);
 	m_dlgLaser.ShowWindow(m_nSel == TAB_LASER ? SW_SHOW : SW_HIDE);
 	m_dlgMag.ShowWindow(m_nSel == TAB_MAG ? SW_SHOW : SW_HIDE);
+	m_dlgFiles.ShowWindow(m_nSel == TAB_FILES ? SW_SHOW : SW_HIDE);
 	m_dlgStatus.ShowWindow(m_nSel == TAB_STATUS ? SW_SHOW : SW_HIDE);
 
 	// this will causew the sdizing of the laser to be adjusted

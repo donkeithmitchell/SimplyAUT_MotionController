@@ -20,6 +20,7 @@
 #define IDD_DIALOG_MAG                  134
 #define IDB_BITMAP_GO_HORZ              135
 #define IDB_BITMAP_GO_RIGHT             135
+#define IDD_DIALOG_FILES                135
 #define IDB_BITMAP_GO_VERT              136
 #define IDB_BITMAP_GO_DOWN              136
 #define IDB_BITMAP_STOP                 137
@@ -65,8 +66,10 @@
 #define IDC_BUTTON_PAUSE                1030
 #define IDC_SPIN_ACCEL                  1030
 #define IDC_BUTTON_CALIB                1031
+#define IDC_STATIC_SPEED3               1031
 #define IDC_BUTTON_MANUAL               1032
 #define IDC_BUTTON_AUTO                 1033
+#define IDC_EDIT_ACCEL2                 1033
 #define IDC_BUTTON_BACK                 1034
 #define IDC_BUTTON_FWD                  1035
 #define IDC_BUTTON_RIGHT                1036
@@ -105,7 +108,9 @@
 #define IDC_INITIALISE_BUTTON           1062
 #define IDC_STATIC_RUN_TIME             1062
 #define IDC_SERIALNUMBER_EDIT           1063
+#define IDC_CHECK_SEEK_WITH_LASER       1063
 #define IDC_LASER_BUTTON                1064
+#define IDC_SPIN_ACCEL2                 1064
 #define IDC_TEMPERATURE_EDIT            1065
 #define IDC_MSG_EDIT                    1066
 #define IDC_LASERPOWER_BUTTON           1067
@@ -161,6 +166,14 @@
 #define IDC_EDIT_SEEK_START_LINE        1109
 #define IDC_STATIC_FWD                  1110
 #define IDC_STATIC_BACK                 1111
+#define IDC_STATIC1                     1112
+#define IDC_STATIC2                     1113
+#define IDC_STATIC3                     1114
+#define IDC_STATIC4                     1115
+#define IDC_SLIDER_STEER                1116
+#define IDC_EDIT_PREDRIVE               1117
+#define IDC_LIST1                       1117
+#define IDC_LIST_FILES                  1117
 #define ID_POPUP_SETLOCATION            32771
 
 // Next default values for new objects
@@ -169,7 +182,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1112
+#define _APS_NEXT_CONTROL_VALUE         1118
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

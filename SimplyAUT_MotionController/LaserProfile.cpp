@@ -286,13 +286,13 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	// alread have points at the inside of the sides, now need the outside point
 	//////////////////////////////////////////////////////
 	pDC->SelectObject(&PenSecondaryEdge);
-	CPoint pt11 = GetScreenPixel(measure2.weld_left_start+shift, measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel(measure2.weld_left+shift, measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel(measure2.weld_left_start_pix+shift, measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel(measure2.weld_left_pix+shift, measure2.GetDnSideWeldHeight());
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel(measure2.weld_right+shift, measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel(measure2.weld_right_end+shift, measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel(measure2.weld_right_pix+shift, measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel(measure2.weld_right_end_pix+shift, measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 

@@ -32,7 +32,7 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_wndMag(mag, m_fCalibrationLength)
+	, m_wndMag(mag, m_bScanReverse, m_fCalibrationLength)
 
 	, m_szRGBEncCount(_T(""))
 	, m_szRGBValue(_T(""))
@@ -50,6 +50,7 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	m_bCheck = FALSE;
 	m_nCalibrating = 0;
 	m_hThreadWaitCalibration = FALSE;
+	m_bScanReverse = FALSE;
 
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
@@ -250,16 +251,9 @@ double CDialogMag::GetCalibrationValue()
 	{
 		if (m_laserControl.GetProfile())
 		{
-			double h1_mm, v1_mm;
-			double h2_mm, v2_mm;
-
 			m_laserControl.CalcLaserMeasures(.0/*pos*/);
-			m_laserControl.ConvPixelToMm((int)m_laserControl.m_measure2.weld_left, (int)m_laserControl.m_measure2.GetDnSideWeldHeight(), h1_mm, v1_mm);
-			m_laserControl.ConvPixelToMm((int)m_laserControl.m_measure2.weld_right, (int)m_laserControl.m_measure2.GetUpSideWeldHeight(), h2_mm, v2_mm);
-			double avg_side_height = (v1_mm + v2_mm) / 2;
-
-			m_laserControl.ConvPixelToMm((int)m_laserControl.m_measure2.weld_cap_pix2.x, (int)m_laserControl.m_measure2.weld_cap_pix2.y, h1_mm, v1_mm);
-			double weld_cap_height = v1_mm;
+			double avg_side_height = (m_laserControl.m_measure2.weld_left_height_mm + m_laserControl.m_measure2.weld_right_height_mm) / 2;
+			double weld_cap_height = m_laserControl.m_measure2.weld_cap_mm.y;
 			
 			return -weld_cap_height;
 	//		return avg_side_height - weld_cap_height; // the sides will not be well calculated
@@ -398,7 +392,8 @@ void CDialogMag::OnClickedButtonRgbCalibration()
 		// this will drive the crawler pastr the line
 		// will wait until the line has been passed, then calculate where it is
 		m_motionControl.ZeroPositions();
-		m_motionControl.GoToPosition(m_fCalibrationLength, speed, accel, FALSE/*don't wait for stop*/);
+		m_motionControl.SetSlewSpeed(speed, accel);
+		m_motionControl.GoToPosition(m_fCalibrationLength, FALSE/*don't wait for stop*/);
 
 		// now that the motors are running and recording the data, 
 		// wait for them to stop, so can calculate where the line is
@@ -453,7 +448,8 @@ LRESULT CDialogMag::OnUserWaitCalibrationFinished(WPARAM, LPARAM)
 		m_nCalibrating++;
 		GetDlgItem(IDC_STATIC_RGB_STATUS)->SetWindowText("Drive To Calibration Line");
 
-		m_motionControl.GoToPosition(m_magControl.GetRGBCalibration().pos, speed, accel, FALSE/*don't wait for stop*/);
+		m_motionControl.SetSlewSpeed(speed, accel);
+		m_motionControl.GoToPosition(m_magControl.GetRGBCalibration().pos, FALSE/*don't wait for stop*/);
 
 		// now that the motors are running and recording the data, 
 		// wait for them to stop, so can calculate where the line is
@@ -500,7 +496,8 @@ LRESULT CDialogMag::OnUserWaitCalibrationFinished(WPARAM, LPARAM)
 
 			// now return to zero
 			GetDlgItem(IDC_STATIC_RGB_STATUS)->SetWindowText("Return to Start");
-			m_motionControl.GoToPosition(-pos1, speed, accel, FALSE/*don't wait for stop*/);
+			m_motionControl.SetSlewSpeed(speed, accel);
+			m_motionControl.GoToPosition(-pos1, FALSE/*don't wait for stop*/);
 		}
 
 		// now that the motors are running and recording the data, 

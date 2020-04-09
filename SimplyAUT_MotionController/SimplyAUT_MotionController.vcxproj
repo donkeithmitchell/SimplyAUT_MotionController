@@ -190,6 +190,7 @@
   <ItemGroup>
     <ClInclude Include="Button.h" />
     <ClInclude Include="CDialogConnect.h" />
+    <ClInclude Include="DialogFiles.h" />
     <ClInclude Include="DialogGirthWeld.h" />
     <ClInclude Include="DialogLaser.h" />
     <ClInclude Include="DialogMag.h" />
@@ -222,6 +223,7 @@
   <ItemGroup>
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="CDialogConnect.cpp" />
+    <ClCompile Include="DialogFiles.cpp" />
     <ClCompile Include="DialogGirthWeld.cpp" />
     <ClCompile Include="DialogLaser.cpp" />
     <ClCompile Include="DialogMag.cpp" />

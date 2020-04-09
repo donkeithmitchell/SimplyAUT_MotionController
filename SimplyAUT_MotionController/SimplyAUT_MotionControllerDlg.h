@@ -12,6 +12,7 @@
 #include "MagController.h"
 #include "DialogLaser.h"
 #include "DialogMag.h"
+#include "DialogFiles.h"
 
 
 // CSimplyAUTMotionControllerDlg dialog
@@ -25,9 +26,9 @@ public:
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG };
 #endif
-	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_LASER, TAB_MAG, TAB_SCAN, TAB_STATUS};
+	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_LASER, TAB_MAG, TAB_SCAN, TAB_FILES, TAB_STATUS};
 	enum {MSG_SEND_DEBUGMSG = 0, MSG_ERROR_MSG, MSG_SETBITMAPS, MSG_GETSCANSPEED, MSG_GETACCEL, MSG_SHOW_MOTOR_SPEEDS, 
-		MSG_MAG_STATUS_ON}; 
+		MSG_MAG_STATUS_ON, MSG_UPDATE_FILE_LIST	};
 
 
 	protected:
@@ -53,6 +54,7 @@ protected:
 	CDialogMotors		m_dlgMotors;
 	CDialogGirthWeld	m_dlgGirthWeld;
 	CDialogLaser		m_dlgLaser;
+	CDialogFiles        m_dlgFiles;
 	CDialogStatus		m_dlgStatus;
 	CDialogMag          m_dlgMag;
 

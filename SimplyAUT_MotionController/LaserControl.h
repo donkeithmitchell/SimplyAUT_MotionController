@@ -14,21 +14,28 @@ struct LASER_TEMPERATURE
 struct LASER_MEASURES
 {
 	LASER_MEASURES() { memset(this, 0x0, sizeof(LASER_MEASURES)); status = -1; }
-	double GetDnSideWeldHeight()const { return ds_coeff[2] * weld_left * weld_left + ds_coeff[1] * weld_left + ds_coeff[0]; }
-	double GetDnSideStartHeight()const { return ds_coeff[2] * weld_left_start * weld_left_start  + ds_coeff[1] * weld_left_start + ds_coeff[0]; }
-	double GetUpSideWeldHeight()const { return us_coeff[2] * weld_right * weld_right  + us_coeff[1] * weld_right + us_coeff[0]; }
-	double GetUpSideEndHeight()const { return us_coeff[2] * weld_right_end * weld_right_end  + us_coeff[1] * weld_right_end + us_coeff[0]; }
+	double GetDnSideWeldHeight()const { return ds_coeff[2] * weld_left_pix * weld_left_pix + ds_coeff[1] * weld_left_pix + ds_coeff[0]; }
+	double GetDnSideStartHeight()const { return ds_coeff[2] * weld_left_start_pix * weld_left_start_pix + ds_coeff[1] * weld_left_start_pix + ds_coeff[0]; }
+	double GetUpSideWeldHeight()const { return us_coeff[2] * weld_right_pix * weld_right_pix + us_coeff[1] * weld_right_pix + us_coeff[0]; }
+	double GetUpSideEndHeight()const { return us_coeff[2] * weld_right_end_pix * weld_right_end_pix + us_coeff[1] * weld_right_end_pix + us_coeff[0]; }
 
 	CDoublePoint weld_cap_pix1; // from F/W
 	CDoublePoint weld_cap_pix2; // from S/W
 	CDoublePoint weld_cap_mm;
 	double us_coeff[3];
 	double ds_coeff[3];
-	double measure_pos; // position that was at when took measure
-	int weld_left;
-	int weld_right;
-	int weld_left_start;
-	int weld_right_end;
+	double measure_pos_mm; // position that was at when took measure
+	double weld_left_mm;
+	double weld_right_mm;
+	double weld_left_height_mm;
+	double weld_right_height_mm;
+	double weld_left_start_mm;
+	double weld_right_end_mm;
+
+	int weld_left_pix;
+	int weld_right_pix;
+	int weld_left_start_pix;
+	int weld_right_end_pix;
 	int status;
 	int rgb_sum;
 };

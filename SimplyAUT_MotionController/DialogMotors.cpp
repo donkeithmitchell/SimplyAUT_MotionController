@@ -20,11 +20,6 @@ CDialogMotors::CDialogMotors(CMotionControl& motion, CMagControl& mag, const GAL
 	, m_magControl(mag)
 	, m_nGalilState(nState)
 
-	, m_szMotorSpeed(_T("20.0"))
-	, m_szMotorAccel(_T("25.0"))
-	, m_fMotorSpeed(20.0)
-	, m_fMotorAccel(25.0)
-
 	, m_szMotorA(_T(""))
 	, m_szMotorB(_T(""))
 	, m_szMotorC(_T(""))
@@ -51,34 +46,14 @@ void CDialogMotors::Init(CWnd* pParent, UINT nMsg)
 void CDialogMotors::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_SPIN_SPEED, m_spinScanSpeed);
-	DDX_Control(pDX, IDC_SPIN_ACCEL, m_spinScanAccel);
-
-	DDX_Text(pDX, IDC_EDIT_SPEED, m_szMotorSpeed);
-	DDX_Text(pDX, IDC_EDIT_SPEED, m_fMotorSpeed);
-	if (m_bCheck)
-	{
-		DDV_MinMaxDouble(pDX, m_fMotorSpeed, 1.0, 100.0);
-	}
-
-	DDX_Text(pDX, IDC_EDIT_ACCEL, m_szMotorAccel);
-	DDX_Text(pDX, IDC_EDIT_ACCEL, m_fMotorAccel);
-	if (m_bCheck)
-	{
-		DDV_MinMaxDouble(pDX, m_fMotorAccel, 1.0, 100.0);
-	}
-
 	DDX_Text(pDX, IDC_STATIC_MOTOR_A, m_szMotorA);
 	DDX_Text(pDX, IDC_STATIC_MOTOR_B, m_szMotorB);
 	DDX_Text(pDX, IDC_STATIC_MOTOR_C, m_szMotorC);
 	DDX_Text(pDX, IDC_STATIC_MOTOR_D, m_szMotorD);
-
 }
 
 
 BEGIN_MESSAGE_MAP(CDialogMotors, CDialogEx)
-	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_SPEED, &CDialogMotors::OnDeltaposSpinScanSpeed)
-	ON_NOTIFY(UDN_DELTAPOS, IDC_SPIN_ACCEL, &CDialogMotors::OnDeltaposSpinScanAccel)
 	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
@@ -105,8 +80,6 @@ BOOL CDialogMotors::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// TODO: Add extra initialization here
-	m_spinScanSpeed.SetRange(0, UD_MAXVAL);
-	m_spinScanAccel.SetRange(0, UD_MAXVAL);
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
@@ -121,45 +94,8 @@ void CDialogMotors::Create(CWnd* pParent)
 	ShowWindow(SW_HIDE);
 }
 
-
-void CDialogMotors::OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult)
-{
-	LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
-	// TODO: Add your control notification handler code here
-	int inc = pNMUpDown->iDelta;
-	UpdateData(TRUE);
-	m_fMotorSpeed += (inc > 0) ? 0.1 : -0.1;
-	m_fMotorSpeed = min(max(m_fMotorSpeed, 0.1), 100);
-	UpdateData(FALSE);
-
-	if (m_motionControl.AreMotorsRunning())
-		m_motionControl.SetMotorJogging(m_fMotorSpeed, m_fMotorAccel);
-
-	*pResult = 0;
-}
-
-
-void CDialogMotors::OnDeltaposSpinScanAccel(NMHDR* pNMHDR, LRESULT* pResult)
-{
-	LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
-	// TODO: Add your control notification handler code here
-	int inc = pNMUpDown->iDelta;
-	UpdateData(TRUE);
-	m_fMotorAccel += (inc > 0) ? 0.1 : -0.1;
-	m_fMotorAccel = min(max(m_fMotorAccel, 0.1), 100);
-	UpdateData(FALSE);
-
-	if (m_motionControl.AreMotorsRunning())
-		m_motionControl.SetMotorJogging(m_fMotorSpeed, m_fMotorAccel);
-
-	*pResult = 0;
-}
-
 void CDialogMotors::EnableControls()
 {
-	BOOL bConnect = m_motionControl.IsConnected();
-	GetDlgItem(IDC_EDIT_SPEED)->EnableWindow(bConnect && m_nGalilState == GALIL_IDLE);
-	GetDlgItem(IDC_EDIT_ACCEL)->EnableWindow(bConnect && m_nGalilState == GALIL_IDLE);
 }
 
 BOOL CDialogMotors::CheckVisibleTab()
@@ -170,20 +106,6 @@ BOOL CDialogMotors::CheckVisibleTab()
 	return ret;
 }
 
-double CDialogMotors::GetMotorSpeed()
-{
-	m_bCheck = TRUE;
-	BOOL ret = UpdateData(TRUE);
-	m_bCheck = FALSE;
-	return ret ? m_fMotorSpeed : FLT_MAX;
-}
-double CDialogMotors::GetMotorAccel()
-{
-	m_bCheck = TRUE;
-	BOOL ret = UpdateData(TRUE);
-	m_bCheck = FALSE;
-	return ret ? m_fMotorAccel : FLT_MAX;
-}
 
 void CDialogMotors::ShowMotorSpeeds()
 {

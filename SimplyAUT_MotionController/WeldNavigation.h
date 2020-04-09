@@ -53,7 +53,7 @@ public:
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
 	LASER_POS GetLastNotedPosition(int ago_mm);
-	void      StartSteeringMotors(int nSteer, double speed, double accel, double offset);
+	void      StartSteeringMotors(int nSteer, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
 	UINT      ThreadSteerMotors();
 	UINT      ThreadSteerMotors_try3();
 	UINT      ThreadSteerMotors_try2();
@@ -61,6 +61,7 @@ public:
 	void      GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
 	CDoublePoint GetLastRGBValue();
 	BOOL		IsNavigating()const;
+	BOOL		OpenScanFile();
 
 private:
 	void	StopSteeringMotors();
@@ -69,6 +70,7 @@ private:
 	void	Wait(int delay);
 	void	SendDebugMessage(const CString& msg);
 	BOOL    SetMotorSpeed(const double speed[]);
+	BOOL	StopMotors();
 
 	CMotionControl& m_motionControl;
 	CLaserControl& m_laserControl;
@@ -81,6 +83,10 @@ private:
 	double m_fMotorSpeed;
 	double m_fMotorAccel;
 	double m_fWeldOffset;
+	BOOL	m_bScanning;
+	int m_nStartPos;
+	int m_nEndPos;
+	FILE* m_fpScanFile;
 	CWnd* m_pParent;
 	UINT m_nMsg;
 };

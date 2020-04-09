@@ -167,14 +167,14 @@ void CMotionControl::GoToHomePosition()
 }
     
 
-BOOL CMotionControl::GoToPosition(double pos_mm, double fSpeed, double fAccel, BOOL bWaitToStop)
+BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
 {
     CString str;
 
     // set the motor speeds
-    m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(fAccel));
-    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(fAccel));
-    SetSlewSpeed(fSpeed);
+//  m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(fAccel));
+//  m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(fAccel));
+//  SetSlewSpeed(fSpeed);
 
     m_nGotoPosition = (int)(pos_mm + 0.5);
     int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
@@ -326,7 +326,7 @@ BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC
 
     // the left side motors are inverted
     m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(accel));
-    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(accel));
+    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(2*accel));
 
     m_pGclib->SetJogSpeed("A", AxisDirection("A") * DistancePerSecondToEncoderCount(speedA));
     m_pGclib->SetJogSpeed("B", AxisDirection("B") * DistancePerSecondToEncoderCount(speedB));
@@ -367,40 +367,23 @@ BOOL CMotionControl::SetSlewSpeed(double A_mm_sec, double B_mm_sec, double C_mm_
     return m_pGclib->SetSlewSpeed(A, B, C, D);
 }
 
-BOOL CMotionControl::SetSlewSpeed(double speed_mm_sec)
+BOOL CMotionControl::SetSlewSpeed(double speed_mm_sec, double accel_mm_sec_sec)
 {
+    int accel =  DistancePerSecondToEncoderCount(accel_mm_sec_sec);
+    m_pGclib->SetAcceleration(accel);
+    m_pGclib->SetDeceleration(2*accel);
     return SetSlewSpeed(speed_mm_sec, speed_mm_sec, speed_mm_sec, speed_mm_sec);
 }
 
 // steer to the right (TRUE0 or left (FALSE)
 // if (bMouseDown) slow the wheels to one side by about 10%
 // else return both sides to the same speed
-BOOL CMotionControl::SteerMotors(double fSpeed, BOOL bRight, double rate)
+BOOL CMotionControl::SteerMotors(double fSpeed, double rate)
 {
-    double accelA, spA = GetMotorSpeed("A", accelA);
-    double accelB, spB = GetMotorSpeed("B", accelB);
-    double accelC, spC = GetMotorSpeed("C", accelC);
-    double accelD, spD = GetMotorSpeed("D", accelD);
-
-    // the otors must be running in order to steer
-//    if (spA == 0 && spB == 0 && spC == 0 && spD == 0)
-//        return FALSE;
-    spA = fSpeed;
-    spB = fSpeed;
-    spC = fSpeed;
-    spD = fSpeed;
-
+    double spLeft = fSpeed * (1 - rate / 2);;
+    double spRight = fSpeed * (1 + rate / 2);;
  
-    // slow down the right hand motors ("B", "C")
-    // if ending the turn, then rate=1
-    if (bRight)
-        spB = spC = rate * (spA + spD)/2;
-    // slow down the left hand motors
-    else
-        spA = spD = rate * (spB + spC)/2;
-
-    return SetSlewSpeed(spA, spB, spC, spD);
-//    return SetMotorJogging(spA, spB, spC, spD, accelA);
+    return SetSlewSpeed(spLeft, spRight, spRight, spLeft);
 }
 double CMotionControl::GetLastManoeuvrePosition()
 { 

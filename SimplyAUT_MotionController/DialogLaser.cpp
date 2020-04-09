@@ -140,28 +140,22 @@ LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 {
 	CString str;
 
-	double h1_mm, v1_mm;
-	double h2_mm, v2_mm;
-
 	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
-	m_laserControl.ConvPixelToMm((int)measure2.weld_cap_pix2.x, (int)measure2.weld_cap_pix2.y, h1_mm, v1_mm);
-	double weld_cap_height = v1_mm;
-	str.Format("%.1f mm", h1_mm);
+
+	str.Format("%.1f mm", measure2.weld_cap_mm.x);
 	GetDlgItem(IDC_STATIC_WELD_OFFSET)->SetWindowTextA(str);
 
 	// the width of the weld
-	m_laserControl.ConvPixelToMm((int)measure2.weld_left, (int)measure2.GetDnSideWeldHeight(), h1_mm, v1_mm);
-	m_laserControl.ConvPixelToMm((int)measure2.weld_right, (int)measure2.GetUpSideWeldHeight(), h2_mm, v2_mm);
-	double avg_side_height = (v1_mm + v2_mm) / 2;
-	str.Format("%.1f mm", h2_mm - h1_mm);
+	str.Format("%.1f mm", measure2.weld_right_mm - measure2.weld_left_mm);
 	GetDlgItem(IDC_STATIC_WELD_WIDTH)->SetWindowTextA(str);
 
 	// differnece in height left to right
-	str.Format("%.1f mm", fabs(v2_mm - v1_mm));
+	double diff_side_height = fabs(measure2.weld_left_height_mm - measure2.weld_right_height_mm);
+	str.Format("%.1f mm", diff_side_height);
 	GetDlgItem(IDC_STATIC_WELD_LR_DIFF)->SetWindowTextA(str);
 
-	// differnece in height left to right
-	str.Format("%.1f mm", fabs(weld_cap_height - avg_side_height));
+	double avg_side_height = (measure2.weld_left_height_mm + measure2.weld_right_height_mm) / 2;
+	str.Format("%.1f mm", fabs(measure2.weld_cap_mm.y - avg_side_height));
 	GetDlgItem(IDC_STATIC_WELD_HEIGHT)->SetWindowTextA(str);
 
 	return 0L;
