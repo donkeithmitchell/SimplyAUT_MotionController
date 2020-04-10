@@ -6,6 +6,8 @@ public:
 
 	void IIR_HighCut(double* tin, int srate, double freq);
 	void IIR_LowCut(double* tin, int srate, double freq);
+	void AveragingFilter(double* tin, int width);
+	void MedianFilter(double* tin, int width);
 	void Butter_lc_r4(double* tin, double* work1, double* work2, double* coef, int nsamp);
 	int GetLowCutCoeff(int srate, double* coef, int LC);
 

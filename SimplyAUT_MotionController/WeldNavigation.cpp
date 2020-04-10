@@ -423,6 +423,17 @@ BOOL CWeldNavigation::StopMotors()
 		return FALSE;
 }
 
+double CWeldNavigation::GetLRPositionDiff()
+{
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+	{
+		double ret = (double)m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_LR_DIFFEENCE) / 100.0;
+		return ret;
+	}
+	else
+		return 0.0;
+}
+
 BOOL CWeldNavigation::SetMotorDeceleration(double decel)
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
@@ -767,21 +778,27 @@ static CDoublePoint GetTurnRateAndSpeed(double gap)
 	CDoublePoint ret(1.0, 1.0);
 	if (gap < MIN_GAP)
 		ret.x = MIN_TURN_RATE;
-/*	else if (gap > 3 * MAX_GAP)
+/*	else if (gap > 4 * MAX_GAP) // > 2.0
 	{
-		ret.x = MAX_TURN_RATE - 0.2;
+		ret.x = MAX_TURN_RATE - 0.3; // 0.5
 		ret.y = 0.25; // run at 1/4 speed
 	}
-	*/
-/*	else if (gap > 2 * MAX_GAP)
+
+	else */ if (gap > 3 * MAX_GAP) // > 1.5
 	{
-		ret.x = MAX_TURN_RATE - 0.1;
+		ret.x = MAX_TURN_RATE - 0.2; // 0.6
 		ret.y = 0.25; // run at 1/4 speed
 	}
-*/
-	else if (gap > MAX_GAP)
+
+	else if (gap > 2 * MAX_GAP) // > 1.0
 	{
-		ret.x = MAX_TURN_RATE;
+		ret.x = MAX_TURN_RATE - 0.1; // 0.7
+		ret.y = 0.25; // run at 1/4 speed
+	}
+
+	else if (gap > MAX_GAP) // > 0.5
+	{
+		ret.x = MAX_TURN_RATE; // 0.8
 		ret.y = 0.5; // run at 1/2 speed
 	}
 	else
@@ -799,14 +816,15 @@ static CDoublePoint GetTurnRateAndSpeed(double gap)
 
 UINT CWeldNavigation::ThreadSteerMotors()
 {
-	ThreadSteerMotors_try3();
-	if (m_bScanning)
-		WriteScanFile();
+	if (m_nEndPos > m_nStartPos)
+		ThreadSteerMotorsForward();
+	else
+		ThreadSteerMotorsBackard();
 
 	return 0;
 }
 
-UINT CWeldNavigation::ThreadSteerMotors_try3()
+UINT CWeldNavigation::ThreadSteerMotorsForward()
 {
 	const int MAX_TRAVEL_TIME = 1000;
 	clock_t tim1 = clock();
@@ -815,10 +833,8 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 	int steer = 0;
 	int  time_first = 0;
 
-	CArray<CDoublePoint, CDoublePoint> listVel;
+	CArray<DRIVE_POS, DRIVE_POS> listVel;
 	CArray<POS_MANOEVER, POS_MANOEVER> listManoevers;
-
-	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
 
 	// if the gap is to one side or the other by more than about 0.1 mm
 	// jog the crawler to the centre, and then check again\
@@ -837,9 +853,9 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 		// have programmed the motors to travel further than desired
 		// thus issue a stop in this case
 		// that way nall the mnotors will stop at the sazme exact time
-		if (direction*pos0.pos >= direction*m_nEndPos)
+		if (pos0.pos >= m_nEndPos)
 		{
-			SetMotorDeceleration(3*m_fMotorAccel);
+			SetMotorDeceleration(2 * m_fMotorAccel);
 			StopMotors();
 			break; // stop navigating now
 		}
@@ -868,7 +884,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 		clock_t t1 = clock();
 
 		BOOL bCheckWrongWay = TRUE;
-		while (m_bSteerMotors ) // && clock() - t1 < MAX_TRAVEL_TIME)
+		while (m_bSteerMotors) // && clock() - t1 < MAX_TRAVEL_TIME)
 		{
 			// avoid a tight loop
 			Sleep(10);
@@ -880,7 +896,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 				break;
 
 			// stop mwhen have halfed the gap
-			if (fabs(last_pos.gap_filt) < fabs(pos0.gap_filt)/2)
+			if (fabs(last_pos.gap_filt) < fabs(pos0.gap_filt) / 2)
 				break;
 
 			// check if the gap is getting worse
@@ -896,10 +912,10 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 				bCheckWrongWay = FALSE;
 			}
 */
-			// note the position and gap distance at this time
+// note the position and gap distance at this time
 			int nSize2 = (int)listVel.GetSize();
-			if( nSize2 == 0 || fabs(listVel[nSize2-1].x - last_pos.pos) >= 1 )
-				listVel.Add(CDoublePoint(last_pos.pos, last_pos.gap_filt));
+			if (nSize2 == 0 || fabs(listVel[nSize2 - 1].x - last_pos.pos) >= 1)
+				listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 0));
 		}
 
 		// how long did it take to perform this correction
@@ -913,8 +929,8 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 		CDoublePoint turn_rate2 = GetTurnRateAndSpeed(pos1.gap_filt);
 		double fSpeed2 = m_fMotorSpeed * turn_rate2.y;
 
-		double speed3[] = { fSpeed2, fSpeed2, fSpeed2, fSpeed2 };
-		SetMotorSpeed(speed3);
+		double speed2[] = { fSpeed2, fSpeed2, fSpeed2, fSpeed2 };
+		SetMotorSpeed(speed2);
 
 		// travel the turn time to see if now straight
 		// run for about a second to see if actually travelling straight
@@ -937,7 +953,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 
 			int nSize2 = (int)listVel.GetSize();
 			if (nSize2 == 0 || fabs(listVel[nSize2 - 1].x - last_pos.pos) >= 1)
-				listVel.Add(CDoublePoint(last_pos.pos, last_pos.gap_filt));
+				listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 1));
 		}
 
 		clock_t turn_time3 = clock() - t1;
@@ -964,57 +980,206 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 		listManoevers[nSize2 - 1].turn_rate = turn_rate1.x;			// what offset were we trying to corect
 	}
 #ifdef _DEBUG_TIMING
-	char my_documents[MAX_PATH];
-	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
-	if (result == S_OK)
-	{
-		CString szFile;
-		szFile.Format("%s\\Manoeuvres.txt", my_documents);
-		FILE* fp2;  fopen_s(&fp2, szFile, "w");
-
-		// write a list of the manoeuvres to a file
-		if (fp2)
-		{
-			fprintf(fp2, "Pos0\tgap0\tRate\ttime1\tPos1\tgap1\ttime2\tPos2\tgap2\ttime3\tgap3\tPos3\n");
-
-			int nSize2 = (int)listManoevers.GetSize();
-			for (int i = 0; i < nSize2; ++i)
-			{
-				fprintf(fp2, "%7.1f\t%7.1f\t%5.2f\t%5.0f\t%7.1f\t%7.1f\t%5.0f\t%7.1f\t%7.1f\t%5.0f\t%7.1f\t%7.1f\n",
-					listManoevers[i].pos0,
-					listManoevers[i].gap0,
-					listManoevers[i].turn_rate,
-					listManoevers[i].turn_time1,
-					listManoevers[i].pos1,
-					listManoevers[i].gap1,
-					listManoevers[i].turn_time2,
-					listManoevers[i].pos2,
-					listManoevers[i].gap2,
-					listManoevers[i].turn_time3,
-					listManoevers[i].pos3,
-					listManoevers[i].gap3);
-
-				// now output all the noted velocities from this time until the next time
-				for (int j = 0; j < listVel.GetSize(); ++j)
-				{
-					if (direction*listVel[j].x >= direction*listManoevers[i].pos0 && 
-						(i == nSize2 - 1 || direction*listVel[j].x < direction*listManoevers[i + 1].pos0))
-					{
-						fprintf(fp2, "%7.1f\t%7.1f\n",
-							listVel[j].x,
-							listVel[j].y);
-					}
-				}
-			}
-			fclose(fp2);
-		}
-	}
+	WriteManoeuvreFile(listManoevers, listVel);
 #endif
-
 	return 0;
 }
 
+void CWeldNavigation::WriteManoeuvreFile(const CArray<POS_MANOEVER, POS_MANOEVER>& listManoevers, const CArray<DRIVE_POS, DRIVE_POS>& listVel)
+{
+	char my_documents[MAX_PATH];
+	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result != S_OK)
+		return;
 
+	CString szFile;
+	szFile.Format("%s\\Manoeuvres.txt", my_documents);
+	FILE* fp2;  fopen_s(&fp2, szFile, "w");
+
+	// write a list of the manoeuvres to a file
+	if (fp2)
+	{
+		int dir = (m_nEndPos > m_nStartPos) ? 1 : -1;
+
+		fprintf(fp2, "Pos0\tgap0\tRate\ttime1\tPos1\tgap1\ttime2\tPos2\tgap2\ttime3\tgap3\tPos3\n");
+
+		int nSize2 = (int)listManoevers.GetSize();
+		for (int i = 0; i < nSize2; ++i)
+		{
+			fprintf(fp2, "%7.1f\t%7.1f\t%5.2f\t%5.0f\t%7.1f\t%7.1f\t%5.0f\t%7.1f\t%7.1f\t%5.0f\t%7.1f\t%7.1f\n",
+				listManoevers[i].pos0,
+				listManoevers[i].gap0,
+				listManoevers[i].turn_rate * listManoevers[i].turn_direction,
+				listManoevers[i].turn_time1,
+				listManoevers[i].pos1,
+				listManoevers[i].gap1,
+				listManoevers[i].turn_time2,
+				listManoevers[i].pos2,
+				listManoevers[i].gap2,
+				listManoevers[i].turn_time3,
+				listManoevers[i].pos3,
+				listManoevers[i].gap3);
+
+			// now output all the noted velocities from this time until the next time
+			for (int j = 0; j < listVel.GetSize(); ++j)
+			{
+				if (dir*listVel[j].x >= dir*listManoevers[i].pos0 && 
+					(i == nSize2 - 1 || dir*listVel[j].x < dir*listManoevers[i + 1].pos0))
+				{
+					fprintf(fp2, "%7.1f\t%7.1f\t%d\n",
+						listVel[j].x,
+						listVel[j].y,
+						listVel[j].segment);
+				}
+			}
+		}
+		fclose(fp2);
+	}
+}
+
+// in this case the laser trails not leads the crawler
+// unlikely to be able to navigate as close as forward
+// however, want to remain over the weld, and not drift too far
+UINT CWeldNavigation::ThreadSteerMotorsBackard()
+{
+	const int MAX_TRAVEL_TIME = 1000;
+	clock_t tim1 = clock();
+	CString str;
+
+	int steer = 0;
+	int  time_first = 0;
+
+	CArray<DRIVE_POS, DRIVE_POS> listVel;
+	CArray<POS_MANOEVER, POS_MANOEVER> listManoevers;
+
+	// make lots of very small corrections
+	// assume that started close to the weld
+	// thus if laser is on one side, need to steer to that side
+	while (m_bSteerMotors)
+	{
+		// avoid risk of a tight loop
+		Sleep(1);
+
+		// check if near the end, if so end the navigation
+		// this is a pre-distance to get close before actual recording starts
+		LASER_POS pos0 = GetLastNotedPosition(0);										// where is the crawler now
+		if (pos0.pos == FLT_MAX)
+			continue;
+
+		// have programmed the motors to travel further than desired
+		// thus issue a stop in this case
+		// that way nall the mnotors will stop at the sazme exact time
+		if (pos0.pos < m_nEndPos)
+		{
+			SetMotorDeceleration(2 * m_fMotorAccel);
+			StopMotors();
+			break; // stop navigating now
+		}
+
+		// what is the gap right now
+		else if (pos0.gap_filt == FLT_MAX)													// not known so do nothing
+			continue;
+
+		// do nothing if close to the weld already
+		// trying to correct very small errors may be counter productive
+		else if (fabs(pos0.gap_filt) < 0.1)
+			continue;
+
+		// if to the left, turn to the right
+		int dir = (pos0.gap_filt > 0) ? -1 : 1;											// which way to navigate (right or left)
+
+		// before the manoeuvre check the motor positions
+		// to strighten out the crawler after the manoeuvre, set the same L/R difference
+		double lr_diff1 = GetLRPositionDiff();
+
+		// only make slow corrections
+		double turn_rate1 = 0.95; //  GetTurnRateAndSpeed(pos0.gap_filt);
+		double speedLeft = m_fMotorSpeed - dir * (1 - turn_rate1) * m_fMotorSpeed / 2;
+		double speedRight = m_fMotorSpeed + dir * (1 - turn_rate1) * m_fMotorSpeed / 2;
+		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft };
+		SetMotorSpeed(speed1);
+
+		// blindly drive for 500 ms
+		clock_t t1 = clock();
+		while (m_bSteerMotors && clock() - t1 < 500)
+		{
+			Sleep(10);
+
+			LASER_POS last_pos = GetLastNotedPosition(0);// whjere is the crawler now
+			int nSize2 = (int)listVel.GetSize();
+			if (nSize2 == 0 || fabs(listVel[nSize2 - 1].x - last_pos.pos) >= 1)
+				listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 0));
+		}
+
+		// now turn in the reverse of above
+		// drive until the motor posiiotn LR differemnce is same as aboe
+		double lr_diff2 = GetLRPositionDiff();
+		double lr_target = (lr_diff2 - lr_diff1) / 2;
+		
+		LASER_POS pos1 = GetLastNotedPosition(0);
+		double speed2[] = { speedRight, speedLeft, speedLeft, speedRight };
+		SetMotorSpeed(speed2);
+
+		// turn until the above turn has been corrected
+		// limit to 1000 ms though (only drove for 500 ms above)
+		t1 = clock();
+		while (m_bSteerMotors && clock() - t1 < 1000)
+		{
+			// avoid a tight loop
+			Sleep(1);
+			LASER_POS last_pos = GetLastNotedPosition(0);// whjere is the crawler now
+
+			double lr_diff3 = GetLRPositionDiff();
+			if ( lr_diff3 - lr_target <= 0)
+				break;
+
+			int nSize2 = (int)listVel.GetSize();
+			if (nSize2 == 0 || fabs(listVel[nSize2 - 1].x - last_pos.pos) >= 1)
+				listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 1));
+		}
+
+		// now strighten out 
+		LASER_POS pos2 = GetLastNotedPosition(0);
+		double speed3[] = { m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed };
+		SetMotorSpeed(speed3);
+
+		// drive blindly for 500 ms
+		t1 = clock();
+		while (m_bSteerMotors && clock() - t1 < 500)
+		{
+			Sleep(10);
+
+			LASER_POS last_pos = GetLastNotedPosition(0);// whjere is the crawler now
+			int nSize2 = (int)listVel.GetSize();
+			if (nSize2 == 0 || fabs(listVel[nSize2 - 1].x - last_pos.pos) >= 1)
+				listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 2));
+		}
+
+		LASER_POS pos3 = GetLastNotedPosition(0);
+		
+		// keep a record of manoeuvres
+		// will use this to insure that don't calculate gap or velocity across a manoeuvre
+		// need to note desired change in direction, how acomplished and for how long
+		int nSize2 = (int)listManoevers.GetSize();
+		listManoevers.SetSize(++nSize2);
+		listManoevers[nSize2 - 1].time_start = clock();			// at what ms did this manoeuvre begin
+		listManoevers[nSize2 - 1].pos0 = pos0.pos;				// at what ms did this manoeuvre begin
+		listManoevers[nSize2 - 1].pos1 = pos1.pos;				// at what ms did this manoeuvre begin
+		listManoevers[nSize2 - 1].pos2 = 0;						// at what ms did this manoeuvre begin
+		listManoevers[nSize2 - 1].pos3 = pos3.pos;				// at what ms did this manoeuvre begin
+		listManoevers[nSize2 - 1].gap0 = pos0.gap_filt;			// what offset were we trying to corect
+		listManoevers[nSize2 - 1].gap1 = pos1.gap_filt;			// what offset were we trying to corect
+		listManoevers[nSize2 - 1].gap2 = 0;						// what offset were we trying to corect
+		listManoevers[nSize2 - 1].gap3 = pos3.gap_filt;			// what offset were we trying to corect
+		listManoevers[nSize2 - 1].turn_time2 = 0;				// what offset were we trying to corect
+		listManoevers[nSize2 - 1].turn_direction = dir;			// what offset were we trying to corect
+		listManoevers[nSize2 - 1].turn_rate = turn_rate1;			// what offset were we trying to corect
+	}
+#ifdef _DEBUG_TIMING
+	WriteManoeuvreFile(listManoevers, listVel);
+#endif
+	return 0;
+}
 
 UINT CWeldNavigation::ThreadSteerMotors_try2()
 {
@@ -1026,7 +1191,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try2()
 	int  time_first = 0;
 
 	// always wait 25 mm from last manoeuvre before checking anything, to let things settle
-	CArray<CDoublePoint, CDoublePoint> listVel;
+	CArray<DRIVE_POS, DRIVE_POS> listVel;
 	CArray<POS_MANOEVER, POS_MANOEVER> listManoevers;
 
 	int wait_manoeuvre_mm = 25;
@@ -1145,14 +1310,14 @@ UINT CWeldNavigation::ThreadSteerMotors_try2()
 	//				start_rate = 1.0 - (1.0 - start_rate) / 2;
 	//				double speedLeft = m_fMotorSpeed - dir * (1 - start_rate) * m_fMotorSpeed / 2;
 	//				double speedRight = m_fMotorSpeed + dir * (1 - start_rate) * m_fMotorSpeed / 2;
-	//				double speed3[] = { speedLeft, speedRight, speedRight, speedLeft };
-	//				SetMotorSpeed(speed3);
+	//				double speed2[] = { speedLeft, speedRight, speedRight, speedLeft };
+	//				SetMotorSpeed(speed2);
 	//				start_gap = gap_dist3;
 	//			}
 			}
 
 			// note the position and gap distance at this time
-			listVel.Add(CDoublePoint(last_pos.pos, last_pos.gap_filt));
+			listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 0));
 		}
 
 		// set back to driving straight (but in new direction)
@@ -1176,7 +1341,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try2()
 				break;
 
 			// note the position and gap distance at this time
-			listVel.Add(CDoublePoint(last_pos.pos, last_pos.gap_filt));
+			listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 1));
 		}
 
 		// note where are now that have asked to straighten out
@@ -1189,47 +1354,12 @@ UINT CWeldNavigation::ThreadSteerMotors_try2()
 		listManoevers[nSize2 - 1].time_end = last_manoeuvre_time;												// at what ms did this manoeuvre end
 	}
 #ifdef _DEBUG_TIMING
-	// write a list of the manoeuvres to a file
-	char my_documents[MAX_PATH];
-	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
-	if (result == S_OK)
-	{
-		CString szFile;
-		szFile.Format("%s\\Manoeuvres.txt", my_documents);
-		FILE* fp2;  fopen_s(&fp2, szFile, "w");
-		if (fp2)
-		{
-			fprintf(fp2, "Pos\tgap1\tgap2\tVel\tdir\tRate\tgap3\n");
-
-			for (int i = 0; i < listManoevers.GetSize(); ++i)
-			{
-				fprintf(fp2, "%.3f\t%.3f\t%.3f\t%.3f\t%d\t%.3f\t%.3f\n",
-					listManoevers[i].pos0,
-					listManoevers[i].gap1,
-					listManoevers[i].gap2,
-					listManoevers[i].gap_vel,
-					listManoevers[i].turn_direction,
-					listManoevers[i].turn_rate,
-					listManoevers[i].gap3);
-
-				// now output all the noted velocities from this time until the next time
-				for (int j = 0; j < listVel.GetSize(); ++j)
-				{
-					if (listVel[j].x >= listManoevers[i].pos0 && (i == listManoevers.GetSize() - 1 || listVel[j].x < listManoevers[i + 1].pos0))
-					{
-						fprintf(fp2, "%.3f\t\t%.3f\n",
-							listVel[j].x,
-							listVel[j].y);
-					}
-				}
-			}
-			fclose(fp2);
-		}
-	}
+	WriteManoeuvreFile(listManoevers, listVel);
 #endif
 
 	return 0;
 }
+
 /*
 UINT CWeldNavigation::ThreadSteerMotors()
 {
@@ -1429,7 +1559,6 @@ CDoublePoint CWeldNavigation::GetLastRGBValue()
 
 	return ret;
 }
-
 
 /*
 // calculate the extra distance that one side of the crawler must travel to achieve the desired change in direction

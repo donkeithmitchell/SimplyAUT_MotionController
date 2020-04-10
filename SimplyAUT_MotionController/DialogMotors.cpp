@@ -20,10 +20,15 @@ CDialogMotors::CDialogMotors(CMotionControl& motion, CMagControl& mag, const GAL
 	, m_magControl(mag)
 	, m_nGalilState(nState)
 
-	, m_szMotorA(_T(""))
-	, m_szMotorB(_T(""))
-	, m_szMotorC(_T(""))
-	, m_szMotorD(_T(""))
+	, m_szMotorA1(_T(""))
+	, m_szMotorB1(_T(""))
+	, m_szMotorC1(_T(""))
+	, m_szMotorD1(_T(""))
+
+	, m_szMotorA2(_T(""))
+	, m_szMotorB2(_T(""))
+	, m_szMotorC2(_T(""))
+	, m_szMotorD2(_T(""))
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -46,15 +51,21 @@ void CDialogMotors::Init(CWnd* pParent, UINT nMsg)
 void CDialogMotors::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Text(pDX, IDC_STATIC_MOTOR_A, m_szMotorA);
-	DDX_Text(pDX, IDC_STATIC_MOTOR_B, m_szMotorB);
-	DDX_Text(pDX, IDC_STATIC_MOTOR_C, m_szMotorC);
-	DDX_Text(pDX, IDC_STATIC_MOTOR_D, m_szMotorD);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_A, m_szMotorA1);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_B, m_szMotorB1);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_C, m_szMotorC1);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_D, m_szMotorD1);
+
+	DDX_Text(pDX, IDC_STATIC_MOTOR_A2, m_szMotorA2);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_B2, m_szMotorB2);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_C2, m_szMotorC2);
+	DDX_Text(pDX, IDC_STATIC_MOTOR_D2, m_szMotorD2);
 }
 
 
 BEGIN_MESSAGE_MAP(CDialogMotors, CDialogEx)
 	ON_WM_SIZE()
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -74,6 +85,14 @@ void CDialogMotors::OnSize(UINT nFlag, int cx, int cy)
 
 }
 
+void CDialogMotors::OnTimer(UINT_PTR nIDEvent)
+{
+	if (IsWindowVisible() && m_motionControl.IsConnected() )
+	{
+		ShowMotorSpeeds();
+	}
+}
+
 BOOL CDialogMotors::OnInitDialog()
 {
 	CRect rect;
@@ -83,6 +102,7 @@ BOOL CDialogMotors::OnInitDialog()
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
+	SetTimer(1, 250, NULL);
 	EnableControls();
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -121,10 +141,15 @@ void CDialogMotors::ShowMotorSpeeds()
 	double fPosC = m_motionControl.GetMotorPosition("C");
 	double fPosD = m_motionControl.GetMotorPosition("D");
 
-	m_szMotorA.Format("%5.1f (%4.0f)", fSA, fPosA);
-	m_szMotorB.Format("%5.1f (%4.0f)", fSB, fPosB);
-	m_szMotorC.Format("%5.1f (%4.0f)", fSC, fPosC);
-	m_szMotorD.Format("%5.1f (%4.0f)", fSD, fPosD);
+	m_szMotorA1.Format("%5.1f", fSA);
+	m_szMotorB1.Format("%5.1f", fSB);
+	m_szMotorC1.Format("%5.1f", fSC);
+	m_szMotorD1.Format("%5.1f", fSD);
+
+	m_szMotorA2.Format("%4.0f", fPosA);
+	m_szMotorB2.Format("%4.0f", fPosB);
+	m_szMotorC2.Format("%4.0f", fPosC);
+	m_szMotorD2.Format("%4.0f", fPosD);
 
 	UpdateData(FALSE);
 }

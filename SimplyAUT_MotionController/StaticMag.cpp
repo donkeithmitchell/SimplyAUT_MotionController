@@ -15,10 +15,11 @@ static double PI = 4 * atan(1.0);
 
 IMPLEMENT_DYNAMIC(CStaticMag, CWnd)
 
-CStaticMag::CStaticMag(CMagControl& mag, const BOOL& bScanRev, const double& length)
+CStaticMag::CStaticMag(CMagControl& mag, const BOOL& bScanRev, const BOOL& bScanLaser, const double& length)
 	: CWnd()
 	, m_magControl(mag)
 	, m_bScanReverse(bScanRev)
+	, m_bScanLaser(bScanLaser)
 	, m_fCalibrationLength(length)
 {
 	m_pParent = NULL;
@@ -120,11 +121,34 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	if (len == 0)
 		return;
 
+
+	// get a copy of the data to filter
+	/////////////////////////////////////
+	CArray<double, double> X2, Y2;
+	X2.SetSize(len);
+	Y2.SetSize(len);
+	for (int i = 0; i < len; ++i)
+	{
+		CDoublePoint pt = m_magControl.GetRGBCalibrationData(i);
+		X2[i] = pt.x;
+		Y2[i] = pt.y;
+	}
+
+	// high-cut the response
+	// only if using the laser, it is very spiky
+	// also filter with a +/- 1 median (i.e. over 3 samples)
+	CIIR_Filter filter(len);
+	if (len >= 5 && m_bScanLaser )
+	{
+		filter.MedianFilter(Y2.GetData(), 1);
+		filter.AveragingFilter(Y2.GetData(), 2);
+	}
+
 	GetRGBRect(&rect);
 
 	// draw a scale on the bottom
 	int y1 = rect.bottom;
-	double pos1 = m_magControl.GetRGBCalibrationData(0).x;
+	double pos1 = X2[0];
 
 	CPen pen1(PS_SOLID, 0, RGB(250, 250, 250));
 	pDC->SelectObject(&pen1);
@@ -138,11 +162,10 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	double maxY = 0;
 	for (int i = 0; i < len; ++i)
 	{
-		CDoublePoint pt = m_magControl.GetRGBCalibrationData(i);
-		minX = min(minX, pt.x);
-		maxX = max(maxX, pt.x);
-		minY = min(minY, pt.y);
-		maxY = max(maxY, pt.y);
+		minX = min(minX, X2[i]);
+		maxX = max(maxX, X2[i]);
+		minY = min(minY, Y2[i]);
+		maxY = max(maxY, Y2[i]);
 	}
 
 	// round this out to 20
@@ -224,9 +247,8 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 
 	for (int i = 0; i < len; ++i)
 	{
-		CDoublePoint pt = m_magControl.GetRGBCalibrationData(i);
-		int x = (int)(rect.left + (pt.x-minX - pos1) * disp_width_factor + 0.5);
-		int y = (int)(rect.bottom - pt.y * disp_height_factor + 0.5);
+		int x = (int)(rect.left + (X2[i]-minX - pos1) * disp_width_factor + 0.5);
+		int y = (int)(rect.bottom - Y2[i] * disp_height_factor + 0.5);
 		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
 	}
 

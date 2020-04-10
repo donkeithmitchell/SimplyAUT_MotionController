@@ -27,7 +27,6 @@ public:
 	void	EnableControls();
 	void    RunMotors();
 	void	Init(CWnd* pParent, UINT nMsg);
-	void	ShowMotorSpeeds();
 	void    ShowMotorPosition();
 	void    ShowRGBStatus();
 	BOOL	CheckVisibleTab();
@@ -47,10 +46,12 @@ public:
 	void    GetLaserProfile();
 	void	NoteIfMotorsRunning();
 	BOOL	SetSlewSpeed(double fSpeed, double fAccel);
+	BOOL	SetSlewSpeed(const double fSpeed[4]);
 	double  GetSlewSpeed(const char* axis);
 	void    StopMotors();
 	double  GetRGBSum();
 	BOOL    GoToPosition(double pos);
+	BOOL    GoToPosition2(double left, double right);
 	BOOL    ResetEncoderCount();
 	double	GetAvgMotorPosition();
 	BOOL    ZeroPositions();
@@ -65,6 +66,7 @@ public:
 	void	NoteRGBCalibration();
 	double	GetCalibrationValue();
 	BOOL	SeekStartLine();
+	BOOL	RemoveLaserOffset();
 	double	GetMotorSpeed();
 	double	GetMotorAccel();
 	double  GetAccelDistance()const;
@@ -74,11 +76,13 @@ public:
 	void    ResetParameters();
 
 	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL};
-	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_ZERO_POSITION, MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS };
+	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_ZERO_POSITION, 
+		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GOTO_POSITION2};
 	enum TIMER_GW { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_TEMPERATURE, TIMER_LASER_STATUS1, TIMER_RGB_STATUS, TIMER_RUN_TIME, 
 		TIMER_NOTE_RGB, TIMER_GET_LASER_PROFILE, TIMER_ARE_MOTORS_RUNNING, TIMER_NOTE_CALIBRATION	};
 	enum { STATUS_GETLOCATION=0, STATUS_SHOWLASERSTATUS};
-	enum{ NAVIGATE_SEND_DEBUG_MSG=0, NAVIGATE_SET_MOTOR_SPEED, NAVIGATE_SET_MOTOR_DECEL, NAVIGATE_STOP_MOTORS};
+	enum{ NAVIGATE_SEND_DEBUG_MSG=0, NAVIGATE_SET_MOTOR_SPEED, NAVIGATE_SET_MOTOR_DECEL, NAVIGATE_STOP_MOTORS, NAVIGATE_LR_DIFFEENCE
+	};
 
 	// Dialog Data
 #ifdef AFX_DESIGN_TIME

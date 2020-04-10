@@ -170,12 +170,6 @@ void CMotionControl::GoToHomePosition()
 BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
 {
     CString str;
-
-    // set the motor speeds
-//  m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(fAccel));
-//  m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(fAccel));
-//  SetSlewSpeed(fSpeed);
-
     m_nGotoPosition = (int)(pos_mm + 0.5);
     int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
     int posA = AxisDirection("A") * pos_cnt;
@@ -185,7 +179,6 @@ BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
     str.Format("PA %d, %d, %d, %d", posA, posB, posC, posD);
 
     m_pGclib->GCommand(str);
-   // m_pGclib->GCommand("SH");           // enable all axes
     if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
     {
         SendErrorMessage(m_pGclib->GetLastError());
@@ -203,6 +196,29 @@ BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
         double posD1 = GetMotorPosition("D");
 
         m_pGclib->StopMotors();
+    }
+    return TRUE;
+}
+
+BOOL CMotionControl::GoToPosition2(double left, double right)
+{
+    CString str;
+
+    m_nGotoPosition = (int)((left+right)/2 + 0.5);
+    int pos_left = DistancePerSecondToEncoderCount(left);
+    int pos_right = DistancePerSecondToEncoderCount(right);
+
+    int posA = AxisDirection("A") * pos_left;
+    int posB = AxisDirection("B") * pos_right;
+    int posC = AxisDirection("C") * pos_right;
+    int posD = AxisDirection("D") * pos_left;
+    str.Format("PA %d, %d, %d, %d", posA, posB, posC, posD);
+
+    m_pGclib->GCommand(str);
+    if (!m_pGclib->GCommand("BG*"))   // Begin motion on all Axis
+    {
+        SendErrorMessage(m_pGclib->GetLastError());
+        return FALSE;
     }
     return TRUE;
 }

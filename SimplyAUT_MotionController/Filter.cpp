@@ -329,3 +329,44 @@ int CIIR_Filter::GetLowCutCoeff(int srate, double* coef, int LC)
     }
 }
 
+void CIIR_Filter::MedianFilter(double* tin, int width)
+{
+    double buffer[100];
+    int len = (int)m_work.GetSize();
+    for (int i = 0; i < len; ++i)
+    {
+        int cnt = 0;
+        for (int j = max(i - width, 0); j <= min(i + width, len - 1); ++j)
+        {
+            buffer[cnt] = tin[j];
+            cnt++;
+        }
+        if (cnt)
+        {
+            qsort(buffer, cnt, sizeof(double), ::MinMaxR8);
+            m_work[i] = buffer[cnt / 2];
+        }
+        else
+            m_work[i] = 0;
+    }
+    memcpy(tin, m_work.GetData(), len * sizeof(double));
+}
+
+void CIIR_Filter::AveragingFilter(double* tin, int width)
+{
+    int len = (int)m_work.GetSize();
+    for (int i = 0; i < len; ++i)
+    {
+        int cnt = 0;
+        double sum = 0;
+        for (int j = max(i - width, 0); j <= min(i + width, len - 1); ++j)
+        {
+            sum += tin[j];
+            cnt++;
+        }
+        m_work[i] = cnt ? sum / cnt : 0;
+    }
+    memcpy(tin, m_work.GetData(), len * sizeof(double));
+}
+
+

@@ -13,7 +13,7 @@ class CStaticMag : public CWnd
 	DECLARE_DYNAMIC(CStaticMag)
 
 public:
-	CStaticMag(CMagControl&, const BOOL&, const double&);
+	CStaticMag(CMagControl&, const BOOL&, const BOOL&, const double&);
 
 	virtual ~CStaticMag();
 	void	Init(CWnd*, UINT);
@@ -31,6 +31,7 @@ public:
 	CMagControl&		m_magControl;
 	const double&		m_fCalibrationLength;
 	const BOOL&			m_bScanReverse;
+	const BOOL&			m_bScanLaser;
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME

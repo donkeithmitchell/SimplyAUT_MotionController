@@ -7,6 +7,7 @@
 #include "afxdialogex.h"
 #include "resource.h"
 
+const char* g_szTitle[] = { "#", "File", "Max Offset", "Avg Offset", NULL };
 
 // CDialogFiles dialog
 
@@ -49,6 +50,7 @@ END_MESSAGE_MAP()
 // CDialogFiles message handlers
 BOOL CDialogFiles::OnInitDialog()
 {
+	char buffer[MAX_PATH];
 	CRect rect;
 	CDialogEx::OnInitDialog();
 
@@ -59,15 +61,15 @@ BOOL CDialogFiles::OnInitDialog()
 	LV_COLUMN listColumn;
 	listColumn.mask = LVCF_FMT | LVCF_TEXT | LVCF_SUBITEM;
 	listColumn.cx = 0;
-	listColumn.iSubItem = 0;
-	listColumn.pszText = "#";	
-	listColumn.fmt = LVCFMT_CENTER;
-	m_listFiles.InsertColumn(0, &listColumn);
+	listColumn.pszText = buffer;
 
-	listColumn.iSubItem = 1;
-	listColumn.pszText = "File";
-	listColumn.fmt = LVCFMT_LEFT;
-	m_listFiles.InsertColumn(1, &listColumn);
+	for (int i = 0; g_szTitle[i] != NULL; ++i)
+	{
+		strncpy_s(buffer, g_szTitle[i], sizeof(buffer));
+		listColumn.iSubItem = i;
+		listColumn.fmt = (i == 0) ? LVCFMT_CENTER : LVCFMT_LEFT;
+		m_listFiles.InsertColumn(i, &listColumn);
+	}
 
 	PostMessage(WM_SIZE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -95,10 +97,14 @@ void CDialogFiles::OnSize(UINT nFlag, int cx, int cy)
 	cy = rect.Height();
 
 	CDC* pDC = GetDC();
-	CSize sz = pDC->GetTextExtent("8888");
+	CSize sz1 = pDC->GetTextExtent("8888");
+	CSize sz2 = pDC->GetTextExtent("Max Offset");
 	ReleaseDC(pDC);
-	m_listFiles.SetColumnWidth(0, sz.cx);
-	m_listFiles.SetColumnWidth(1, cx -sz.cx);
+
+	m_listFiles.SetColumnWidth(0, sz1.cx);
+	m_listFiles.SetColumnWidth(1, cx - sz1.cx - 2*sz2.cx);
+	m_listFiles.SetColumnWidth(2, sz2.cx);
+	m_listFiles.SetColumnWidth(3, sz2.cx);
 }
 
 void CDialogFiles::Create(CWnd* pParent)
@@ -137,16 +143,48 @@ void CDialogFiles::UpdateFileList()
 	listItem.pszText = buffer;
 	listItem.cchTextMax = sizeof(buffer);
 	int ret = 1;
-	for( int i = 0; ret != 0; ++i)
+	for( int i = 0, j=0; ret != 0; ++i)
 	{
 		ret = find.FindNextFileA();
 
-		listItem.iItem = i;
-		sprintf_s(buffer, sizeof(buffer), "%d", i + 1);
+		CString szFile = find.GetFileName();
+		int ind = szFile.Find("File_");
+		if (ind == -1)
+			continue;
+
+		int nFileNum = atoi(szFile.Mid(ind + 5));
+
+		listItem.iItem = j;
+		sprintf_s(buffer, sizeof(buffer), "%d", nFileNum);
 		m_listFiles.InsertItem(&listItem);
 
-		strncpy_s(buffer, find.GetFileName(), sizeof(buffer));
-		m_listFiles.SetItemText(i, 1, buffer);
+		strncpy_s(buffer, szFile, sizeof(buffer));
+		m_listFiles.SetItemText(j, 1, buffer);
+
+		FILE* fp = NULL;
+		if (fopen_s(&fp, find.GetFilePath(), "r") == 0 && fp != NULL)
+		{
+			int pos;
+			double capH, capW, HiLo, offset;
+
+			fgets(buffer, sizeof(buffer), fp);
+			double maxOff = 0;
+			double sum = 0;
+			int cnt = 0;
+			while (fgets(buffer, sizeof(buffer), fp))
+			{
+				sscanf_s(buffer, "%d\t%lf\t%lf\t%lf\t%lf\n", &pos, &capH, &capW, &HiLo, &offset);
+				maxOff = max(maxOff, fabs(offset));
+				sum += fabs(offset);
+				cnt++;
+			}
+			sprintf_s(buffer, sizeof(buffer), "%5.1f", maxOff);
+			m_listFiles.SetItemText(j, 2, buffer);
+
+			sprintf_s(buffer, sizeof(buffer), "%5.2f", cnt ? sum/cnt : 0);
+			m_listFiles.SetItemText(j, 3, buffer);
+			j++;
+		}
 	}
 }
 

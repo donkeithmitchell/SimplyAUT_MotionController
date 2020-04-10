@@ -19,6 +19,15 @@ struct LASER_POS
 	long    rgb_sum;;
 };
 
+struct DRIVE_POS
+{
+	DRIVE_POS() { memset(this, 0x0, sizeof(DRIVE_POS)); }
+	DRIVE_POS(double _x, double _y, int seg) { x = _x; y = _y; segment = seg; }
+	double x;
+	double y;
+	int segment;
+};
+
 struct POS_MANOEVER
 {
 	POS_MANOEVER() {memset(this, 0x0, sizeof(POS_MANOEVER)); }
@@ -56,7 +65,8 @@ public:
 	LASER_POS GetLastNotedPosition(int ago_mm);
 	void      StartSteeringMotors(int nSteer, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
 	UINT      ThreadSteerMotors();
-	UINT      ThreadSteerMotors_try3();
+	UINT      ThreadSteerMotorsForward();
+	UINT      ThreadSteerMotorsBackard();
 	UINT      ThreadSteerMotors_try2();
 	UINT      ThreadNoteLaser();
 	void      GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
@@ -71,9 +81,11 @@ private:
 	void	Wait(int delay);
 	void	SendDebugMessage(const CString& msg);
 	BOOL    SetMotorSpeed(const double speed[]);
+	double  GetLRPositionDiff();
 	BOOL	StopMotors();
 	BOOL    SetMotorDeceleration(double);
 	void    SetScanning(BOOL bScan) { m_bScanning = bScan; }
+	void	WriteManoeuvreFile(const CArray<POS_MANOEVER, POS_MANOEVER>& listManoevers, const CArray<DRIVE_POS, DRIVE_POS>& listVel);
 
 	CMotionControl& m_motionControl;
 	CLaserControl& m_laserControl;

@@ -409,6 +409,12 @@ BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 		::LaserOn(TRUE);
 		::Profile_Sending(TRUE);
 		::MsgMeasurementSending(TRUE);
+
+//		for (int i = 0; i < 100 && !IsLaserOn(); ++i)
+//			Sleep(1);
+//		for (int i = 0; i < 100 && !GetProfile(); ++i)
+//			Sleep(1);
+
 	}
 	return TRUE;
 }

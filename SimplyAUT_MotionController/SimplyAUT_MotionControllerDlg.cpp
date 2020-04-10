@@ -268,9 +268,6 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 		case MSG_MAG_STATUS_ON:
 			StartReadMagStatus(lParam);
 			break;
-		case MSG_SHOW_MOTOR_SPEEDS:
-			m_dlgMotors.ShowMotorSpeeds();
-			break;
 		case MSG_UPDATE_FILE_LIST:
 			m_dlgFiles.UpdateFileList();
 			break;

@@ -555,66 +555,85 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser)
     if (nSize == 0)
         return FALSE;
 
-    CArray<double, double> X, Y;
-    X.SetSize(nSize);
-    Y.SetSize(nSize);
+    CArray<double, double> X1, Y1, X2, Y2;
+    X1.SetSize(nSize);
+    Y1.SetSize(nSize);
 
+    // high-cut the response
+    CIIR_Filter filter(nSize);
+    for (int i = 0; i < nSize; ++i)
+    {
+        X1[i] = m_rgbData[i].x;
+        Y1[i] = m_rgbData[i].y;
+    }
+
+    // the laser is very spiky
+    if (bWithLaser)
+    {
+        filter.MedianFilter(Y1.GetData(), 1);
+        filter.AveragingFilter(Y1.GetData(), 2);
+    }
+
+    // get the median value
+    Y2.Copy(Y1);
+    qsort(Y2.GetData(), nSize, sizeof(double), ::MinMaxR8);
+    double median = Y2[nSize / 2];
+    
     int minInd = 0;
     int maxInd = 0;
     for (int i = 0; i < nSize; ++i)
     {
         // ignore the first 10 mm
-        if (m_rgbData[i].x > 10)
+        // assume that values higfher than twice mnedian are bogus if a laser
+        if (bWithLaser && Y1[i] > 2 * median)
+            continue;
+
+        if (X1[i] > 10)
         {
-            if (minInd == -1 || m_rgbData[i].y < m_rgbData[minInd].y)
+            if (minInd == -1 || Y1[i] < Y1[minInd])
                 minInd = i;
-            if (maxInd == -1 || m_rgbData[i].y > m_rgbData[maxInd].y)
+            if (maxInd == -1 || Y1[i] > Y1[maxInd])
                 maxInd = i;
         }
     }
 
-
-    // niow get the median of all the values
-    for (int i = 0; i < nSize; ++i)
-        Y[i] = m_rgbData[i].y;
-
-    qsort(Y.GetData(), nSize, sizeof(double), ::MinMaxR8);
-    double median = Y[nSize / 2];
     m_rgbCalibration.median = median;
 
     int i1, i2;
     double threshold;
     if (bWithLaser)
     {
-        threshold = m_rgbData[maxInd].y - 2 * (m_rgbData[maxInd].y - median) / 3;
+        threshold = Y1[maxInd] - 2 * (Y1[maxInd] - median) / 3;
 
         // about the minimum, look for the threshold and model as a 2nd ordert
-        for (i1 = maxInd; i1 >= 0 && m_rgbData[i1].y > threshold; --i1);
-        for (i2 = maxInd; i2 < nSize && m_rgbData[i2].y > threshold; ++i2);
+        for (i1 = maxInd; i1 >= 0 && Y1[i1] > threshold; --i1);
+        for (i2 = maxInd; i2 < nSize && Y1[i2] > threshold; ++i2);
     }
     else
     {
-        threshold = m_rgbData[minInd].y + (median - m_rgbData[minInd].y) / 4;
+        threshold = Y1[minInd] + (median - Y1[minInd]) / 4;
 
         // about the minimum, look for the threshold and model as a 2nd ordert
-        for (i1 = minInd; i1 >= 0 && m_rgbData[i1].y < threshold; --i1);
-        for (i2 = minInd; i2 < nSize && m_rgbData[i2].y < threshold; ++i2);
+        for (i1 = minInd; i1 >= 0 && Y1[i1] < threshold; --i1);
+        for (i2 = minInd; i2 < nSize && Y1[i2] < threshold; ++i2);
     }
     i1 = max(i1, 0);
     i2 = min(i2, nSize - 1);
 
+    // noiw fit the data between the thresh9old values to a 2nd ordfer polynom,ial
+    X2.SetSize(nSize);
     int cnt2 = 0;
     for (int i = i1; i <= i2; ++i)
     {
-        X[cnt2] = m_rgbData[i].x;
-        Y[cnt2] = m_rgbData[i].y;
+        X2[cnt2] = X1[i];
+        Y2[cnt2] = Y1[i];
         cnt2++;
     }
 
     if (cnt2 >= 3)
     {
         double coeff[3];
-        polyfit(X.GetData(), Y.GetData(), cnt2, 2, coeff);
+        polyfit(X2.GetData(), Y2.GetData(), cnt2, 2, coeff);
 
         m_rgbCalibration.pos = -coeff[1] / (2 * coeff[2]);
         m_rgbCalibration.rgb = threshold;
@@ -622,7 +641,7 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser)
     else
     {
         int ind = bWithLaser ? (i2 + i1) / 2 : minInd;
-        m_rgbCalibration.pos = m_rgbData[ind].x;
+        m_rgbCalibration.pos = X2[ind];
         m_rgbCalibration.rgb = threshold;
     }
 

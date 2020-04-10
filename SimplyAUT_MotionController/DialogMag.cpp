@@ -32,7 +32,7 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_wndMag(mag, m_bScanReverse, m_fCalibrationLength)
+	, m_wndMag(mag, m_bScanReverse, m_bCalibrateWithLaser, m_fCalibrationLength)
 
 	, m_szRGBEncCount(_T(""))
 	, m_szRGBValue(_T(""))
