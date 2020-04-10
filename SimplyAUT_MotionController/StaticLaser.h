@@ -33,6 +33,7 @@ public:
 	void DrawLaserProfile(CDC*);
 	void DrawRGBProfile(CDC*);
 	void DrawCrawlerLocation(CDC*);
+	void ToggleLaserOn();
 	void DrawLaserOffset(CDC*);
 	void SetCrawlerLocation(CPoint pt);
 	int 	GetPipeRect(CRect*);

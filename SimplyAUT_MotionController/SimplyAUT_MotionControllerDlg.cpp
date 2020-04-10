@@ -154,6 +154,8 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	StartReadMagStatus(TRUE);
 	OnSelchangeTab2();
 
+	Serialize(FALSE);
+
 	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -178,6 +180,49 @@ void CSimplyAUTMotionControllerDlg::OnTimer(UINT_PTR nIDEvent)
 			m_magControl.GetMagStatus();
 		break;
 	}
+}
+
+void CSimplyAUTMotionControllerDlg::Serialize(BOOL bSave)
+{
+	TCHAR szBuff[512];
+	CFile file1;
+
+	char my_documents[MAX_PATH];
+	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result != S_OK)
+		return;
+
+	// get a list of the existing files
+	CString path;
+	path.Format("%s\\SimplyUTFiles\\Archive.txt", my_documents);
+
+	if (file1.Open(path, bSave ? CFile::modeCreate | CFile::modeWrite : CFile::modeRead))
+	{
+		CArchive ar(&file1, bSave ? CArchive::store : CArchive::load, 512, szBuff);
+		Serialize(ar);
+	}
+}
+
+void CSimplyAUTMotionControllerDlg::OnOK()
+{
+	Serialize(TRUE);
+	EndDialog(IDOK);
+}
+
+void CSimplyAUTMotionControllerDlg::OnCancel()
+{
+	Serialize(TRUE);
+	EndDialog(IDCANCEL);
+}
+
+void CSimplyAUTMotionControllerDlg::Serialize(CArchive& ar)
+{
+	UpdateData(TRUE);
+	m_dlgGirthWeld.Serialize(ar);
+	m_dlgMag.Serialize(ar);
+	m_dlgConnect.Serialize(ar);
+	m_dlgLaser.Serialize(ar);
+	UpdateData(FALSE);
 }
 LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
 {

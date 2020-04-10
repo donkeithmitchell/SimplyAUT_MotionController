@@ -19,6 +19,8 @@ public:
 	void SetButtonBitmaps();
 	void EnableControls();
 	BOOL CheckVisibleTab() { return TRUE; }
+	void	Serialize(CArchive& ar);
+	void    ResetParameters();
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -52,6 +54,9 @@ public:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 
+	BYTE	m_laserIP[4], m_galilIP[4], m_magIP[4];
+
 	UINT  m_nMsg;
 	CWnd* m_pParent;
+	afx_msg void OnClickedButtonReset();
 };

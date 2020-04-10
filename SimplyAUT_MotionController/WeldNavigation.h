@@ -8,6 +8,7 @@ struct LASER_POS
 	LASER_POS() { Reset(); }
 	void Reset(){ memset(this, 0x0, sizeof(LASER_POS)); gap_raw = gap_filt = vel_raw = vel_filt = FLT_MAX; }
 
+	LASER_MEASURES measures;
 	double  pos;	// dist travelled (mm)
 	double  gap_raw;	// distance to the weld (mm)
 	double  gap_filt;	// distance to the weld (mm)
@@ -61,7 +62,7 @@ public:
 	void      GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
 	CDoublePoint GetLastRGBValue();
 	BOOL		IsNavigating()const;
-	BOOL		OpenScanFile();
+	BOOL		WriteScanFile();
 
 private:
 	void	StopSteeringMotors();
@@ -71,6 +72,8 @@ private:
 	void	SendDebugMessage(const CString& msg);
 	BOOL    SetMotorSpeed(const double speed[]);
 	BOOL	StopMotors();
+	BOOL    SetMotorDeceleration(double);
+	void    SetScanning(BOOL bScan) { m_bScanning = bScan; }
 
 	CMotionControl& m_motionControl;
 	CLaserControl& m_laserControl;
@@ -86,7 +89,6 @@ private:
 	BOOL	m_bScanning;
 	int m_nStartPos;
 	int m_nEndPos;
-	FILE* m_fpScanFile;
 	CWnd* m_pParent;
 	UINT m_nMsg;
 };

@@ -369,10 +369,16 @@ BOOL CMotionControl::SetSlewSpeed(double A_mm_sec, double B_mm_sec, double C_mm_
 
 BOOL CMotionControl::SetSlewSpeed(double speed_mm_sec, double accel_mm_sec_sec)
 {
-    int accel =  DistancePerSecondToEncoderCount(accel_mm_sec_sec);
+    int accel = DistancePerSecondToEncoderCount(accel_mm_sec_sec);
     m_pGclib->SetAcceleration(accel);
-    m_pGclib->SetDeceleration(2*accel);
+    m_pGclib->SetDeceleration(accel);
     return SetSlewSpeed(speed_mm_sec, speed_mm_sec, speed_mm_sec, speed_mm_sec);
+}
+
+BOOL CMotionControl::SetSlewDeceleration(double decel_mm_sec_sec)
+{
+    int decel = DistancePerSecondToEncoderCount(decel_mm_sec_sec);
+    return m_pGclib->SetDeceleration(decel);
 }
 
 // steer to the right (TRUE0 or left (FALSE)

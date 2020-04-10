@@ -74,18 +74,6 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_wndLaser(motion, laser, mag, m_weldNavigation, m_fScanLength)
 	, m_wndMag(mag, m_bSeekStartLineInReverse, m_fSeekAndStartAtLine)
 	, m_nGalilState(nState)
-
-	, m_szLROffset(_T("0.0"))
-
-	, m_fScanCirc(1000.0)
-	, m_fDistToScan(1000.0)
-	, m_fDistScanned(10.0)
-	, m_fScanOverlap(50.0)
-
-	, m_nScanType(FALSE)
-	, m_bStartScanAtHomePos(FALSE)
-	, m_bReturnToStart(FALSE)
-
 	, m_szScannedDist(_T("0.0 mm"))
 	, m_szHomeDist(_T("0.0 mm"))
 	, m_szTempBoard(_T(""))
@@ -95,13 +83,6 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_szRGBLinePresent(_T(""))
 	, m_szRGBValue(_T(""))
 	, m_szRGBCalibration(_T(""))
-	, m_bSeekAndStartAtLine(FALSE)
-	, m_fSeekAndStartAtLine(250)
-	, m_bSeekStartLineInReverse(FALSE)
-	, m_bSeekWithLaser(FALSE)
-	, m_fMotorScanSpeed(50)
-	, m_fMotorScanAccel(25)
-	, m_fPredriveDistance(250)
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -124,6 +105,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_szLaserEdge[2] = _T("---");
 	m_szLaserJoint = _T("---");
 
+	ResetParameters();
 }
 
 CDialogGirthWeld::~CDialogGirthWeld()
@@ -217,7 +199,12 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_STATIC_RGB_CALIBRATION, m_szRGBCalibration);
 
 	if (pDX->m_bSaveAndValidate)
+	{
+		int delay = max((int)(1/*mm*/ * 1000.0 / m_fMotorScanSpeed + 0.5), 1);
+		SetTimer(TIMER_GET_LASER_PROFILE, delay, NULL);
+
 		m_fScanLength = (m_nScanType == 0) ? m_fScanCirc + m_fScanOverlap : m_fDistToScan;
+	}
 }
 
 
@@ -310,6 +297,9 @@ BOOL CDialogGirthWeld::OnInitDialog()
 	SetTimer(TIMER_NOTE_RGB, 250, NULL);
 	SetTimer(TIMER_ARE_MOTORS_RUNNING, 100, NULL);
 
+	int delay = max((int)(1/*mm*/ * 1000.0 / m_fMotorScanSpeed + 0.5), 1);
+	SetTimer(TIMER_GET_LASER_PROFILE, delay, NULL);
+
 	PostMessage(WM_SIZE);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -321,6 +311,75 @@ void CDialogGirthWeld::Create(CWnd* pParent)
 	ShowWindow(SW_HIDE);
 }
 
+void CDialogGirthWeld::Serialize(CArchive& ar)
+{
+	if (ar.IsStoring())
+	{
+		UpdateData(TRUE);
+		ar << m_szLROffset;
+		ar << m_fScanCirc;
+		ar << m_fDistToScan;
+		ar << m_fDistScanned;
+		ar << m_fScanOverlap;
+		ar << m_nScanType;
+		ar << m_bStartScanAtHomePos;
+		ar << m_bReturnToStart;
+		ar << m_bSeekAndStartAtLine;
+		ar << m_fSeekAndStartAtLine;
+		ar << m_bSeekStartLineInReverse;
+		ar << m_bSeekWithLaser;
+		ar << m_fMotorScanSpeed;
+		ar << m_fMotorScanAccel;
+		ar << m_fPredriveDistance;
+	}
+	else
+	{
+		try
+		{
+			ar >> m_szLROffset;
+			ar >> m_fScanCirc;
+			ar >> m_fDistToScan;
+			ar >> m_fDistScanned;
+			ar >> m_fScanOverlap;
+			ar >> m_nScanType;
+			ar >> m_bStartScanAtHomePos;
+			ar >> m_bReturnToStart;
+			ar >> m_bSeekAndStartAtLine;
+			ar >> m_fSeekAndStartAtLine;
+			ar >> m_bSeekStartLineInReverse;
+			ar >> m_bSeekWithLaser;
+			ar >> m_fMotorScanSpeed;
+			ar >> m_fMotorScanAccel;
+			ar >> m_fPredriveDistance;
+		}
+		catch (CArchiveException * e1)
+		{
+			ResetParameters();
+			e1->Delete();
+
+		}
+		UpdateData(FALSE);
+	}
+}
+
+void CDialogGirthWeld::ResetParameters()
+{
+	m_szLROffset = _T("0.0");
+	m_fScanCirc = 1000;
+	m_fDistToScan = 1000;
+	m_fDistScanned = 10;
+	m_fScanOverlap = 50;
+	m_nScanType = FALSE;
+	m_bStartScanAtHomePos = FALSE;
+	m_bReturnToStart = FALSE;
+	m_bSeekAndStartAtLine = FALSE;
+	m_fSeekAndStartAtLine = 0;
+	m_bSeekStartLineInReverse = FALSE;
+	m_bSeekWithLaser = FALSE;
+	m_fMotorScanSpeed = 50;
+	m_fMotorScanAccel = 25;
+	m_fPredriveDistance = 0;
+}
 
 
 // this will be called approximately every mm
@@ -461,17 +520,30 @@ void CDialogGirthWeld::GetLaserProfile()
 {
 	static clock_t tim0 = clock();
 	static clock_t tim1 = 0;
+	static int nLaserOn1 = -1;
 	clock_t t1 = clock();
 
-	if (m_laserControl.GetProfile())
+	int nLaserOn2 = m_laserControl.IsLaserOn();
+	if (nLaserOn1 != nLaserOn2)
 	{
-		double pos = m_motionControl.GetAvgMotorPosition();
-		m_laserControl.CalcLaserMeasures(pos);
-#ifdef _DEBUG_TIMING
-		if( g_fp1 )
-			fprintf(g_fp1, "%d\t%.1f\n", clock()-tim0, pos);
-#endif
+		m_wndLaser.InvalidateRgn(NULL);
+		nLaserOn1 = nLaserOn2;
 	}
+
+	if( !nLaserOn2 )
+		return;
+
+
+	else if (!m_laserControl.GetProfile())
+		return;
+
+
+	double pos = m_motionControl.GetAvgMotorPosition();
+	m_laserControl.CalcLaserMeasures(pos);
+#ifdef _DEBUG_TIMING
+	if( g_fp1 )
+		fprintf(g_fp1, "%d\t%.1f\n", clock()-tim0, pos);
+#endif
 
 	// only invalidate the laser static about 4 times per second
 	// this is acqwuired much more often
@@ -1182,13 +1254,15 @@ void CDialogGirthWeld::StartSteeringMotors(int nSteer, int start_pos, int end_po
 
 void CDialogGirthWeld::StartMeasuringLaser(BOOL bSet)
 {
+	/*
 	if (bSet)
 	{
-		int delay = max((int)(1/*mm*/ * 1000.0 / m_fMotorScanSpeed + 0.5), 1);
+		int delay = max((int)(1 * 1000.0 / m_fMotorScanSpeed + 0.5), 1);
 		SetTimer(TIMER_GET_LASER_PROFILE, delay, NULL);
 	}
 	else
 		KillTimer(TIMER_GET_LASER_PROFILE);
+		*/
 }
 
 void CDialogGirthWeld::StartNotingMotorSpeed(BOOL bSet)
@@ -1452,7 +1526,7 @@ BOOL CDialogGirthWeld::SeekStartLine()
 double CDialogGirthWeld::GetDistanceToBuffer()const
 {
 	double accel_dist = GetAccelDistance();
-	return 2 * accel_dist + 50;
+	return accel_dist + 50;
 }
 
 
@@ -1469,10 +1543,13 @@ UINT CDialogGirthWeld::ThreadRunScan()
 	{
 		m_bScanning = FALSE;
 		m_bResumeScan = FALSE;
+		m_nCalibratingRGB = 0;
 		StopMotors();
+		KillTimer(TIMER_NOTE_CALIBRATION);
 		WaitForMotorsToStop();
 		StartSteeringMotors(0x0, 0,0, 0);
 		InformRecordingSW(-1); // indicate that aborted
+		SendMessage(WM_SIZE); // replace the laser window with the calibration window
 		PostMessage(WM_STOPMOTOR_FINISHED);
 	}
 
@@ -1502,8 +1579,10 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			GoToPosition(0);
 			WaitForMotorsToStart();
 			WaitForMotorsToStop();
-			ResetEncoderCount();
+			if (m_bAborted)
+				return ThreadRunScan();
 
+			ResetEncoderCount();
 			// go to the acceleration distaznce behind home
 			// tell the recording S/W to start a zero
 			from_mm = 0;
@@ -1513,6 +1592,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 				GoToPosition(-m_fPredriveDistance);
 				WaitForMotorsToStart();
 				WaitForMotorsToStop();
+				if (m_bAborted)
+					return ThreadRunScan();
 			}
 		}
 		// seek a start line, and set HOME to be at that line
@@ -1521,10 +1602,6 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		{
 			if (!SeekStartLine())
 			{
-				StartSteeringMotors(0x0, 0,0, 0);
-				m_nCalibratingRGB = 0;
-				SendMessage(WM_SIZE); // replace the laser window with the calibration window
-				KillTimer(TIMER_NOTE_CALIBRATION);
 				m_bAborted = TRUE;
 				return ThreadRunScan();
 			}
@@ -1546,6 +1623,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 				GoToPosition(pos - m_fPredriveDistance);
 				WaitForMotorsToStart();
 				WaitForMotorsToStop();
+				if (m_bAborted)
+					return ThreadRunScan();
 			}
 
 			from_mm = (int)(pos + 0.5);
@@ -1563,6 +1642,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		GoToPosition(m_fDestinationPosition + GetDistanceToBuffer());
 		WaitForMotorsToStart();
 		WaitForMotorsToStop();
+		if (m_bAborted)
+			return ThreadRunScan();
 
 		// if paused have not finished recording
 		// if aborted, then will finish above
@@ -1582,6 +1663,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 				GoToPosition(m_fScanStartPos);
 				WaitForMotorsToStart();
 				WaitForMotorsToStop();
+				if (m_bAborted)
+					return ThreadRunScan();
 			}
 			PostMessage(WM_STOPMOTOR_FINISHED);
 		}
@@ -1761,6 +1844,13 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 			const CString* pMsg = (CString*)lParam;
 			SendDebugMessage(*pMsg);
 			return 0L;
+		}
+
+		case NAVIGATE_SET_MOTOR_DECEL:
+		{
+			double decel = lParam / 100.0;
+			m_motionControl.SetSlewDeceleration(decel);
+			return 1L;
 		}
 	}
 	return 0L;

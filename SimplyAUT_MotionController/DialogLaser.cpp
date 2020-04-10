@@ -24,22 +24,58 @@ CDialogLaser::CDialogLaser(CMotionControl& motion, CLaserControl& laser, CWnd* p
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_wndProfile(laser, m_bShiftToCentre, m_bShowRawData, RGB(10, 10, 10))
-	, m_bShiftToCentre(TRUE)
-	, m_bShowRawData(FALSE)
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
-	m_bAutoLaser = FALSE;
-
-	m_LaserPower = 0;
-	m_CameraShutter = 0;
+	ResetParameters();
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
 }
+
+void CDialogLaser::ResetParameters()
+{
+	m_bShiftToCentre = TRUE;
+	m_bShowRawData = FALSE;
+	m_bAutoLaser = FALSE;
+	m_LaserPower = 0;
+	m_CameraShutter = 0;
+}
+
+void CDialogLaser::Serialize(CArchive& ar)
+{
+	if (ar.IsStoring())
+	{
+		UpdateData(TRUE);
+		ar << m_bShiftToCentre;
+		ar << m_bShowRawData;
+		ar << m_bAutoLaser;
+		ar << m_LaserPower;
+		ar << m_CameraShutter;
+	}
+	else
+	{
+		try
+		{
+			ar >> m_bShiftToCentre;
+			ar >> m_bShowRawData;
+			ar >> m_bAutoLaser;
+			ar >> m_LaserPower;
+			ar >> m_CameraShutter;
+		}
+		catch (CArchiveException * e1)
+		{
+			ResetParameters();
+			e1->Delete();
+
+		}
+		UpdateData(FALSE);
+	}
+}
+
 
 CDialogLaser::~CDialogLaser()
 {
@@ -124,7 +160,7 @@ BOOL CDialogLaser::OnInitDialog()
 
 	m_bInit = TRUE;
 	PostMessage(WM_SIZE);
-
+	EnableControls();
 	UpdateData(FALSE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -135,6 +171,8 @@ HCURSOR CDialogLaser::OnQueryDragIcon()
 {
 	return (HCURSOR)m_hIcon;
 }
+
+
 
 LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 {
@@ -278,12 +316,13 @@ void CDialogLaser::EnableControls()
 
 	BOOL bLaserOn = m_laserControl.IsLaserOn();
 	GetDlgItem(IDC_ROI_BUTTON)->EnableWindow(bLaserOn);
-	GetDlgItem(IDC_BUTTON_ROI_RESET)->EnableWindow(bLaserOn);
-	GetDlgItem(IDC_AUTOLASER_CHECK)->EnableWindow(bLaserOn);
-	GetDlgItem(IDC_LASERPOWER_SLIDER)->EnableWindow(bLaserOn && !m_bAutoLaser);
-	GetDlgItem(IDC_SHUTTER_SLIDER)->EnableWindow(bLaserOn && !m_bAutoLaser);
+	GetDlgItem(IDC_BUTTON_ROI_RESET)->EnableWindow(bConnected);
+	GetDlgItem(IDC_AUTOLASER_CHECK)->EnableWindow(bConnected);
+	GetDlgItem(IDC_LASERPOWER_SLIDER)->EnableWindow(bConnected && !m_bAutoLaser);
+	GetDlgItem(IDC_SHUTTER_SLIDER)->EnableWindow(bConnected && !m_bAutoLaser);
+	GetDlgItem(IDC_CHECK_SHIFT_TO_CENTRE)->EnableWindow(bConnected);
+	GetDlgItem(IDC_CHECK_SHOW_RAW_DATA)->EnableWindow(bConnected);
 	GetDlgItem(IDC_LASER_BUTTON)->SetWindowText(bLaserOn ? _T("Laser Off") : _T("LaserOn"));
-
 
 	if (bConnected)
 	{

@@ -68,7 +68,6 @@ CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser)
 	m_fMotorSpeed = FLT_MAX;
 	m_fMotorAccel = FLT_MAX;
 	m_fWeldOffset = 0;
-	m_fpScanFile = NULL;
 	m_pParent = NULL;
 	m_nMsg = 0;
 }
@@ -424,6 +423,17 @@ BOOL CWeldNavigation::StopMotors()
 		return FALSE;
 }
 
+BOOL CWeldNavigation::SetMotorDeceleration(double decel)
+{
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+	{
+		BOOL ret = (BOOL)m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_SET_MOTOR_DECEL, (int)(100*decel+0.5));
+		return ret;
+	}
+	else
+		return FALSE;
+}
+
 
 BOOL CWeldNavigation::SetMotorSpeed(const double speed[4] )
 {
@@ -509,23 +519,8 @@ BOOL CWeldNavigation::NoteNextLaserPosition()
 		m_listLaserPositions[nSize - 1].pos			= motor_pos;
 		m_listLaserPositions[nSize - 1].rgb_sum = measure2.rgb_sum;
 		m_listLaserPositions[nSize - 1].last_manoeuvre_pos = last_manoeuvre_pos;
-//		m_listLaserPositions[nSize - 1].vel_filt = ::CalcGapVelocity(m_listLaserPositions, last_manoeuvre_pos);
-
-
-		if (m_fpScanFile != NULL)
-		{
-			double avg_side_height = (measure2.weld_left_height_mm + measure2.weld_right_height_mm) / 2;
-			double weld_cap_height = measure2.weld_cap_mm.y;
-
-			// pos, cap H, cap W, L/R diff, weld offset
-			fprintf(m_fpScanFile, "%5.1f\t%5.1f\t%5.1f\t%5.1f\t%5.1f\n",
-				m_listLaserPositions[nSize - 1].pos,
-				avg_side_height - weld_cap_height,
-				fabs(measure2.weld_right_mm - measure2.weld_left_mm),
-				fabs(measure2.weld_left_height_mm -  measure2.weld_right_height_mm),
-				m_listLaserPositions[nSize - 1].gap_filt);
-		}
-
+		m_listLaserPositions[nSize - 1].measures = measure2;
+		//		m_listLaserPositions[nSize - 1].vel_filt = ::CalcGapVelocity(m_listLaserPositions, last_manoeuvre_pos);
 		m_crit1.Unlock();
 #ifdef _DEBUG_TIMING
 		g_NoteNextLaserPositionTime += clock() - t1;
@@ -540,7 +535,53 @@ BOOL CWeldNavigation::IsNavigating()const
 	return m_hThreadSteerMotors != NULL;
 }
 
-BOOL CWeldNavigation::OpenScanFile()
+static void InterpolateVector(const CArray<double,double>& X, const CArray<double,double>& src, CArray<double, double>& dest, int start_pos, int end_pos)
+{
+	static double X2[100], Y2[100];
+	int len = abs(end_pos - start_pos) + 1;
+	dest.SetSize(len);
+
+	double coeff[3];
+	int nSize = (int)X.GetSize();
+	len = 0;
+	for (int pos = start_pos; pos <= end_pos; ++pos)
+	{
+		int i1, i2;
+		for (i1 = 0; i1 < nSize && X[i1] < pos-10; ++i1);
+		for (i2 = nSize - 1; i2 >= 0 && i2 > pos+10; --i2); 
+
+		if (i2 - i1 < 3 && i1 - 1 >= 0) i1--;
+		if (i2 - i1 < 3 && i2 + 1 < nSize) i2++;
+
+		int count = 0;
+		for (int i = i1; i < i2 && count < 100; ++i)
+		{
+			X2[count] = X[i];
+			Y2[count] = src[i];
+			count++;
+		}
+		if (count >= 3)
+		{
+			polyfit(X2, Y2, count, 2, coeff);
+			dest[len] = coeff[2] * pos * pos + coeff[1] * pos + coeff[0];
+			len++;
+		}
+		else if (count >= 2)
+		{
+			polyfit(X2, Y2, count, 1, coeff);
+			dest[len] = coeff[1] * pos + coeff[0];
+			len++;
+		}
+		else if (count >= 1)
+		{
+			polyfit(X2, Y2, count, 0, coeff);
+			dest[len] = coeff[0];
+			len++;
+		}
+	}
+}
+
+BOOL CWeldNavigation::WriteScanFile()
 {
 	char my_documents[MAX_PATH];
 	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
@@ -563,19 +604,55 @@ BOOL CWeldNavigation::OpenScanFile()
 			int ind = szFile.Find("_");
 			if (ind != -1)
 			{
-				int nFile = atoi(szFile.Right(ind + 1));
+				int nFile = atoi(szFile.Mid(ind + 1));
 				nMaxFile = max(nMaxFile, nFile);
 			}
 		}
 	}
 
 	path.Format("%s\\SimplyUTFiles\\File_%d.txt", my_documents, nMaxFile+1);
-	fopen_s(&m_fpScanFile, path, "w");
-	if (m_fpScanFile == NULL)
+	FILE* fp = NULL;
+	fopen_s(&fp, path, "w");
+	if (fp == NULL)
 		return FALSE;
 
 	// pos, cap H, cap W, L/R diff, weld offset
-	fprintf(m_fpScanFile, "Pos\tCap H\tCap W\tHi/Lo\tOffset\n");
+	fprintf(fp, "Pos\tCap H\tCap W\tHi/Lo\tOffset\n");
+
+	int nSize = (int)m_listLaserPositions.GetSize();
+	CArray<double, double> X, Y1[2], Y2[2], Y3[2], Y4[2];
+	X.SetSize(nSize);
+	Y1[0].SetSize(nSize);
+	Y2[0].SetSize(nSize);
+	Y3[0].SetSize(nSize);
+	Y4[0].SetSize(nSize);
+
+	for (int i = 0; i < nSize; ++i)
+	{
+		const LASER_MEASURES& measure2 = m_listLaserPositions[i].measures;
+		double avg_side_height = (measure2.weld_left_height_mm + measure2.weld_right_height_mm) / 2;
+		double weld_cap_height = measure2.weld_cap_mm.y;
+
+		X[i] = m_listLaserPositions[i].pos;
+		Y1[0][i] = avg_side_height - weld_cap_height;
+		Y2[0][i] = fabs(measure2.weld_right_mm - measure2.weld_left_mm);
+		Y3[0][i] = fabs(measure2.weld_left_height_mm - measure2.weld_right_height_mm);
+		Y4[0][i] = m_listLaserPositions[i].gap_filt;
+	}
+
+
+	InterpolateVector(X, Y1[0], Y1[1], m_nStartPos, m_nEndPos);
+	InterpolateVector(X, Y2[0], Y2[1], m_nStartPos, m_nEndPos);
+	InterpolateVector(X, Y3[0], Y3[1], m_nStartPos, m_nEndPos);
+	InterpolateVector(X, Y4[0], Y4[1], m_nStartPos, m_nEndPos);
+
+	for(int i=0; i < Y1[1].GetSize(); ++i)
+	{
+		fprintf(fp, "%d\t%7.3f\t%7.3f\t%7.3f\t%7.3f\n",
+			i, Y1[1][i], Y2[1][i], Y3[1][i], Y4[1][i]);
+	}
+
+	fclose(fp);
 	return TRUE;
 }
 
@@ -608,19 +685,10 @@ void CWeldNavigation::StartSteeringMotors(int nSteer, int start_mm, int end_mm, 
 		if( nSteer & 0x1 )
 			m_hThreadNoteLaser = AfxBeginThread(::ThreadNoteLaser, this);
 		if (nSteer & 0x2)
-		{
-			if (bScanning)
-				OpenScanFile();
-
 			m_hThreadSteerMotors = AfxBeginThread(::ThreadSteerMotors, this);
-		}
 	}
 	else
 	{
-		if (m_fpScanFile != NULL)
-			fclose(m_fpScanFile);
-		m_fpScanFile = NULL;
-
 #ifdef _DEBUG_TIMING
 		char my_documents[MAX_PATH];
 		HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
@@ -731,7 +799,11 @@ static CDoublePoint GetTurnRateAndSpeed(double gap)
 
 UINT CWeldNavigation::ThreadSteerMotors()
 {
-	return ThreadSteerMotors_try3();
+	ThreadSteerMotors_try3();
+	if (m_bScanning)
+		WriteScanFile();
+
+	return 0;
 }
 
 UINT CWeldNavigation::ThreadSteerMotors_try3()
@@ -767,6 +839,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 		// that way nall the mnotors will stop at the sazme exact time
 		if (direction*pos0.pos >= direction*m_nEndPos)
 		{
+			SetMotorDeceleration(3*m_fMotorAccel);
 			StopMotors();
 			break; // stop navigating now
 		}

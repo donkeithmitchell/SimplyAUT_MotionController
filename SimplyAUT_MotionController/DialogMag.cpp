@@ -39,10 +39,6 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	, m_szRGBCalValue(_T(""))
 	, m_szRGBCalValueSet(_T(""))
 	, m_szRGBLinePresent(_T(""))
-	, m_fCalibrationLength(250)
-	, m_szCalibrationSpeed(_T("20.0"))
-	, m_bCalibrateWithLaser(FALSE)
-	, m_bCalibrateReturnToStart(FALSE)
 {
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -50,7 +46,7 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	m_bCheck = FALSE;
 	m_nCalibrating = 0;
 	m_hThreadWaitCalibration = FALSE;
-	m_bScanReverse = FALSE;
+	ResetParameters();
 
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
@@ -243,6 +239,46 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 	}
 
 	CDialog::OnTimer(nIDEvent);
+}
+
+void CDialogMag::Serialize(CArchive& ar)
+{
+	if (ar.IsStoring())
+	{
+		UpdateData(TRUE);
+		ar << m_fCalibrationLength;
+		ar << m_szCalibrationSpeed;
+		ar << m_bCalibrateWithLaser;
+		ar << m_bCalibrateReturnToStart;
+		ar << m_bScanReverse;
+	}
+	else
+	{
+		try
+		{
+			ar >> m_fCalibrationLength;
+			ar >> m_szCalibrationSpeed;
+			ar >> m_bCalibrateWithLaser;
+			ar >> m_bCalibrateReturnToStart;
+			ar >> m_bScanReverse;
+		}
+		catch (CArchiveException * e1)
+		{
+			ResetParameters();
+			e1->Delete();
+
+		}
+		UpdateData(FALSE);
+	}
+}
+
+void CDialogMag::ResetParameters()
+{
+	m_fCalibrationLength = 250;
+	m_szCalibrationSpeed = _T("20.0");
+	m_bCalibrateWithLaser = FALSE;
+	m_bCalibrateReturnToStart = FALSE;
+	m_bScanReverse = FALSE;
 }
 
 double CDialogMag::GetCalibrationValue()

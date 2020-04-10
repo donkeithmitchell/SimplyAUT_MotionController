@@ -33,11 +33,14 @@ public:
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
-	void OnOK() {}
+	void OnOK();
+	void OnCancel();
 	void OnSelchangeTab2();
 	BOOL CheckVisibleTab();
 	void AppendErrorMessage(const CString& szMsg);
 	void StartReadMagStatus(BOOL);
+	void Serialize(BOOL bSave);
+	void Serialize(CArchive& ar);
 
 	enum { WM_DEGUG_MSG = WM_USER + 1 };
 	enum{ TIMER_GET_MAG_STATUS =1 };

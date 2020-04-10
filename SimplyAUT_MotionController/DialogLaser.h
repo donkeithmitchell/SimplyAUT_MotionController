@@ -19,6 +19,8 @@ public:
 	void EnableControls();
 	void Init(CWnd* pParent, UINT nMsg);
 	BOOL CheckVisibleTab() { return TRUE; }
+	void	Serialize(CArchive& ar);
+	void    ResetParameters();
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;

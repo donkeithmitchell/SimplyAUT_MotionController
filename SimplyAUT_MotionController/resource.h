@@ -174,15 +174,18 @@
 #define IDC_EDIT_PREDRIVE               1117
 #define IDC_LIST1                       1117
 #define IDC_LIST_FILES                  1117
+#define IDC_BUTTON1                     1118
+#define IDC_BUTTON_RESET                1118
 #define ID_POPUP_SETLOCATION            32771
+#define ID_POPUP_TOGGLELASER            32772
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
-#define _APS_NEXT_COMMAND_VALUE         32772
-#define _APS_NEXT_CONTROL_VALUE         1118
+#define _APS_NEXT_COMMAND_VALUE         32773
+#define _APS_NEXT_CONTROL_VALUE         1119
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

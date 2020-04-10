@@ -29,6 +29,7 @@ public:
 	BOOL   GoToPosition(double pos, BOOL bWait);
 	BOOL   SteerMotors(double fSpeed, double rate);
 	BOOL   SetSlewSpeed(double A, double B, double C, double D);
+	BOOL	SetSlewDeceleration(double decel_mm_sec_sec);
 	BOOL   SetSlewSpeed(double speed, double accel);
 	void   GoToHomePosition();
 	double GetAvgMotorPosition();

@@ -22,6 +22,8 @@ public:
 	void	StartReadMagStatus(BOOL bSet);
 	UINT	ThreadWaitCalibration();
 	double	GetCalibrationValue();
+	void	Serialize(CArchive& ar);
+	void    ResetParameters();
 
 
 	HICON	m_hIcon;

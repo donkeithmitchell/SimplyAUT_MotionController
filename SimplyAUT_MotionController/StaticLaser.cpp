@@ -58,7 +58,8 @@ BEGIN_MESSAGE_MAP(CStaticLaser, CWnd)
 	ON_WM_TIMER()
 	ON_WM_RBUTTONDOWN()
 	ON_WM_LBUTTONDBLCLK()
-	ON_COMMAND_RANGE(ID_POPUP_SETLOCATION, ID_POPUP_SETLOCATION,OnMenu)
+	ON_COMMAND_RANGE(ID_POPUP_SETLOCATION, ID_POPUP_SETLOCATION, OnMenu)
+	ON_COMMAND_RANGE(ID_POPUP_TOGGLELASER, ID_POPUP_TOGGLELASER, OnMenu)
 END_MESSAGE_MAP()
 
 
@@ -93,7 +94,7 @@ void CStaticLaser::OnPaint()
 	CBitmap* pBitmap = memDC.SelectObject(&bitmap);
 	DrawCrawlerLocation(&memDC);
 	DrawLaserProfile(&memDC);
-////	DrawRGBProfile(&memDC);
+	////	DrawRGBProfile(&memDC);
 	DrawLaserOffset(&memDC);
 	//	m_wndLaserProfile.InvalidateRgn(NULL);
 	dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
@@ -108,14 +109,14 @@ void CStaticLaser::OnSize(UINT nFlag, int cx, int cy)
 
 	GetLaserRect(&m_disp_rect);
 	m_disp_width_factor = ((double)m_disp_rect.Width()) / (double)SENSOR_WIDTH;
-//	m_disp_height_factor = ((double)m_disp_rect.Height()) / (double)(SENSOR_HEIGHT); // mut set when get data
+	//	m_disp_height_factor = ((double)m_disp_rect.Height()) / (double)(SENSOR_HEIGHT); // mut set when get data
 }
 
 CPoint CStaticLaser::GetScreenPixel(double x, double y)
 {
 	CPoint ret;
 	ret.x = m_disp_rect.left + int(x * m_disp_width_factor + 0.5);
-	ret.y = m_disp_rect.bottom - int((y- m_disp_height_min) * m_disp_height_factor + 0.5);
+	ret.y = m_disp_rect.bottom - int((y - m_disp_height_min) * m_disp_height_factor + 0.5);
 
 	return ret;
 }
@@ -161,9 +162,9 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 		// draw a filled dot at this location
 		// red if magnets not engaged, else greenm
 		int nMagOn = m_magControl.GetMagStatus(MAG_IND_MAG_ON);
-		CBrush brush2(nMagOn==1 ? RGB(0, 255, 0) : RGB(255, 0, 0));
-		CPen pen2(PS_SOLID, 0, (nMagOn==1 ? RGB(0, 255, 0) : RGB(255, 0, 0)));
-		CPen * pPen2 = pDC->SelectObject(&pen2);
+		CBrush brush2(nMagOn == 1 ? RGB(0, 255, 0) : RGB(255, 0, 0));
+		CPen pen2(PS_SOLID, 0, (nMagOn == 1 ? RGB(0, 255, 0) : RGB(255, 0, 0)));
+		CPen* pPen2 = pDC->SelectObject(&pen2);
 		CBrush* pBrush2 = pDC->SelectObject(&brush2);
 		pDC->Ellipse(x1 - 5, y1 - 5, x1 + 5, y1 + 5);
 	}
@@ -173,7 +174,11 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 	//pDC->SelectObject(pPen);
 }
 
-
+void CStaticLaser::ToggleLaserOn()
+{
+	m_laserControl.TurnLaserOn(!m_laserControl.IsLaserOn());
+	InvalidateRgn(NULL);
+}
 void CStaticLaser::SetCrawlerLocation(CPoint pt)
 {
 	// get the angle of pt from the centre
@@ -640,6 +645,7 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 void CStaticLaser::OnLButtonDblClk(UINT nFlags, CPoint pt)
 {
 	CWnd::OnLButtonDblClk(nFlags, pt);
+	ToggleLaserOn();
 }
 
 void CStaticLaser::OnMenu(UINT nID)
@@ -648,6 +654,9 @@ void CStaticLaser::OnMenu(UINT nID)
 	{
 	case ID_POPUP_SETLOCATION:
 		SetCrawlerLocation(m_ptMouse);
+		break;
+	case ID_POPUP_TOGGLELASER:
+		ToggleLaserOn();
 		break;
 	}
 }
