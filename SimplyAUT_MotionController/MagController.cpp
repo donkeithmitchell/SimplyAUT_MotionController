@@ -588,7 +588,7 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser)
         if (bWithLaser && Y1[i] > 2 * median)
             continue;
 
-        if (X1[i] > 10)
+        if (fabs(X1[i]-X1[0]) > 10)
         {
             if (minInd == -1 || Y1[i] < Y1[minInd])
                 minInd = i;

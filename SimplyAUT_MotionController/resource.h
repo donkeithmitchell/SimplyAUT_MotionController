@@ -77,6 +77,7 @@
 #define IDC_BUTTON_BACK                 1034
 #define IDC_BUTTON_FWD                  1035
 #define IDC_BUTTON_RIGHT                1036
+#define IDC_SPIN_SEEK_START             1036
 #define IDC_EDIT_CIRC                   1037
 #define IDC_SPIN_CIRC                   1038
 #define IDC_BUTTON_ZERO_HOME            1039
@@ -100,6 +101,8 @@
 #define IDC_BUTTON_LASER_STATUS         1056
 #define IDC_STATIC_MOTOR_A              1057
 #define IDC_BUTTON_LEFT                 1057
+#define IDC_CHECK_AUTOHOME2             1057
+#define IDC_CHECK_PREDRIVE              1057
 #define IDC_STATIC_MOTOR_B              1058
 #define IDC_CHECK_SEEK_START_REVERSE    1058
 #define IDC_STATIC_MOTOR_C              1059
@@ -120,6 +123,7 @@
 #define IDC_SPIN_ACCEL2                 1064
 #define IDC_STATIC_MOTOR_D2             1064
 #define IDC_TEMPERATURE_EDIT            1065
+#define IDC_SPIN_PREDRIVE               1065
 #define IDC_MSG_EDIT                    1066
 #define IDC_LASERPOWER_BUTTON           1067
 #define IDC_STATIC_RGB_LINE             1067

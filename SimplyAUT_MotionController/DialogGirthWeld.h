@@ -54,7 +54,7 @@ public:
 	BOOL    GoToPosition2(double left, double right);
 	BOOL    ResetEncoderCount();
 	double	GetAvgMotorPosition();
-	BOOL    ZeroPositions();
+	BOOL    DefinePositions(double);
 	BOOL    WaitForMotorsToStop();
 	BOOL    WaitForMotorsToStart();
 	double  GetLeftRightOffset()const;
@@ -66,7 +66,6 @@ public:
 	void	NoteRGBCalibration();
 	double	GetCalibrationValue();
 	BOOL	SeekStartLine();
-	BOOL	RemoveLaserOffset();
 	double	GetMotorSpeed();
 	double	GetMotorAccel();
 	double  GetAccelDistance()const;
@@ -75,8 +74,8 @@ public:
 	void    Serialize(CArchive& ar);
 	void    ResetParameters();
 
-	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL};
-	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_ZERO_POSITION, 
+	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK};
+	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_DEFINE_POSITION, 
 		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GOTO_POSITION2};
 	enum TIMER_GW { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_TEMPERATURE, TIMER_LASER_STATUS1, TIMER_RGB_STATUS, TIMER_RUN_TIME, 
 		TIMER_NOTE_RGB, TIMER_GET_LASER_PROFILE, TIMER_ARE_MOTORS_RUNNING, TIMER_NOTE_CALIBRATION	};
@@ -134,6 +133,8 @@ public:
 	CSpinButtonCtrl m_spinScanOverlap;
 	CSpinButtonCtrl m_spinScanSpeed;
 	CSpinButtonCtrl m_spinScanAccel;
+	CSpinButtonCtrl m_spinPredrive;
+	CSpinButtonCtrl m_spinSeekStart;
 
 	CSliderCtrl		m_sliderSteer;
 
@@ -182,6 +183,7 @@ public:
 	BOOL	m_bSeekAndStartAtLine;
 	BOOL	m_bSeekStartLineInReverse;
 	BOOL	m_bSeekWithLaser;
+	BOOL	m_bPredrive;
 
 	CBrush	m_brRed;
 	CBrush	m_brGreen;
@@ -193,6 +195,7 @@ public:
 	afx_msg LRESULT OnUserStaticParameter(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserWeldNavigation(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserMotionControl(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserMagStopSeek(WPARAM, LPARAM);
 
 	afx_msg void OnDeltaposSpinLrOffset(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDeltaposSpinScanCirc(NMHDR* pNMHDR, LRESULT* pResult);
@@ -219,4 +222,7 @@ public:
 	afx_msg void OnDeltaposSpinAccel2(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnReleasedcaptureSliderSteer(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnDeltaposSpinPredrive(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnDeltaposSpinSeekStart(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnClickedCheckPredrive();
 };

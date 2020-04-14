@@ -384,33 +384,38 @@ void CStaticLaser::DrawLaserOffset(CDC* pDC)
 	// build an array of offsets and position
 	LASER_POS lastPos = m_weldNavigation.GetLastNotedPosition(0);
 
+	m_critLaserPos1.Lock();
 	if (lastPos.gap_filt != FLT_MAX)
-		m_laserPos.Add(CDoublePoint(lastPos.pos, lastPos.gap_filt));
+		m_laserPos1.Add(CDoublePoint(lastPos.pos, lastPos.gap_filt));
 
-	if (m_laserPos.GetSize() == 0)
+	if (m_laserPos1.GetSize() == 0)
+	{
+		m_critLaserPos1.Unlock();
 		return;
+	}
 
 	double minGap = FLT_MAX;
 	double maxGap = -FLT_MAX;
 	double minPos = FLT_MAX;
 	double maxPos = -FLT_MAX;
 
-	for (int i = 0; i < m_laserPos.GetSize(); ++i)
+	for (int i = 0; i < m_laserPos1.GetSize(); ++i)
 	{
-		minGap = min(minGap, m_laserPos[i].y);
-		maxGap = max(maxGap, m_laserPos[i].y);
+		minGap = min(minGap, m_laserPos1[i].y);
+		maxGap = max(maxGap, m_laserPos1[i].y);
 
-		minPos = min(minPos, m_laserPos[i].x);
-		maxPos = max(maxPos, m_laserPos[i].x);
+		minPos = min(minPos, m_laserPos1[i].x);
+		maxPos = max(maxPos, m_laserPos1[i].x);
 	}
-
-	if (minPos == maxPos)
-		return;
 
 	CRect rect;
 	GetOffsetRect(&rect);
-	if (rect.Width() <= 0 || rect.Height() <= 0)
+
+	if (minPos == maxPos || rect.Width() <= 0 || rect.Height() <= 0)
+	{
+		m_critLaserPos1.Unlock();
 		return;
+	}
 
 	minGap = min(minGap, -1);
 	maxGap = max(maxGap, 1);
@@ -426,15 +431,15 @@ void CStaticLaser::DrawLaserOffset(CDC* pDC)
 	CPen pen(PS_SOLID, 0, RGB(250, 10, 10));
 	pDC->SelectObject(&pen);
 	int init = 1;
-	for (int i = 0; i < m_laserPos.GetSize(); i += smooth)
+	for (int i = 0; i < m_laserPos1.GetSize(); i += smooth)
 	{
 		double sum1 = 0;
 		double sum2 = 0;
 		int cnt = 0;
-		for (int j = 0; j < smooth && i + j < m_laserPos.GetSize(); ++j)
+		for (int j = 0; j < smooth && i + j < m_laserPos1.GetSize(); ++j)
 		{
-			sum1 += m_laserPos[i + j].x;
-			sum2 += m_laserPos[i + j].y;
+			sum1 += m_laserPos1[i + j].x;
+			sum2 += m_laserPos1[i + j].y;
 			cnt++;
 		}
 		if( cnt > 0 )
@@ -446,6 +451,7 @@ void CStaticLaser::DrawLaserOffset(CDC* pDC)
 		}
 	}
 
+	m_critLaserPos1.Unlock();
 }
 
 
@@ -476,7 +482,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	// fit the lasewr display to the screen
 	m_disp_height_max = 0;
 	m_disp_height_min = SENSOR_HEIGHT;
-	for (int i = 0; i <= SENSOR_WIDTH; i++)
+	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
 		MT_Hits_Pos val = hits[i];
 		if (val>= 1 && val <= SENSOR_HEIGHT-1)
@@ -636,6 +642,16 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 
 	CMenu* pPopup = menu.GetSubMenu(0);
 	ASSERT(pPopup);
+
+	MENUITEMINFO mii;
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;
+	pPopup->GetMenuItemInfoA(1, &mii, TRUE);
+
+	mii.fState = MFS_DEFAULT;	
+	mii.fType |= MFT_RADIOCHECK;
+	mii.fState = m_laserControl.IsLaserOn() ? MFS_CHECKED : MFS_UNCHECKED;
+	pPopup->SetMenuItemInfoA(1, &mii, TRUE);
 
 	m_ptMouse = pt;
 	ClientToScreen(&pt);

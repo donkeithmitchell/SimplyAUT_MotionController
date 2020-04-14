@@ -11,11 +11,12 @@ public:
 	CDialogFiles(CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogFiles();
 
-	void Create(CWnd*);
-	void UpdateFileList();
-	void EnableControls();
-	void Init(CWnd* pParent, UINT nMsg);
-	BOOL CheckVisibleTab() { return TRUE; }
+	void	Create(CWnd*);
+	void	UpdateFileList();
+	int		GetFileList(CArray<CString, CString>& fileList);
+	void	EnableControls();
+	void	Init(CWnd* pParent, UINT nMsg);
+	BOOL	CheckVisibleTab() { return TRUE; }
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;

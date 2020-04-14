@@ -24,9 +24,7 @@ CMotionControl::~CMotionControl()
 {
     if (m_pGclib)
     {
-        StopMotors();
-        m_pGclib->StopMotors(); //stop all motion and programs
-        WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+        StopMotors(); //stop all motion and programs
         m_pGclib->MotorsOff();
     }
 
@@ -119,8 +117,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 
 
     SendDebugMessage(_T("Initialization of the Galil..."));
-    m_pGclib->StopMotors(); //stop all motion and programs
-    WaitForMotorsToStop(); //Block until motion is complete on vector plane S
+    StopMotors(); //stop all motion and programs
 
     m_pGclib->GCommand(_T("KP*=1.05"));     // proportional constant
     m_pGclib->GCommand(_T("KI*=0"));        // integrator
@@ -149,11 +146,10 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 // resstr the motor positioons
 // will use this zero as a reference for the start
 // can only do this if the mnotor is stopped
-void CMotionControl::ZeroPositions()
+void CMotionControl::DefinePositions(double pos)
 {
-    m_pGclib->StopMotors(); //stop all motion and programs
-    WaitForMotorsToStop(); //Block until motion is complete on vector plane S
-    m_pGclib->DefinePosition(0);        // all to zero
+    StopMotors(); //stop all motion and programs
+    m_pGclib->DefinePosition( (int)(pos + 0.5) );        // all to zero
 }
 void CMotionControl::GoToHomePosition()
 {

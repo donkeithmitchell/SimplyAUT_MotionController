@@ -243,6 +243,9 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 
 void CDialogMag::Serialize(CArchive& ar)
 {
+	const int MASK = 0xCDCDCDCD;
+	int mask = MASK;
+
 	if (ar.IsStoring())
 	{
 		UpdateData(TRUE);
@@ -251,6 +254,7 @@ void CDialogMag::Serialize(CArchive& ar)
 		ar << m_bCalibrateWithLaser;
 		ar << m_bCalibrateReturnToStart;
 		ar << m_bScanReverse;
+		ar << mask;
 	}
 	else
 	{
@@ -261,6 +265,7 @@ void CDialogMag::Serialize(CArchive& ar)
 			ar >> m_bCalibrateWithLaser;
 			ar >> m_bCalibrateReturnToStart;
 			ar >> m_bScanReverse;
+			ar >> mask;
 		}
 		catch (CArchiveException * e1)
 		{
@@ -268,6 +273,9 @@ void CDialogMag::Serialize(CArchive& ar)
 			e1->Delete();
 
 		}
+		if (mask != MASK)
+			ResetParameters();
+
 		UpdateData(FALSE);
 	}
 }
@@ -285,7 +293,7 @@ double CDialogMag::GetCalibrationValue()
 {
 	if (m_bCalibrateWithLaser)
 	{
-		if (m_laserControl.GetProfile())
+		if (m_laserControl.GetProfile(10))
 		{
 			m_laserControl.CalcLaserMeasures(.0/*pos*/);
 			double avg_side_height = (m_laserControl.m_measure2.weld_left_height_mm + m_laserControl.m_measure2.weld_right_height_mm) / 2;
@@ -427,7 +435,7 @@ void CDialogMag::OnClickedButtonRgbCalibration()
 		// where is now, drive until desired length past
 		// this will drive the crawler pastr the line
 		// will wait until the line has been passed, then calculate where it is
-		m_motionControl.ZeroPositions();
+		m_motionControl.DefinePositions(0);
 		m_motionControl.SetSlewSpeed(speed, accel);
 		m_motionControl.GoToPosition(m_fCalibrationLength, FALSE/*don't wait for stop*/);
 
@@ -520,7 +528,7 @@ LRESULT CDialogMag::OnUserWaitCalibrationFinished(WPARAM, LPARAM)
 		if (ret == IDYES)
 		{
 			pos1 = m_motionControl.GetAvgMotorPosition(); // where am now
-			m_motionControl.ZeroPositions();
+			m_motionControl.DefinePositions(0);
 		}
 
 		if (ret != IDCANCEL)

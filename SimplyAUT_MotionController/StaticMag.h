@@ -42,6 +42,7 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
+	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint pt);
 
 	DECLARE_MESSAGE_MAP()
 };

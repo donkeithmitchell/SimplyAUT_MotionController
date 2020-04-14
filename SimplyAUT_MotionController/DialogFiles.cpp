@@ -113,16 +113,28 @@ void CDialogFiles::Create(CWnd* pParent)
 	ShowWindow(SW_HIDE);
 }
 
-void CDialogFiles::UpdateFileList()
+static int SortFileList(const void* e1, const void* e2)
+{
+	const CString* file1 = (CString*)e1;
+	const CString* file2 = (CString*)e2;
+
+	int ind1 = file1->Find("_");
+	int ind2 = file2->Find("_");
+
+	int N1 = (ind1 == -1) ? 0 : atoi(file1->Mid(ind1 + 1));
+	int N2 = (ind2 == -1) ? 0 : atoi(file2->Mid(ind2 + 1));
+
+	return N1 - N2;
+}
+
+int CDialogFiles::GetFileList(CArray<CString, CString>& fileList)
 {
 	char buffer[MAX_PATH];
-	LV_ITEM listItem;
 	CString path;
 
-	m_listFiles.DeleteAllItems();
-
+	fileList.SetSize(0);
 	if (::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, buffer) != S_OK)
-		return;
+		return 0;
 
 	path.Format("%s\\SimplyUTFiles", buffer);
 	DWORD attrib = GetFileAttributes(buffer);
@@ -130,24 +142,57 @@ void CDialogFiles::UpdateFileList()
 	{
 		// format the path, and insure that it exists
 		if (!::CreateDirectory(path, NULL))
-			return;
+			return 0;
 	}
 
 	CFileFind find;
 	path.Format("%s\\SimplyUTFiles\\*.txt", buffer);
-	if( !find.FindFile(path) )
-		return;
+	if (!find.FindFile(path))
+		return 0;
 
-	listItem.mask = LVIF_TEXT;
-	listItem.iSubItem = 0;
-	listItem.pszText = buffer;
-	listItem.cchTextMax = sizeof(buffer);
 	int ret = 1;
-	for( int i = 0, j=0; ret != 0; ++i)
+	for (int i = 0, j = 0; ret != 0; ++i)
 	{
 		ret = find.FindNextFileA();
 
 		CString szFile = find.GetFileName();
+		int ind = szFile.Find("File_");
+		if (ind != -1 )
+			fileList.Add(find.GetFilePath());
+	}
+	qsort(fileList.GetData(), fileList.GetSize(), sizeof(CString), ::SortFileList);
+
+	return (int)fileList.GetSize();
+}
+
+void CDialogFiles::UpdateFileList()
+{
+	char buffer[MAX_PATH];
+	LV_ITEM listItem;
+	listItem.mask = LVIF_TEXT;
+	listItem.iSubItem = 0;
+	listItem.pszText = buffer;
+	listItem.cchTextMax = sizeof(buffer);
+
+	CString szFile;
+	CArray<CString, CString> fileList;
+
+	char drive[_MAX_DRIVE];
+	char path[_MAX_PATH];
+	char fname[_MAX_FNAME];
+	char ext[_MAX_EXT];
+
+	m_listFiles.DeleteAllItems();
+
+	int len = GetFileList(fileList);
+	if (len == 0)
+		return;
+
+	for( int i = 0, j=0; i < len; ++i)
+	{
+		::_splitpath_s(fileList[i], drive, _MAX_DRIVE, path, _MAX_PATH, fname, _MAX_FNAME, ext, _MAX_EXT);
+		szFile.Format("%s%s", fname, ext);
+
 		int ind = szFile.Find("File_");
 		if (ind == -1)
 			continue;
@@ -162,7 +207,7 @@ void CDialogFiles::UpdateFileList()
 		m_listFiles.SetItemText(j, 1, buffer);
 
 		FILE* fp = NULL;
-		if (fopen_s(&fp, find.GetFilePath(), "r") == 0 && fp != NULL)
+		if (fopen_s(&fp, fileList[i], "r") == 0 && fp != NULL)
 		{
 			int pos;
 			double capH, capW, HiLo, offset;

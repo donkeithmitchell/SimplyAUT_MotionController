@@ -64,7 +64,7 @@ public:
 	BOOL SetAutoLaserCheck(BOOL);
 	BOOL SetLaserIntensity(int nLaserPower);
 	BOOL SetCameraShutter(int nCameraShutter);
-	BOOL GetProfile();
+	BOOL GetProfile(int);
 	BOOL GetProfilemm(Profilemm* pProfile, int hit_no);
 	void Frm_Find_Sensors();
 	int  GetSerialNumber();

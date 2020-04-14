@@ -419,7 +419,7 @@ BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 	return TRUE;
 }
 
-BOOL CLaserControl::GetProfile()
+BOOL CLaserControl::GetProfile(int tries)
 {
 	if (!IsConnected())
 	{
@@ -431,13 +431,16 @@ BOOL CLaserControl::GetProfile()
 		SendErrorMessage(_T("Laser ERROR: Not On"));
 		return FALSE;
 	}
-	else if (!::DLLGetProfile(&m_profile))
+
+	for (int i = 0; i < tries; ++i)
 	{
-		SendErrorMessage(_T("Laser ERROR: Cant get Profile"));
-		return FALSE;
+		if (::DLLGetProfile(&m_profile))
+			return TRUE;
+		Sleep(10);
 	}
-	else
-		return TRUE;
+
+	SendErrorMessage(_T("Laser ERROR: Cant get Profile"));
+	return FALSE;
 }
 
 BOOL CLaserControl::GetProfilemm(Profilemm* pProfile, int hit_no)

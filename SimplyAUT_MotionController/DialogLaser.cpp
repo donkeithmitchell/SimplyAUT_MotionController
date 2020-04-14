@@ -47,6 +47,9 @@ void CDialogLaser::ResetParameters()
 
 void CDialogLaser::Serialize(CArchive& ar)
 {
+	const int MASK = 0xCDCDCDCD;
+	int mask = MASK;
+
 	if (ar.IsStoring())
 	{
 		UpdateData(TRUE);
@@ -55,6 +58,7 @@ void CDialogLaser::Serialize(CArchive& ar)
 		ar << m_bAutoLaser;
 		ar << m_LaserPower;
 		ar << m_CameraShutter;
+		ar << mask;
 	}
 	else
 	{
@@ -65,6 +69,7 @@ void CDialogLaser::Serialize(CArchive& ar)
 			ar >> m_bAutoLaser;
 			ar >> m_LaserPower;
 			ar >> m_CameraShutter;
+			ar >> mask;
 		}
 		catch (CArchiveException * e1)
 		{
@@ -72,6 +77,9 @@ void CDialogLaser::Serialize(CArchive& ar)
 			e1->Delete();
 
 		}
+		if (mask != MASK)
+			ResetParameters();
+
 		UpdateData(FALSE);
 	}
 }

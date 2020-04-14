@@ -290,4 +290,13 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 
 void CStaticMag::OnTimer(UINT_PTR nIDEvent)
 {
+	CWnd::OnTimer(nIDEvent);
+}
+
+// this indicates that start liune seen in graph and to stop look,ing
+void CStaticMag::OnLButtonDblClk(UINT nFlags, CPoint pt)
+{
+	CWnd::OnLButtonDblClk(nFlags, pt);
+	if (m_pParent != NULL && IsWindow(m_pParent->m_hWnd))
+		m_pParent->PostMessageA(m_nMsg, 0);
 }

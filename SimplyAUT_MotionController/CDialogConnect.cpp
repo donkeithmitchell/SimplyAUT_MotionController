@@ -213,6 +213,9 @@ void CDialogConnect::EnableControls()
 
 void CDialogConnect::Serialize(CArchive& ar)
 {
+	const int MASK = 0xCDCDCDCD;
+	int mask = MASK;
+
 	if (ar.IsStoring())
 	{
 		UpdateData(TRUE);
@@ -223,6 +226,7 @@ void CDialogConnect::Serialize(CArchive& ar)
 			ar << m_galilIP[i];
 			ar << m_magIP[i];
 		}
+		ar << mask;
 	}
 	else
 	{
@@ -235,6 +239,7 @@ void CDialogConnect::Serialize(CArchive& ar)
 				ar >> m_galilIP[i];
 				ar >> m_magIP[i];
 			}
+			ar >> mask;
 		}
 		catch (CArchiveException * e1)
 		{
@@ -242,6 +247,9 @@ void CDialogConnect::Serialize(CArchive& ar)
 			e1->Delete();
 
 		}
+		if (mask != MASK)
+			ResetParameters();
+
 		UpdateData(FALSE);
 	}
 }

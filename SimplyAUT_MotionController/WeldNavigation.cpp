@@ -24,11 +24,16 @@
 #define DESIRED_SPEED_VARIATION		5 // percent
 #define MAX_SPEED_VARIATION			20 // percent
 #define MAX_GAP_CHANGE_PER_MM       1
+#define DIVE_STRAIGHT_DIST			50
 
-#define MIN_GAP						0.1
-#define MAX_GAP						1.0 // 2.0
-#define MIN_TURN_RATE               0.95
-#define MAX_TURN_RATE               0.80 // 0.85
+#define CRAWLER_WIDTH				25.4 // mm
+#define CRAWLER_LENGTH				23.0 // mm
+
+#define MIN_GAP_TOLERANCE			0.1  // do nothing below this
+#define MAX_GAP_TOLERANCE			0.5  // try to keep within this
+
+#define MIN_TURN_RATE               0.975
+#define MAX_TURN_RATE               0.80
 
 static double PI = 4 * atan(1.0);
 static double g_X[GAP_BUFFER_LEN], g_Y[GAP_BUFFER_LEN];
@@ -67,6 +72,8 @@ CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser)
 	m_hThreadNoteLaser = NULL;
 	m_fMotorSpeed = FLT_MAX;
 	m_fMotorAccel = FLT_MAX;
+	m_nEndPos = 0;
+	m_nStartPos = 0;
 	m_fWeldOffset = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -773,58 +780,55 @@ void CWeldNavigation::GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>& list)
 }
 
 
-static CDoublePoint GetTurnRateAndSpeed(double gap)
+static CDoublePoint GetTurnRateAndPivotPoint(double gap, BOOL bInTolerance, int direction)
 {
-	CDoublePoint ret(1.0, 1.0);
-	if (gap < MIN_GAP)
+	CDoublePoint ret(1.0, 0.5);
+	gap = fabs(gap);
+
+	// less than 0.1 mm (should not hit this as < 0.1 is do nothing)
+	if (gap < MIN_GAP_TOLERANCE)
+	{
 		ret.x = MIN_TURN_RATE;
-/*	else if (gap > 4 * MAX_GAP) // > 2.0
-	{
-		ret.x = MAX_TURN_RATE - 0.3; // 0.5
-		ret.y = 0.25; // run at 1/4 speed
+		ret.y = 0.5;
 	}
 
-	else */ if (gap > 3 * MAX_GAP) // > 1.5
+	// initially move the pivot point back to increase the turn rate
+	// 
+	else if (direction == 1 && !bInTolerance && gap > 2* MAX_GAP_TOLERANCE) // > 1.0
 	{
-		ret.x = MAX_TURN_RATE - 0.2; // 0.6
-		ret.y = 0.25; // run at 1/4 speed
+		double rate = (gap - 2 * MAX_GAP_TOLERANCE) * (MAX_TURN_RATE - MIN_TURN_RATE) / (10 * MAX_GAP_TOLERANCE - 2 * MAX_GAP_TOLERANCE) + MIN_TURN_RATE;
+		ret.x = rate; //  0.95; //  MIN_TURN_RATE;
+		ret.y = 2.0 / 5.0;
 	}
 
-	else if (gap > 2 * MAX_GAP) // > 1.0
+	// if greater than 1.0 mm, set to the maximum turn rate
+	else if (gap > MAX_GAP_TOLERANCE)
 	{
-		ret.x = MAX_TURN_RATE - 0.1; // 0.7
-		ret.y = 0.25; // run at 1/4 speed
+		ret.x = (direction == 1) ? MAX_TURN_RATE : 0.95;
+		ret.y = 0.5;
 	}
-
-	else if (gap > MAX_GAP) // > 0.5
-	{
-		ret.x = MAX_TURN_RATE; // 0.8
-		ret.y = 0.5; // run at 1/2 speed
-	}
+	// assume that alwsys within 0.1 -> 1.0 mm
 	else
 	{
-		double rate = (gap - MIN_GAP) * (MAX_TURN_RATE - MIN_TURN_RATE) / (MAX_GAP - MIN_GAP) + MIN_TURN_RATE;
+		double rate = (gap - MIN_GAP_TOLERANCE) * (MAX_TURN_RATE - MIN_TURN_RATE) / (2* MAX_GAP_TOLERANCE - MIN_GAP_TOLERANCE) + MIN_TURN_RATE;
 		rate = max(rate, MAX_TURN_RATE); // 0.85
 		rate = min(rate, MIN_TURN_RATE); // 0.9
 
 		ret.x = fabs(rate);
+		ret.y = 0; 5;
 	}
 
-	ret.y = 1;
 	return ret;
 }
 
 UINT CWeldNavigation::ThreadSteerMotors()
 {
-	if (m_nEndPos > m_nStartPos)
-		ThreadSteerMotorsForward();
-	else
-		ThreadSteerMotorsBackard();
+	ThreadSteerMotors_try3();
 
 	return 0;
 }
 
-UINT CWeldNavigation::ThreadSteerMotorsForward()
+UINT CWeldNavigation::ThreadSteerMotors_try3()
 {
 	const int MAX_TRAVEL_TIME = 1000;
 	clock_t tim1 = clock();
@@ -835,6 +839,11 @@ UINT CWeldNavigation::ThreadSteerMotorsForward()
 
 	CArray<DRIVE_POS, DRIVE_POS> listVel;
 	CArray<POS_MANOEVER, POS_MANOEVER> listManoevers;
+
+	// note if in tolerance
+	// note if driving backwards
+	BOOL bInTolerance = FALSE;
+	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
 
 	// if the gap is to one side or the other by more than about 0.1 mm
 	// jog the crawler to the centre, and then check again\
@@ -871,17 +880,42 @@ UINT CWeldNavigation::ThreadSteerMotorsForward()
 		// if to the left, turn to the right
 		int dir = (pos0.gap_filt > 0) ? -1 : 1;											// which way to navigate (right or left)
 
+		// note if in tolererance
+		// once in tolerance do not allow the pivot point to move
+		if (fabs(pos0.gap_filt) <= MAX_GAP_TOLERANCE )
+			bInTolerance = TRUE;
+
+		// if well out of tolerance, mopve the pivot point back
+		// this will cause the front to turn faster
+		CDoublePoint turn_rate1 = GetTurnRateAndPivotPoint(pos0.gap_filt, bInTolerance, direction);
+
+		double r = CRAWLER_WIDTH / 2.0; // front wheel to laser
+		double l1 = turn_rate1.y * CRAWLER_LENGTH; // length from rear
+		double l2 = (1- turn_rate1.y) * CRAWLER_LENGTH; // length from front
+		double h1 = sqrt(pow(l1, 2.0) + pow(r, 2.0)); // rear wheel to laser
+		double h2 = sqrt(pow(l2, 2.0) + pow(r, 2.0)); // rear wheel to laser
+
+		double Vrear = m_fMotorSpeed * turn_rate1.x * h1 / h2; //  turn_rate1.x; // rear wheels at 10% of the fwd velocity
+		double Vfwd = m_fMotorSpeed * turn_rate1.x * h2 / h1;  // veocity of fwd wheels for fwd to travel faster
+
 		// the closer to the weld, the slower the required turn rate
-		CDoublePoint turn_rate1 = GetTurnRateAndSpeed(pos0.gap_filt);
-		double fSpeed1 = m_fMotorSpeed * turn_rate1.y;
-		double speedLeft = m_fMotorSpeed - dir * (1 - turn_rate1.x) * fSpeed1 / 2;
-		double speedRight = m_fMotorSpeed + dir * (1 - turn_rate1.x) * fSpeed1 / 2;
-		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft };
+		double speedLeftFwd1 = m_fMotorSpeed - dir * (1 - turn_rate1.x) * Vfwd; // if was to the left (-1), make left wheels faster
+		double speedRightFwd1 = m_fMotorSpeed + dir * (1 - turn_rate1.x) * Vfwd;
+		double speedRightBack1 = m_fMotorSpeed + dir * (1 - turn_rate1.x) * Vrear;
+		double speedLeftBack1 = m_fMotorSpeed - dir * (1 - turn_rate1.x) * Vrear;
+		double speed1[] = { speedLeftFwd1, speedRightFwd1, speedRightBack1, speedLeftBack1 }; // LF, RF, RR, LR
 		SetMotorSpeed(speed1);
 
 		// keep turning until the gap is halved
 		// it will take time to strighten out
 		clock_t t1 = clock();
+
+		// move to tyhe 1/2 way point, and then straghten out
+		// the crawler will rebound and not just straigh
+		// in reverse, assume that the forward wheels are closer than the laser
+		double gap_tol1 = 2 * abs(pos0.gap_filt) / 4;
+		double gap_tol2 = 3 * abs(pos0.gap_filt) / 4;
+		double gap_tol = (direction == 1) ? gap_tol1 : gap_tol2;
 
 		BOOL bCheckWrongWay = TRUE;
 		while (m_bSteerMotors) // && clock() - t1 < MAX_TRAVEL_TIME)
@@ -896,23 +930,10 @@ UINT CWeldNavigation::ThreadSteerMotorsForward()
 				break;
 
 			// stop mwhen have halfed the gap
-			if (fabs(last_pos.gap_filt) < fabs(pos0.gap_filt) / 2)
+			if (fabs(last_pos.gap_filt) < gap_tol)
 				break;
 
-			// check if the gap is getting worse
-			// only make one correction
-	/*		BOOL bWrongWay = fabs(last_pos.pos) > fabs(pos0.gap_filt);
-			if (bCheckWrongWay && bWrongWay && clock() - t1 > 500 )
-			{
-				double tr2 = 1 - 3 * (1 - turn_rate1.x) / 2;
-				double speedLeft = m_fMotorSpeed - dir * (1 - tr2) * fSpeed1 / 2;
-				double speedRight = m_fMotorSpeed + dir * (1 - tr2) * fSpeed1 / 2;
-				double speed1[] = { speedLeft, speedRight, speedRight, speedLeft };
-				SetMotorSpeed(speed1);
-				bCheckWrongWay = FALSE;
-			}
-*/
-// note the position and gap distance at this time
+//			note the position and gap distance at this time
 			int nSize2 = (int)listVel.GetSize();
 			if (nSize2 == 0 || fabs(listVel[nSize2 - 1].x - last_pos.pos) >= 1)
 				listVel.Add(DRIVE_POS(last_pos.pos, last_pos.gap_filt, 0));
@@ -926,10 +947,7 @@ UINT CWeldNavigation::ThreadSteerMotorsForward()
 		// now turn to travel straight
 		// note, this does not mean stright along the weld, but means maintain the current direction (only halved the distance to weld)
 		// note, the crawler does not appear to maintain the current direction, but changes slightly 
-		CDoublePoint turn_rate2 = GetTurnRateAndSpeed(pos1.gap_filt);
-		double fSpeed2 = m_fMotorSpeed * turn_rate2.y;
-
-		double speed2[] = { fSpeed2, fSpeed2, fSpeed2, fSpeed2 };
+		double speed2[] = { m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed, m_fMotorSpeed };
 		SetMotorSpeed(speed2);
 
 		// travel the turn time to see if now straight
@@ -942,6 +960,9 @@ UINT CWeldNavigation::ThreadSteerMotorsForward()
 			// avoid a tight loop
 			Sleep(10);
 			LASER_POS last_pos = GetLastNotedPosition(0);// whjere is the crawler now
+
+			if (fabs(pos0.pos - last_pos.pos) > DIVE_STRAIGHT_DIST)
+				break;
 
 			// no longer on the same side of the weld
 			if ((pos0.gap_filt < 0) != (last_pos.gap_filt < 0))

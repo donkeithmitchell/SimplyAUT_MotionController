@@ -65,7 +65,7 @@ public:
 	LASER_POS GetLastNotedPosition(int ago_mm);
 	void      StartSteeringMotors(int nSteer, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
 	UINT      ThreadSteerMotors();
-	UINT      ThreadSteerMotorsForward();
+	UINT      ThreadSteerMotors_try3();
 	UINT      ThreadSteerMotorsBackard();
 	UINT      ThreadSteerMotors_try2();
 	UINT      ThreadNoteLaser();

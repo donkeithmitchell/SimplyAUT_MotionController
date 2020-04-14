@@ -25,7 +25,7 @@ public:
 	double EncoderCountToDistancePerSecond(int encoderCount)const;
 	int DistancePerSecondToEncoderCount(double DistancePerSecond)const;
 	int    AxisDirection(GCStringIn axis)const;
-	void   ZeroPositions();
+	void   DefinePositions(double);
 	BOOL   GoToPosition(double pos, BOOL bWait);
 	BOOL   GoToPosition2(double left, double right);
 	BOOL   SteerMotors(double fSpeed, double rate);

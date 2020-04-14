@@ -357,7 +357,7 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 	if (!m_laserControl.IsConnected() || !m_laserControl.IsLaserOn())
 		return;
 
-	if (!m_laserControl.GetProfile())
+	if (!m_laserControl.GetProfile(10))
 		return;
 
 	// will truy every 50 ms, but only draw every 500 ms

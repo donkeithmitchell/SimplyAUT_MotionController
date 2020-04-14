@@ -47,7 +47,7 @@ public:
 	int    AddRGBData(const int&);
 	void   ResetRGBData();
 	double GetAverageRGBValue();
-	void   ResetLaserOffsetList() { m_laserPos.SetSize(0); }
+	void   ResetLaserOffsetList() {	m_critLaserPos1.Lock();  m_laserPos1.SetSize(0); m_critLaserPos1.Unlock(); 	}
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
 
@@ -64,7 +64,9 @@ public:
 	CArray<int, int>  m_rgbData;
 	int				m_rgbSum; // use to calculate the average
 	int				m_rgbCount;
-	CArray<CDoublePoint, CDoublePoint> m_laserPos;
+
+	CCriticalSection m_critLaserPos1;
+	CArray<CDoublePoint, CDoublePoint> m_laserPos1;
 
 //	CStaticLaserProfile m_wndLaserProfile;
 	CLaserControl& m_laserControl;
