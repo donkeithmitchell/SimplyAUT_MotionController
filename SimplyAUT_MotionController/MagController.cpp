@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "MagController.h"
 #include "SimplyAUT_MotionControllerDlg.h"
+#include "define.h"
 #include <Ws2tcpip.h>
 
 static BOOL g_sensor_initialised = FALSE;
@@ -22,10 +23,6 @@ enum{MAG_REG_HW=1,
     MAG_REG_RGB_BLUE = 112,
     MAG_REG_RGB_ALL=116
 };
-
-#define SOCKET_RECV_DELAY 1
-#define SOCKET_RECV_TIMEOUT 500
-#define SOCKET_CONNECT_TIMEOUT 500
 
 
 static UINT ThreadReadSocket(LPVOID param)
@@ -537,6 +534,23 @@ void CMagControl::SendErrorMessage(const CString& msg)
     {
         m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
     }
+}
+
+static double CalculateEncoderDistance(int nCount)
+{
+    if (nCount == INT_MAX)
+        return FLT_MAX;
+
+    else
+        return -nCount / ENCODER_TICKS_PER_MM;
+}
+
+
+double CMagControl::GetEncoderDistance()
+{
+    int nEncoderCount = GetMagStatus(MAG_IND_ENC_CNT);
+    double fEncoderDistance = CalculateEncoderDistance(nEncoderCount);
+    return fEncoderDistance;
 }
 
 int CMagControl::GetMagStatus(int ind)

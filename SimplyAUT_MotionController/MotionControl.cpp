@@ -2,11 +2,9 @@
 #include "SimplyAUT_MotionController.h"
 #include "SimplyAUT_MotionControllerDlg.h"
 #include "MotionControl.h"
+#include "define.h"
 #include "Gclib2.h"
 
-//static const  double COUNTS_PER_TURN = 768000.0;
-static const  double COUNTS_PER_TURN = (768000.0 * 1.5); //  0.68);
-static const double WHEEL_DIAMETER = 50.0; // MM
 static double PI = 4 * atan(1.0);
 
 
@@ -24,7 +22,7 @@ CMotionControl::~CMotionControl()
 {
     if (m_pGclib)
     {
-        StopMotors(); //stop all motion and programs
+        StopMotors(TRUE); //stop all motion and programs
         m_pGclib->MotorsOff();
     }
 
@@ -117,7 +115,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 
 
     SendDebugMessage(_T("Initialization of the Galil..."));
-    StopMotors(); //stop all motion and programs
+    StopMotors(TRUE); //stop all motion and programs
 
     m_pGclib->GCommand(_T("KP*=1.05"));     // proportional constant
     m_pGclib->GCommand(_T("KI*=0"));        // integrator
@@ -148,7 +146,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
 // can only do this if the mnotor is stopped
 void CMotionControl::DefinePositions(double pos)
 {
-    StopMotors(); //stop all motion and programs
+    StopMotors(TRUE); //stop all motion and programs
     m_pGclib->DefinePosition( (int)(pos + 0.5) );        // all to zero
 }
 void CMotionControl::GoToHomePosition()
@@ -245,10 +243,11 @@ BOOL CMotionControl::WaitForMotorsToStop()
     return TRUE;
 }
 
-void CMotionControl::StopMotors()
+void CMotionControl::StopMotors(BOOL bWait)
 {
     m_pGclib->StopMotors();    // stop all motors
-    WaitForMotorsToStop(); 
+    if( bWait)
+        WaitForMotorsToStop(); 
 }
 BOOL CMotionControl::SetMotorJogging(double speed, double accel)
 {

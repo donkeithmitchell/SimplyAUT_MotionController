@@ -11,8 +11,7 @@
 #include "MagController.h"
 #include "resource.h"
 #include "time.h"
-
-static const int LASER_BLINK = 500;
+#include "define.h"
 
 #ifdef _DEBUG_TIMING
 static clock_t g_GetLaserProfileTime = 0;
@@ -41,10 +40,10 @@ static int g_NoteIfMotorsRunningCount =0;
 static FILE* g_fp1 = NULL;
 #endif
 
-#define MAX_TEMPERATURE 50
 #define CALIBRATE_RGB_NOT      0
 #define CALIBRATE_RGB_SCANNING 1
 #define CALIBRATE_RGB_RETURN   2
+#define LASER_BLINK				500
 
 // CDialogGirthWeld dialog
 
@@ -103,6 +102,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_nGaililStateBackup = GALIL_IDLE;
 	m_fScanStartPos = FLT_MAX;
 	m_rgbLast = 0;
+	m_lastCapPix = -1;
 
 	m_szLaserEdge[0] = _T("---");
 	m_szLaserEdge[1] = _T("---");
@@ -246,8 +246,7 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_MESSAGE(WM_WELD_NAVIGATION,			&CDialogGirthWeld::OnUserWeldNavigation)
 	ON_MESSAGE(WM_MOTION_CONTROL,			&CDialogGirthWeld::OnUserMotionControl)
 	ON_MESSAGE(WM_MAG_STOP_SEEK,			&CDialogGirthWeld::OnUserMagStopSeek)
-
-	
+	ON_MESSAGE(WM_ARE_MOTORS_RUNNING,		&CDialogGirthWeld::OnUserAreMotorsRunning)
 	
 	ON_STN_CLICKED(IDC_STATIC_TEMP_BOARD, &CDialogGirthWeld::OnStnClickedStaticTempBoard)
 	ON_EN_CHANGE(IDC_EDIT_LR_OFFSET, &CDialogGirthWeld::OnChangeEditLrOffset)
@@ -486,7 +485,7 @@ double CDialogGirthWeld::GetCalibrationValue()
 	{
 		if (m_laserControl.GetProfile(10))
 		{
-			m_laserControl.CalcLaserMeasures(0.0);
+			m_laserControl.CalcLaserMeasures(0.0, NULL, -1);
 			double avg_side_height = (m_laserControl.m_measure2.weld_left_height_mm + m_laserControl.m_measure2.weld_right_height_mm) / 2;
 			double weld_cap_height = m_laserControl.m_measure2.weld_cap_mm.y;
 
@@ -555,15 +554,24 @@ void CDialogGirthWeld::GetLaserProfile()
 		nLaserOn1 = nLaserOn2;
 	}
 
-	if( !nLaserOn2 )
+	if (!nLaserOn2)
+	{
+		m_lastCapPix = -1;
 		return;
+	}
 
 
 	if( !m_laserControl.GetProfile(10))
 		return;
 
+	double accel, velocity4[4];
 	double pos = m_motionControl.GetAvgMotorPosition();
-	m_laserControl.CalcLaserMeasures(pos);
+	velocity4[0] = m_motionControl.GetMotorSpeed("A", accel);
+	velocity4[1] = m_motionControl.GetMotorSpeed("B", accel);
+	velocity4[2] = m_motionControl.GetMotorSpeed("C", accel);
+	velocity4[3] = m_motionControl.GetMotorSpeed("D", accel);
+
+	m_lastCapPix = m_laserControl.CalcLaserMeasures(pos, velocity4, m_lastCapPix);
 #ifdef _DEBUG_TIMING
 	if( g_fp1 )
 		fprintf(g_fp1, "%d\t%.1f\n", clock()-tim0, pos);
@@ -796,16 +804,6 @@ void CDialogGirthWeld::ShowRGBStatus()
 #endif
 }
 
-static double CalculateEncoderDistance(int nCount)
-{
-	if (nCount == INT_MAX)
-		return FLT_MAX;
-
-	else
-		return -nCount / 17.05;
-}
-
-
 
 // show the positoon as the average of the four motors
 // the motor position is the home ;osition
@@ -825,8 +823,7 @@ void CDialogGirthWeld::ShowMotorPosition()
 	// the encoder count is in a saved status array
 	// so does not take any time
 	double pos = m_motionControl.GetAvgMotorPosition();
-	int nEncoderCount = m_weldNavigation.IsNavigating() ? INT_MAX :  m_magControl.GetMagStatus(MAG_IND_ENC_CNT);
-	double fEncoderDistance = CalculateEncoderDistance(nEncoderCount);
+	double fEncoderDistance = m_weldNavigation.IsNavigating() ? FLT_MAX : m_magControl.GetEncoderDistance();
 
 	if (pos == FLT_MAX)
 	{
@@ -879,7 +876,7 @@ HBRUSH CDialogGirthWeld::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	{
 		//set the static text color to red     
 		m_laserControl.GetLaserTemperature(temp);
-		if( temp.BoardTemperature > MAX_TEMPERATURE )
+		if( temp.BoardTemperature > MAX_LASER_TEMPERATURE )
 			pDC->SetTextColor(RGB(255, 0, 0));
 	}
 
@@ -889,7 +886,7 @@ HBRUSH CDialogGirthWeld::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		m_laserControl.GetLaserTemperature(temp);
 		m_laserControl.GetLaserStatus(SensorStatus);
 
-		if (temp.LaserTemperature > MAX_TEMPERATURE)
+		if (temp.LaserTemperature > MAX_LASER_TEMPERATURE)
 			pDC->SetTextColor(RGB(255, 0, 0));
 	}
 
@@ -899,7 +896,7 @@ HBRUSH CDialogGirthWeld::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		m_laserControl.GetLaserTemperature(temp);
 		m_laserControl.GetLaserStatus(SensorStatus);
 
-		if (temp.SensorTemperature > MAX_TEMPERATURE)
+		if (temp.SensorTemperature > MAX_LASER_TEMPERATURE)
 			pDC->SetTextColor(RGB(255, 0, 0));
 	}
 
@@ -1123,7 +1120,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 
 		// asking motors to stop will cause existing thread to end
 		m_bResumeScan = FALSE; // set before stopping, so noted in the thread
-		m_motionControl.StopMotors();
+		m_motionControl.StopMotors(TRUE);
 		m_laserControl.TurnLaserOn(FALSE);
 		SetButtonBitmaps();
 	}
@@ -1133,6 +1130,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 	else
 	{
 		m_bResumeScan = TRUE;
+		m_lastCapPix = -1;
 		m_laserControl.TurnLaserOn(TRUE);
 		GetLaserProfile();
 		StartNotingMotorSpeed(TRUE);
@@ -1306,6 +1304,7 @@ void CDialogGirthWeld::StartMeasuringLaser(BOOL bSet)
 		m_laserControl.TurnLaserOn(TRUE);
 		int delay = max((int)(1 * 1000.0 / m_fMotorScanSpeed + 0.5), 1);
 		SetTimer(TIMER_GET_LASER_PROFILE, delay, NULL);
+		m_lastCapPix = -1;
 		GetLaserProfile();
 	}
 	else
@@ -1351,20 +1350,49 @@ void CDialogGirthWeld::OnClickedButtonGoHome()
 	{
 		// savew re-enableling controls until after stop if not now starting
 		m_nGalilState = m_nGaililStateBackup = (m_nGalilState == GALIL_IDLE) ? GALIL_GOHOME : GALIL_IDLE;
-		if(m_nGalilState == GALIL_GOHOME )
-			SetButtonBitmaps();
+		if (m_nGalilState == GALIL_GOHOME)
+		{
+			if (GetAvgMotorPosition() != 0)
+			{
+				SetButtonBitmaps();
 
-		StartNotingMotorSpeed(TRUE);
-		m_motionControl.SetSlewSpeed(m_fMotorScanSpeed/2, m_fMotorScanAccel);
-		StartMeasuringLaser(TRUE);
-		m_magControl.EnableMagSwitchControl(FALSE);
+				StartNotingMotorSpeed(TRUE);
+				m_motionControl.SetSlewSpeed(m_fMotorScanSpeed / 2, m_fMotorScanAccel);
+				StartMeasuringLaser(TRUE);
+				m_magControl.EnableMagSwitchControl(FALSE);
 
-		int start_pos = (int)m_motionControl.GetAvgMotorPosition();
-		StartSteeringMotors(0x3, start_pos, 0, m_fMotorScanSpeed/2);
+				int start_pos = (int)m_motionControl.GetAvgMotorPosition();
+
+				// insure that not navigating when tell to start
+				StartSteeringMotors(0x0, 0, 0, 0);
+				m_motionControl.GoToPosition(0.0, FALSE);
+				StartSteeringMotors(0x3, start_pos, 0, m_fMotorScanSpeed / 2);
+			}
+		}
+		else
+			StartSteeringMotors(0x0, 0, 0, 0);
 
 		m_hThreadRunMotors = ::AfxBeginThread(::ThreadGoToHome, (LPVOID)this)->m_hThread;
 	}
 }
+
+
+
+UINT CDialogGirthWeld::ThreadGoToHome()
+{
+	if (m_nGalilState != GALIL_GOHOME)
+		StopMotors(TRUE);
+	else
+	{
+		WaitForMotorsToStart();
+		Sleep(1000);
+		WaitForMotorsToStop();
+	}
+	PostMessage(WM_STOPMOTOR_FINISHED);
+	return 0;
+}
+
+
 
 // use this to insure thaT THE MAIN  THREAD IS C ALLING IT, NOT THE USER THREASD
 BOOL CDialogGirthWeld::SetSlewSpeed(double fSpeed, double fAccel)
@@ -1443,10 +1471,10 @@ double  CDialogGirthWeld::GetSlewSpeed(const char* axis)
 		return FLT_MAX;
 }
 
-void CDialogGirthWeld::StopMotors()
+void CDialogGirthWeld::StopMotors(BOOL bWait)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		SendMessage(WM_MOTION_CONTROL, MC_STOP_MOTORS);
+		SendMessage(WM_MOTION_CONTROL, MC_STOP_MOTORS, (LPARAM)bWait);
 }
 
 double CDialogGirthWeld::GetAvgMotorPosition()
@@ -1471,26 +1499,37 @@ double  CDialogGirthWeld::GetRGBSum()
 BOOL CDialogGirthWeld::WaitForMotorsToStop()
 {
 	Sleep(100);
-	while (m_motionControl.AreTheMotorsRunning())
-		Sleep(1);
+	for (int i=0; i < 100 && AreMotorsRunning(); ++i)
+		Sleep(10);
 
-	return TRUE;
+	return !AreMotorsRunning();
+}
+
+LRESULT CDialogGirthWeld::OnUserAreMotorsRunning(WPARAM, LPARAM)
+{
+	// consider going back to noted value in OnTimer()
+	return (LRESULT)m_motionControl.AreMotorsRunning(); //911
+}
+
+BOOL CDialogGirthWeld::AreMotorsRunning()
+{
+	return (BOOL)SendMessage(WM_ARE_MOTORS_RUNNING);
 }
 
 
 BOOL CDialogGirthWeld::WaitForMotorsToStart()
 {
 	Sleep(100);
-	while (!m_motionControl.AreTheMotorsRunning())
-		Sleep(1);
+	for (int i=0; i < 100 && !AreMotorsRunning(); ++i)
+		Sleep(10);
 
-	return TRUE;
+	return AreMotorsRunning();
 }
 
 LRESULT CDialogGirthWeld::OnUserMagStopSeek(WPARAM wParam, LPARAM lParam)
 {
 	if (m_nCalibratingRGB == CALIBRATE_RGB_SCANNING)
-		StopMotors();
+		m_motionControl.StopMotors(TRUE/*wait*/);
 
 	return 0L;
 }
@@ -1530,7 +1569,7 @@ LRESULT CDialogGirthWeld::OnUserMotionControl(WPARAM wParam, LPARAM lParam)
 		case MC_GET_RGB_SUM:
 			return (LRESULT)(1000 * m_magControl.GetRGBSum() + 0.5);
 		case MC_STOP_MOTORS:
-			m_motionControl.StopMotors();
+			m_motionControl.StopMotors( (BOOL)lParam);
 			return 0L;
 		case MC_GET_SLEW_SPEED:
 		{
@@ -1569,8 +1608,8 @@ BOOL CDialogGirthWeld::SeekStartLine()
 	// as navigating to the weld, give a buffer to the end position
 	Sleep(100);
 	GoToPosition(end_pos + GetAccelDistance());
-	WaitForMotorsToStart();
-	WaitForMotorsToStop();
+	if (WaitForMotorsToStart())
+		WaitForMotorsToStop();
 
 	if (m_bAborted || !m_magControl.CalculateRGBCalibration(m_bSeekWithLaser))
 		return FALSE;
@@ -1594,11 +1633,14 @@ BOOL CDialogGirthWeld::SeekStartLine()
 		// show the position on the graph
 		// don't navigate during this move as nbackwards navigation is not yet working 911
 		GoToPosition(pos2);
-		WaitForMotorsToStart();
-		WaitForMotorsToStop();
+		if (WaitForMotorsToStart())
+			WaitForMotorsToStop();
 		if (m_bAborted)
 			return FALSE;
 	
+		if (AfxMessageBox("Start Scan", MB_OKCANCEL) != IDOK)
+			return FALSE;
+		
 		// now set this as the new zero poisition
 		DefinePositions(0);
 		ResetEncoderCount();
@@ -1617,8 +1659,8 @@ BOOL CDialogGirthWeld::SeekStartLine()
 	if (m_bPredrive && m_fPredriveDistance > 0)
 	{
 		GoToPosition(-m_fPredriveDistance);
-		WaitForMotorsToStart();
-		WaitForMotorsToStop();
+		if (WaitForMotorsToStart())
+			WaitForMotorsToStop();
 	}
 
 	m_nCalibratingRGB = CALIBRATE_RGB_NOT;
@@ -1650,7 +1692,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		m_bScanning = FALSE;
 		m_bResumeScan = FALSE;
 		m_nCalibratingRGB = CALIBRATE_RGB_NOT;
-		StopMotors();
+		StopMotors(TRUE);
 		KillTimer(TIMER_NOTE_CALIBRATION);
 		WaitForMotorsToStop();
 		StartSteeringMotors(0x0, 0,0, 0);
@@ -1666,8 +1708,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 	else if (m_bResumeScan)
 	{
 		GoToPosition(m_fDestinationPosition + GetDistanceToBuffer());
-		WaitForMotorsToStart();
-		WaitForMotorsToStop();
+		if (WaitForMotorsToStart())
+			WaitForMotorsToStop();
 		if (!m_bPaused)
 			PostMessage(WM_STOPMOTOR_FINISHED);
 	}
@@ -1683,8 +1725,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 
 			// go to the home position and resewt the encoder
 			GoToPosition(0);
-			WaitForMotorsToStart();
-			WaitForMotorsToStop();
+			if (WaitForMotorsToStart())
+				WaitForMotorsToStop();
 			if (m_bAborted)
 				return ThreadRunScan();
 
@@ -1696,8 +1738,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			if (m_bPredrive && m_fPredriveDistance)
 			{
 				GoToPosition(-m_fPredriveDistance);
-				WaitForMotorsToStart();
-				WaitForMotorsToStop();
+				if (WaitForMotorsToStart())
+					WaitForMotorsToStop();
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
@@ -1733,8 +1775,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			if (m_bPredrive && m_fPredriveDistance > 0 && GetAvgMotorPosition() > -m_fPredriveDistance )
 			{
 				GoToPosition(pos - m_fPredriveDistance);
-				WaitForMotorsToStart();
-				WaitForMotorsToStop();
+				if (WaitForMotorsToStart())
+					WaitForMotorsToStop();
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
@@ -1755,8 +1797,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 
 		InformRecordingSW(1, from_mm, to_mm);
 		GoToPosition(m_fDestinationPosition + GetDistanceToBuffer());
-		WaitForMotorsToStart();
-		WaitForMotorsToStop();
+		if (WaitForMotorsToStart())
+			WaitForMotorsToStop();
 		if (m_bAborted)
 			return ThreadRunScan();
 
@@ -1777,8 +1819,8 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			{
 				// return to the start locatioon (less the accdeeration backup)
 				GoToPosition(m_fScanStartPos);
-				WaitForMotorsToStart();
-				WaitForMotorsToStop();
+				if (WaitForMotorsToStart())
+					WaitForMotorsToStop();
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
@@ -1796,27 +1838,6 @@ UINT CDialogGirthWeld::ThreadRunScan()
 void CDialogGirthWeld::InformRecordingSW(BOOL record, int from/*= 0*/, int to/* = 0*/)
 {
 	int xx = 1; // 911
-}
-
-
-
-UINT CDialogGirthWeld::ThreadGoToHome()
-{
-	if (m_nGalilState == GALIL_GOHOME)
-	{
-		if (GetAvgMotorPosition() != 0.0)
-		{
-			GoToPosition(0.0);
-			WaitForMotorsToStart();
-			WaitForMotorsToStop();
-		}
-	}
-	else
-		StopMotors();
-
-	// no difference in response if just ending a motor run or got to hoime
-	PostMessage(WM_STOPMOTOR_FINISHED);
-	return 0;
 }
 
 
@@ -1929,7 +1950,7 @@ void CDialogGirthWeld::RunMotors()
 
 UINT CDialogGirthWeld::ThreadStopMotors()
 {
-	StopMotors();
+	StopMotors(TRUE);
 //	m_laserControl.TurnLaserOn(FALSE);				// do not call thesae from a thread
 //	m_magControl.EnableMagSwitchControl(TRUE);		// call, them in the finish up call-back
 	PostMessage(WM_STOPMOTOR_FINISHED);
@@ -1953,7 +1974,7 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 		return (LRESULT)(100.0 * ((A + D) / 2 - (B + C) / 2) + 0.5);
 	}
 	case NAVIGATE_STOP_MOTORS:
-		m_motionControl.StopMotors();
+		m_motionControl.StopMotors((BOOL)lParam);
 		return 1L;
 	case NAVIGATE_SET_MOTOR_SPEED:
 		{
@@ -2236,6 +2257,7 @@ void CDialogGirthWeld::OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult)
 	m_fMotorScanSpeed = min(max(m_fMotorScanSpeed, 0.1), 100);
 	UpdateData(FALSE);
 
+	// call direct, this can not be a thread
 	if (m_motionControl.AreMotorsRunning())
 		m_motionControl.SetMotorJogging(m_fMotorScanSpeed, m_fMotorScanAccel);
 

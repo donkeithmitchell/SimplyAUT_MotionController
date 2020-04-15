@@ -3,6 +3,7 @@
 #include "SimplyAUT_MotionControllerDlg.h"
 #include "LaserControl.h"
 #include "sls_comms.h"
+#include "Define.h"
 #include "Filter.h"
 
 static int __stdcall callback_fct(int val);
@@ -500,7 +501,7 @@ static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 	else
 		return 0;
 }
-BOOL CLaserControl::CalcLaserMeasures( double pos )
+int CLaserControl::CalcLaserMeasures( double pos_avg, const double velocity4[4], int last_cap_pix )
 {
 #define SCATTER_WIDTH 10
 	m_measure2.status = -1;
@@ -551,29 +552,32 @@ BOOL CLaserControl::CalcLaserMeasures( double pos )
 //	for (int i = SENSOR_WIDTH - 1; i >= shift; --i)
 //		m_hitBuffer[i] = m_hitBuffer[i - shift];
 
+	// get as list of local maximums
+	// also note the average and location of the minimum
 	int maxInd = -1;
 	int minInd = -1;
-
 	double sum1 = 0;
+
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
 		if (minInd == -1 || m_hitBuffer[i] < m_hitBuffer[minInd])
 			minInd = i;
-		if (maxInd == -1 || m_hitBuffer[i] > m_hitBuffer[maxInd])
-			maxInd = i;
 
-		// also note the average
-		sum1 +=m_hitBuffer[i];
+		// only conser about the previous maximum
+		if (maxInd == -1 || m_hitBuffer[i] > m_hitBuffer[maxInd])
+		{
+			if(last_cap_pix == -1 || abs(i - last_cap_pix) < MAX_LASER_CAP_DEVIATION)
+			maxInd = i;
+		}
+		sum1 += m_hitBuffer[i];
 	}
-	double avgPos = sum1 / SENSOR_WIDTH;
+	double avgPos = sum1 / (SENSOR_WIDTH - 2);
 
 	// get the SD (this includes the weld data)
 	// set the edge threshold as 1 SD above the average
 	double sum2 = 0;
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
-
-		// also note the average
 		double val = m_hitBuffer[i] - avgPos;
 		sum2 += val * val;
 	}
@@ -686,9 +690,13 @@ BOOL CLaserControl::CalcLaserMeasures( double pos )
 
 
 	// now convert the laser units to mm
-	m_measure2.measure_pos_mm = pos; 
+	m_measure2.measure_pos_mm = pos_avg; 
+	if (velocity4)
+	{
+		memcpy(m_measure2.wheel_velocity4, velocity4, 4 * sizeof(double));
+	}
 	m_measure2.status = 0;
-	return TRUE;
+	return (int)(m_measure2.weld_cap_pix2.x + 0.5);
 }
 
 

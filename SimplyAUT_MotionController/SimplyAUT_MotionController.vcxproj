@@ -190,6 +190,7 @@
   <ItemGroup>
     <ClInclude Include="Button.h" />
     <ClInclude Include="CDialogConnect.h" />
+    <ClInclude Include="Define.h" />
     <ClInclude Include="DialogFiles.h" />
     <ClInclude Include="DialogGirthWeld.h" />
     <ClInclude Include="DialogLaser.h" />

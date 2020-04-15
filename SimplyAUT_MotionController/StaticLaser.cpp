@@ -386,7 +386,7 @@ void CStaticLaser::DrawLaserOffset(CDC* pDC)
 
 	m_critLaserPos1.Lock();
 	if (lastPos.gap_filt != FLT_MAX)
-		m_laserPos1.Add(CDoublePoint(lastPos.pos, lastPos.gap_filt));
+		m_laserPos1.Add(CDoublePoint(lastPos.measures.measure_pos_mm, lastPos.gap_filt));
 
 	if (m_laserPos1.GetSize() == 0)
 	{

@@ -48,7 +48,7 @@ public:
 	BOOL	SetSlewSpeed(double fSpeed, double fAccel);
 	BOOL	SetSlewSpeed(const double fSpeed[4]);
 	double  GetSlewSpeed(const char* axis);
-	void    StopMotors();
+	void    StopMotors(BOOL);
 	double  GetRGBSum();
 	BOOL    GoToPosition(double pos);
 	BOOL    GoToPosition2(double left, double right);
@@ -56,6 +56,7 @@ public:
 	double	GetAvgMotorPosition();
 	BOOL    DefinePositions(double);
 	BOOL    WaitForMotorsToStop();
+	BOOL	AreMotorsRunning();
 	BOOL    WaitForMotorsToStart();
 	double  GetLeftRightOffset()const;
 	void    FormatLeftRightOffset(double);
@@ -74,7 +75,8 @@ public:
 	void    Serialize(CArchive& ar);
 	void    ResetParameters();
 
-	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK};
+	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK, WM_ARE_MOTORS_RUNNING
+	};
 	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_DEFINE_POSITION, 
 		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GOTO_POSITION2};
 	enum TIMER_GW { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_TEMPERATURE, TIMER_LASER_STATUS1, TIMER_RGB_STATUS, TIMER_RUN_TIME, 
@@ -108,6 +110,7 @@ public:
 	int     m_nCalibratingRGB;
 	int     m_nTimerCount;
 	int     m_rgbLast;
+	int     m_lastCapPix;
 	clock_t	m_nRunStart;
 
 	CBitmap	m_bitmapPause;
@@ -196,6 +199,7 @@ public:
 	afx_msg LRESULT OnUserWeldNavigation(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserMotionControl(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserMagStopSeek(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserAreMotorsRunning(WPARAM, LPARAM);
 
 	afx_msg void OnDeltaposSpinLrOffset(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDeltaposSpinScanCirc(NMHDR* pNMHDR, LRESULT* pResult);

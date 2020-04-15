@@ -20,7 +20,7 @@ public:
 	void SendDebugMessage(const CString&);
 	void SendErrorMessage(const CString&);
 	void EnableControls();
-	void StopMotors();
+	void StopMotors(BOOL);
 	BOOL WaitForMotorsToStop();
 	double EncoderCountToDistancePerSecond(int encoderCount)const;
 	int DistancePerSecondToEncoderCount(double DistancePerSecond)const;

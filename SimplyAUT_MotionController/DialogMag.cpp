@@ -295,7 +295,7 @@ double CDialogMag::GetCalibrationValue()
 	{
 		if (m_laserControl.GetProfile(10))
 		{
-			m_laserControl.CalcLaserMeasures(.0/*pos*/);
+			m_laserControl.CalcLaserMeasures(0.0/*pos*/, NULL, -1);
 			double avg_side_height = (m_laserControl.m_measure2.weld_left_height_mm + m_laserControl.m_measure2.weld_right_height_mm) / 2;
 			double weld_cap_height = m_laserControl.m_measure2.weld_cap_mm.y;
 			
@@ -412,7 +412,7 @@ void CDialogMag::OnClickedButtonRgbCalibration()
 	if (m_nCalibrating == 0 )
 	{
 		m_nCalibrating = 3;
-		m_motionControl.StopMotors();
+		m_motionControl.StopMotors(TRUE);
 		m_hThreadWaitCalibration = AfxBeginThread(::ThreadWaitCalibration, (LPVOID)this)->m_hThread;
 	}
 	else

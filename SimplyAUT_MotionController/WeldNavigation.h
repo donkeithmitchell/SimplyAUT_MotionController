@@ -9,14 +9,15 @@ struct LASER_POS
 	void Reset(){ memset(this, 0x0, sizeof(LASER_POS)); gap_raw = gap_filt = vel_raw = vel_filt = FLT_MAX; }
 
 	LASER_MEASURES measures;
-	double  pos;	// dist travelled (mm)
 	double  gap_raw;	// distance to the weld (mm)
 	double  gap_filt;	// distance to the weld (mm)
 	double  vel_raw;
 	double  vel_filt;
 	double  last_manoeuvre_pos;
+	double dummy8[8 - 5];
+	CDoublePoint manoeuvre1;
+	CDoublePoint manoeuvre2;
 	clock_t time_noted;	// time that measure taken (ms)
-	long    rgb_sum;;
 };
 
 struct DRIVE_POS
@@ -73,6 +74,7 @@ public:
 	CDoublePoint GetLastRGBValue();
 	BOOL		IsNavigating()const;
 	BOOL		WriteScanFile();
+	BOOL		WriteTestFile();
 
 private:
 	void	StopSteeringMotors();
@@ -82,7 +84,7 @@ private:
 	void	SendDebugMessage(const CString& msg);
 	BOOL    SetMotorSpeed(const double speed[]);
 	double  GetLRPositionDiff();
-	BOOL	StopMotors();
+	BOOL	StopMotors(BOOL);
 	BOOL    SetMotorDeceleration(double);
 	void    SetScanning(BOOL bScan) { m_bScanning = bScan; }
 	void	WriteManoeuvreFile(const CArray<POS_MANOEVER, POS_MANOEVER>& listManoevers, const CArray<DRIVE_POS, DRIVE_POS>& listVel);

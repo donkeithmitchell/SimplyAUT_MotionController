@@ -31,6 +31,7 @@ struct LASER_MEASURES
 	double weld_right_height_mm;
 	double weld_left_start_mm;
 	double weld_right_end_mm;
+	double wheel_velocity4[4];
 
 	int weld_left_pix;
 	int weld_right_pix;
@@ -59,7 +60,7 @@ public:
 	BOOL GetLaserStatus(SensorStatus& SensorStatus);
 	BOOL GetLaserMeasurment(Measurement&);
 	BOOL CalcLaserMeasures_old(LASER_MEASURES&);
-	BOOL CalcLaserMeasures(double pos);
+	int  CalcLaserMeasures(double pos, const double velocity[4], int last_cap_pix);
 	BOOL SetLaserMeasurment(const Measurement&);
 	BOOL SetAutoLaserCheck(BOOL);
 	BOOL SetLaserIntensity(int nLaserPower);

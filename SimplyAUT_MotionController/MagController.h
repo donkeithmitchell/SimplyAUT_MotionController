@@ -65,6 +65,7 @@ public:
     double  GetRGBCalibrationPos()const { return m_rgbPos; }
     CDoublePoint GetRGBCalibrationData(int ind)const;
     int GetRGBCalibrationDataSize()const {return (int)m_rgbData.GetSize(); }
+    double  GetEncoderDistance();
 
 protected:
     CWnd*   m_pParent;

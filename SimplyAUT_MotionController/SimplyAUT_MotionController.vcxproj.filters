@@ -108,6 +108,9 @@
     <ClInclude Include="DialogFiles.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Define.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimplyAUT_MotionController.cpp">
