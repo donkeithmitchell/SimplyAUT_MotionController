@@ -73,10 +73,12 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_dlgConnect.Init(this, WM_DEGUG_MSG);
 	m_dlgGirthWeld.Init(this, WM_DEGUG_MSG);
 	m_dlgMotors.Init(this, WM_DEGUG_MSG);
+#ifdef _DEBUG_TIMING_
 	m_dlgLaser.Init(this, WM_DEGUG_MSG);
 	m_dlgMag.Init(this, WM_DEGUG_MSG);
 	m_dlgStatus.Init(this, WM_DEGUG_MSG);
 	m_dlgFiles.Init(this, WM_DEGUG_MSG);
+#endif
 }
 
 void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
@@ -132,20 +134,26 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	// TODO: Add extra initialization here
 	m_tabControl.InsertItem(TAB_CONNECT, CString("Connect"));
 	m_tabControl.InsertItem(TAB_MOTORS, CString("Motors"));
+	m_tabControl.InsertItem(TAB_SCAN, CString("Scan"));
+
+	// these are for debug purposes only
+#ifdef _DEBUG_TIMING_
 	m_tabControl.InsertItem(TAB_LASER, CString("Laser"));
 	m_tabControl.InsertItem(TAB_MAG, CString("Mag"));
-	m_tabControl.InsertItem(TAB_SCAN, CString("Scan"));
 	m_tabControl.InsertItem(TAB_FILES, CString("Files"));
 	m_tabControl.InsertItem(TAB_STATUS, CString("Status"));
+#endif
 	m_tabControl.SetCurSel(m_nSel);
 
 	m_dlgConnect.Create(&m_tabControl);
 	m_dlgMotors.Create(&m_tabControl);
 	m_dlgGirthWeld.Create(&m_tabControl);
+#ifdef _DEBUG_TIMING_
 	m_dlgLaser.Create(&m_tabControl);
 	m_dlgMag.Create(&m_tabControl);
 	m_dlgStatus.Create(&m_tabControl);
 	m_dlgFiles.Create(&m_tabControl);
+#endif
 
 	GetDlgItem(IDC_BUTTON_RESET_STATUS)->ShowWindow(SW_HIDE);
 
@@ -218,10 +226,12 @@ void CSimplyAUTMotionControllerDlg::OnCancel()
 void CSimplyAUTMotionControllerDlg::Serialize(CArchive& ar)
 {
 	UpdateData(TRUE);
-	m_dlgGirthWeld.Serialize(ar);
-	m_dlgMag.Serialize(ar);
 	m_dlgConnect.Serialize(ar);
+	m_dlgGirthWeld.Serialize(ar);
+#ifdef _DEBUG_TIMING_
+	m_dlgMag.Serialize(ar);
 	m_dlgLaser.Serialize(ar);
+#endif
 	UpdateData(FALSE);
 }
 LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
@@ -247,10 +257,12 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			m_dlgConnect.EnableControls();
 			m_dlgMotors.EnableControls();
 			m_dlgGirthWeld.EnableControls();
+#ifdef _DEBUG_TIMING_
 			m_dlgLaser.EnableControls();
 			m_dlgMag.EnableControls();
 			m_dlgStatus.EnableControls();
 			m_dlgFiles.EnableControls();
+#endif
 			break;
 		}
 		case MSG_GETSCANSPEED:
@@ -358,10 +370,12 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 	m_dlgConnect.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgMotors.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgGirthWeld.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
+#ifdef _DEBUG_TIMING_
 	m_dlgLaser.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgMag.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgStatus.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgFiles.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
+#endif
 }
 
 
@@ -388,10 +402,12 @@ BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 	case TAB_CONNECT: return m_dlgConnect.CheckVisibleTab();
 	case TAB_MOTORS: return m_dlgMotors.CheckVisibleTab();
 	case TAB_SCAN: return m_dlgConnect.CheckVisibleTab();
+#ifdef _DEBUG_TIMING_
 	case TAB_LASER: return m_dlgLaser.CheckVisibleTab();
 	case TAB_MAG: return m_dlgMag.CheckVisibleTab();
 	case TAB_FILES: return m_dlgFiles.CheckVisibleTab();
 	case TAB_STATUS: return m_dlgStatus.CheckVisibleTab();
+#endif
 	default: return FALSE;
 	}
 
@@ -411,19 +427,22 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	ASSERT(IsWindow(m_dlgConnect.m_hWnd));
 	ASSERT(IsWindow(m_dlgMotors.m_hWnd));
 	ASSERT(IsWindow(m_dlgGirthWeld.m_hWnd));
+#ifdef _DEBUG_TIMING_
 	ASSERT(IsWindow(m_dlgLaser.m_hWnd));
 	ASSERT(IsWindow(m_dlgMag.m_hWnd));
 	ASSERT(IsWindow(m_dlgFiles.m_hWnd));
 	ASSERT(IsWindow(m_dlgStatus.m_hWnd));
+#endif
 
 	m_dlgConnect.ShowWindow(m_nSel == TAB_CONNECT ? SW_SHOW : SW_HIDE);
 	m_dlgMotors.ShowWindow(m_nSel == TAB_MOTORS ? SW_SHOW : SW_HIDE);
 	m_dlgGirthWeld.ShowWindow(m_nSel == TAB_SCAN ? SW_SHOW : SW_HIDE);
+#ifdef _DEBUG_TIMING_
 	m_dlgLaser.ShowWindow(m_nSel == TAB_LASER ? SW_SHOW : SW_HIDE);
 	m_dlgMag.ShowWindow(m_nSel == TAB_MAG ? SW_SHOW : SW_HIDE);
 	m_dlgFiles.ShowWindow(m_nSel == TAB_FILES ? SW_SHOW : SW_HIDE);
 	m_dlgStatus.ShowWindow(m_nSel == TAB_STATUS ? SW_SHOW : SW_HIDE);
-
+#endif
 	// this will causew the sdizing of the laser to be adjusted
 	PostMessage(WM_SIZE);
 	m_dlgGirthWeld.PostMessage(WM_SIZE);
@@ -456,5 +475,7 @@ void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const CString& szMsg)
 void CSimplyAUTMotionControllerDlg::OnClickedButtonResetStatus()
 {
 	// TODO: Add your control notification handler code here
+#ifdef _DEBUG_TIMING_
 	m_dlgStatus.ResetStatus();
+#endif
 }

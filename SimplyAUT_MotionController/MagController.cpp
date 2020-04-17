@@ -5,7 +5,7 @@
 #include <Ws2tcpip.h>
 
 static BOOL g_sensor_initialised = FALSE;
-#ifdef _DEBUG_TIMING
+#ifdef _DEBUG_TIMING_
 clock_t g_ThreadReadSocketTime = 0;
 int g_ThreadReadSocketCount = 0;
 #endif
@@ -197,6 +197,7 @@ BOOL CMagControl::SetMagRGBCalibrationValue(double fCal)
 
 int  CMagControl::GetMagStatus()
 {
+    clock_t t1 = clock();
     if (!IsConnected())
         return 0;
 
@@ -230,7 +231,21 @@ int  CMagControl::GetMagStatus()
         m_magStatus[i] = INT_MAX;
 
     m_critMagStatus.Unlock();
-    
+
+#ifdef _DEBUG_TIMING_
+    static clock_t first_time = -1;
+    clock_t t2 = clock();
+    if (first_time == -1 || t1 - first_time > 1000)
+    {
+        if (t2 - t1 > 10)
+        {
+            CString str;
+            str.Format("GetMagStatus: %d ms", (int)(t2 - t1));
+            SendDebugMessage(str);
+        }
+        first_time = t1;
+    }
+#endif
     return ret;
 }
 
@@ -238,13 +253,16 @@ int  CMagControl::GetMagStatus()
 // it is only the recv() which is slow
 int CMagControl::Send(const CString& str)
 {
-    time_t tim1 = clock();
+    time_t t1 = clock();
     int nRecv = ::send(m_server, str, str.GetLength(), 0);
-    time_t send_tim = clock() - tim1;
 
-//   CString temp;
-//  temp.Format("Send: %d ms", send_tim);
-//    SendDebugMessage(temp);
+    if (clock() - t1 > 10)
+    {
+        CString str;
+        str.Format("Send: %d ms", (int)(clock() - t1));
+        SendDebugMessage(str);
+    }
+
     return nRecv;
 }
 
@@ -278,6 +296,7 @@ int CMagControl::ReadSocket(char* buffer, int nSize)
 
 size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 {
+    clock_t t1 = clock();
     // spin a thread to read the MAG buffer
     // the thread will read until find the terminating character
     m_eventSocket.ResetEvent();
@@ -313,6 +332,20 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
         len = (int)strlen(m_strBuffer);
     }
 
+#ifdef _DEBUG_TIMING_
+    static clock_t first_time = -1;
+    clock_t t2 = clock();
+    if (first_time == -1 || t1 - first_time > 1000)
+    {
+        if (t2 - t1 > 10)
+        {
+            CString str;
+            str.Format("ReadMagBuffer: %d ms", (int)(t2 - t1));
+            SendDebugMessage(str);
+        }
+        first_time = t1;
+    }
+#endif
     return len;
 }
 // read bytes from the socket until get the terminating character (\r)
@@ -357,7 +390,7 @@ UINT CMagControl::ThreadReadSocket()
         }
     }
 
-#ifdef _DEBUG_TIMING
+#ifdef _DEBUG_TIMING_
     g_ThreadReadSocketTime += clock() - t1;
     g_ThreadReadSocketCount++;
 #endif  
@@ -522,10 +555,12 @@ BOOL CMagControl::IsConnected()const
 
 void CMagControl::SendDebugMessage(const CString& msg)
 {
+#ifdef _DEBUG_TIMING_
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
         m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
     }
+#endif
 }
 
 void CMagControl::SendErrorMessage(const CString& msg)
@@ -542,7 +577,7 @@ static double CalculateEncoderDistance(int nCount)
         return FLT_MAX;
 
     else
-        return -nCount / ENCODER_TICKS_PER_MM;
+        return -nCount  / ENCODER_TICKS_PER_MM; 
 }
 
 
@@ -561,7 +596,7 @@ int CMagControl::GetMagStatus(int ind)
     return ret;
 }
 
-BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser)
+BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
 {
     // get the minimum point and aassume that is the line
     // get the median value of all, and use 1/2 way from minimum to median as threshold
@@ -615,7 +650,7 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser)
 
     int i1, i2;
     double threshold;
-    if (bWithLaser)
+    if (bWithLaser || !bSeekBlackLine )
     {
         threshold = Y1[maxInd] - 2 * (Y1[maxInd] - median) / 3;
 

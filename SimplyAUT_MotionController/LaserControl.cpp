@@ -10,6 +10,8 @@ static int __stdcall callback_fct(int val);
 static int g_sensor_initialised = FALSE;
 static int g_log_msgs[100];
 static int g_log_ptr = 0;
+static CCriticalSection g_critMeasures;
+
 #define FILTER_MARGIN 100
 
 CLaserControl::CLaserControl()
@@ -38,10 +40,12 @@ void CLaserControl::Init(CWnd* pParent, UINT nMsg)
 
 void CLaserControl::SendDebugMessage(const CString& msg)
 {
+#ifdef _DEBUG_TIMING_
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 	{
 		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
 	}
+#endif
 }
 
 void CLaserControl::SendErrorMessage(const CString& msg)
@@ -318,29 +322,29 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 
 LASER_MEASURES CLaserControl::GetLaserMeasures2()
 {
-	m_critMeasures.Lock();
+	g_critMeasures.Lock();
 	LASER_MEASURES  ret = m_measure2;
-	m_critMeasures.Unlock();
+	g_critMeasures.Unlock();
 	return ret;
 }
 
 void CLaserControl::GetLaserHits(MT_Hits_Pos hits[], double hitBuffer[], int nSize)
 {
-	m_critMeasures.Lock();
+	g_critMeasures.Lock();
 	nSize = min(nSize, SENSOR_WIDTH);
 	for (int i = 0; i < nSize; ++i)
 		hits[i] = m_profile.hits[i].pos1;
 
 	memcpy(hitBuffer, m_hitBuffer, nSize * sizeof(double));
-	m_critMeasures.Unlock();
+	g_critMeasures.Unlock();
 }
 
 
 void CLaserControl::SetLaserMeasures2(const LASER_MEASURES& meas)
 {
-	m_critMeasures.Lock();
+	g_critMeasures.Lock();
 	m_measure2 = meas;
-	m_critMeasures.Unlock();
+	g_critMeasures.Unlock();
 }
 
 
@@ -501,12 +505,134 @@ static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 	else
 		return 0;
 }
-int CLaserControl::CalcLaserMeasures( double pos_avg, const double velocity4[4], int last_cap_pix )
+
+// i1: start index (0 if first half)
+// i2: end inddex (maxInd if first half)
+//m dir1: +1 if cap is +Ve, -1 if cap is a gap
+static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
+{
+	double sum1 = 0;
+	int cnt1 = 0;
+	for (int i = i1; i < i2; ++i)
+	{
+		sum1 += hitBuffer[i];
+		cnt1++;
+	}
+	double avgPos = cnt1 ? sum1 / cnt1 : 0;
+
+	double sum2 = 0;
+	int cnt2 = 0;
+	for (int i = i1; i < i2; ++i)
+	{
+		sum2 += pow(hitBuffer[i] - avgPos, 2.0);
+		cnt2++;
+	}
+	double sd = cnt2 ? sqrt(sum2 / cnt2) : 0;
+
+	// now recalculate he average that is above this SD
+		// now recalculate the sd and average not including the weld data
+	sum1 = 0;
+	cnt1 = 0;
+	for (int i = i1; i < i2; ++i)
+	{
+		if (dir1 * hitBuffer[i] < dir1 * (avgPos + dir1 * sd))
+		{
+			sum1 += hitBuffer[i];
+			cnt1++;
+		}
+	}
+	avgPos = cnt1 ? sum1 / cnt1 : 0;
+
+	sum2 = 0;
+	cnt2 = 0;
+	for (int i = i1; i < i2; ++i)
+	{
+		if (dir1 * hitBuffer[i] < dir1 * (avgPos + dir1 * sd))
+		{
+			sum2 += pow(hitBuffer[i] - avgPos, 2.0);
+			cnt2++;
+		}
+	}
+	// set the threshold as 1/2 SD above the average value
+	sd = cnt2 ? sqrt(sum2 / cnt2) : 0;
+	double threshold1 = avgPos + dir1 * sd / 2.0;
+
+	// now note the start and end of this region above the threshold 
+	// start at the maximum indesxd, and work out from it
+	int ind;
+	int dir2 = (i1 == 0) ? -1 : 1;
+	int maxInd = (i1 == 0) ? i2 : i1;
+
+	for (ind = maxInd; ind >= 0 && ind < SENSOR_WIDTH; ind += dir2)
+	{
+		if (dir1 * hitBuffer[ind] < dir1 * threshold1)
+			break;
+	}
+
+	ind = max(ind, 0);
+	ind = min(ind, SENSOR_WIDTH - 1);
+
+	return ind;
+}
+
+// dir: 1 the peak is a maximum, -1: the peak is a minimum
+static int CalculateMaximumIndex(const double hitBuffer[], int nSamp, int& rDir)
+{
+	int maxInd = -1;
+	int minInd = -1;
+	double sum1 = 0;
+
+	// find the maximum and minimum samples
+	// calcualte the average
+	for (int i = 0; i < nSamp; ++i)
+	{
+		if (minInd == -1 || hitBuffer[i] < hitBuffer[minInd])
+			minInd = i;
+
+		// only conser about the previous maximum
+		if (maxInd == -1 || hitBuffer[i] > hitBuffer[maxInd])
+			maxInd = i;
+
+		sum1 += hitBuffer[i];
+	}
+	double avgPos = sum1 / nSamp;
+
+	// which has more energy under it, the minimum (0) or the maximum (1)
+	// energy is sum of (value-avg)^2
+	double S[2];
+	int ind[2] = { minInd, maxInd };
+
+	for (int i = 0; i < 2; ++i)
+	{
+		double sum2 = 0;
+		int cnt2 = 0;
+		for (int j = max(ind[i] - 10, 0); j <= min(ind[i] + 10, nSamp - 1); ++j)
+		{
+			sum2 += pow(hitBuffer[j] - avgPos, 2.0);
+			cnt2++;
+		}
+		S[i] = cnt2 ? sum2 / cnt2 : 0;
+	}
+
+	// now note if looking for a minimum or a maximum
+	rDir = (S[0] > S[1]) ? -1 : 1;
+	maxInd = (S[0] > S[1]) ? ind[0] : ind[1];
+
+	return maxInd;
+}
+
+int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], int last_cap_pix)
 {
 #define SCATTER_WIDTH 10
+
+
+	g_critMeasures.Lock();
 	m_measure2.status = -1;
 	if (!IsConnected() || !IsLaserOn())
+	{
+		g_critMeasures.Unlock();
 		return FALSE;
+	}
 
 	// also get the F/W measures
 	Measurement measures1;
@@ -537,103 +663,31 @@ int CLaserControl::CalcLaserMeasures( double pos_avg, const double velocity4[4],
 	// can not just remove, as this will shift the data
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
-		if (m_hitBuffer[i] < 0 || m_hitBuffer[i] >= SENSOR_HEIGHT)
+		if (m_hitBuffer[i] == 0 || m_hitBuffer[i] >= SENSOR_HEIGHT)
 			m_hitBuffer[i] = ::InterplateLaserHit(m_hitBuffer, i, SENSOR_WIDTH);
 	}
 
 	// pad the end with copies of the last value
 	for (int i = SENSOR_WIDTH; i < SENSOR_WIDTH + FILTER_MARGIN; ++i)
-		m_hitBuffer[i] = m_hitBuffer[SENSOR_WIDTH-1];
+		m_hitBuffer[i] = m_hitBuffer[SENSOR_WIDTH - 1];
 
+	// low-pass filter the data
 	m_filter.IIR_HighCut(m_hitBuffer, 100, 25.0);
 
-	// this filter addedded delay, remove it
-//	int shift = 0;
-//	for (int i = SENSOR_WIDTH - 1; i >= shift; --i)
-//		m_hitBuffer[i] = m_hitBuffer[i - shift];
-
-	// get as list of local maximums
-	// also note the average and location of the minimum
-	int maxInd = -1;
-	int minInd = -1;
-	double sum1 = 0;
-
-	for (int i = 0; i < SENSOR_WIDTH; ++i)
-	{
-		if (minInd == -1 || m_hitBuffer[i] < m_hitBuffer[minInd])
-			minInd = i;
-
-		// only conser about the previous maximum
-		if (maxInd == -1 || m_hitBuffer[i] > m_hitBuffer[maxInd])
-		{
-			if(last_cap_pix == -1 || abs(i - last_cap_pix) < MAX_LASER_CAP_DEVIATION)
-			maxInd = i;
-		}
-		sum1 += m_hitBuffer[i];
-	}
-	double avgPos = sum1 / (SENSOR_WIDTH - 2);
-
-	// get the SD (this includes the weld data)
-	// set the edge threshold as 1 SD above the average
-	double sum2 = 0;
-	for (int i = 0; i < SENSOR_WIDTH; ++i)
-	{
-		double val = m_hitBuffer[i] - avgPos;
-		sum2 += val * val;
-	}
-	double sd = sqrt(sum2 / SENSOR_WIDTH);
-
-	// now recalculate the sd and average not including the weld data
-	sum1 = 0;
-	int cnt = 0;
-	for (int i = 0; i < SENSOR_WIDTH; ++i)
-	{
-		if (m_hitBuffer[i] < avgPos + sd)
-		{
-			sum1 += m_hitBuffer[i];
-			cnt++;
-		}
-	}
-	avgPos = sum1 / cnt;
-
-	sum2 = 0;
-	cnt = 0;
-	for (int i = 0; i < SENSOR_WIDTH; ++i)
-	{
-		if (m_hitBuffer[i] < avgPos + sd)
-		{
-			double val = m_hitBuffer[i] - avgPos;
-			sum2 += val * val;
-			cnt++;
-		}
-	}
-	sd = sqrt(sum2 / cnt);
-
+	// get both the maximumk and the minimum and the average
+	int dir, maxInd = CalculateMaximumIndex(m_hitBuffer, SENSOR_WIDTH, dir);
 
 	// the threshold is 1/2 way from average to maxVal
 	// incase following a gap, not a weld cap, check which is larget
 	// average to minimum or average to maximum
-	int dir = 1; //  (maxPos - avgPos) > (avgPos - minPos) ? 1 : -1;
-//	double threshold = (dir == 1) ? (m_hitBuffer[maxInd] + avgPos) / 2 : (m_hitBuffer[minInd] + avgPos) / 2;
-//	double threshold = (dir == 1) ? (m_hitBuffer[maxInd] + medPos) / 2 : (m_hitBuffer[minInd] + medPos) / 2;
-	double threshold = (dir == 1) ? (m_hitBuffer[maxInd] + avgPos + sd) / 2 : (m_hitBuffer[minInd] - avgPos - sd) / 2;
+	int i1 = CalculateWeldEdge(m_hitBuffer, 0, maxInd, dir);
+	int i2 = CalculateWeldEdge(m_hitBuffer, maxInd, SENSOR_WIDTH, dir);
 
-	// now note the start and end of this region above the threshold 
-	int i1, i2;
-	for (i1 = 0; i1 < SENSOR_WIDTH; ++i1)
-	{
-		if (dir == 1 && m_hitBuffer[i1] >= threshold)
-			break;
-		if (dir == -1 && m_hitBuffer[i1] <= threshold)
-			break;
-	}
-	for (i2 = SENSOR_WIDTH - 1; i2 >= 0; --i2)
-	{
-		if (dir == 1 && m_hitBuffer[i2] >= threshold)
-			break;
-		if (dir == -1 && m_hitBuffer[i2] <= threshold)
-			break;
-	}
+	// set to the same width as each other
+//	if (i2 - maxInd > maxInd - i1)
+//		i2 = min(maxInd + (maxInd - i1), SENSOR_WIDTH - 1);
+//	else if (maxInd - i1 > i2 - maxInd)
+//		i1 = max(maxInd - (i2 - maxInd), 0);
 
 	// now put these values into a double vector and gtet the 2nd order polynomial parameters for
 	int j = 0;
@@ -648,11 +702,20 @@ int CLaserControl::CalcLaserMeasures( double pos_avg, const double velocity4[4],
 	double coeff[3];
 	::polyfit(m_polyX, m_polyY, j, 2, coeff);
 
+	double centre = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
+
+	if (fabs(centre - maxInd) > (i2 - i1) / 2)
+		centre = (double)(i1 + i2) / 2.0;
+
+	centre = max(centre, 0.0);
+	centre = min(centre, (double)SENSOR_WIDTH - 1.0);
+
 	// now differentiate the coeff to dind the location of the maximum
-	m_measure2.weld_cap_pix2.x = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
+	m_measure2.weld_cap_pix2.x = centre;
 	m_measure2.weld_cap_pix2.y = coeff[2] * m_measure2.weld_cap_pix2.x * m_measure2.weld_cap_pix2.x + coeff[1] * m_measure2.weld_cap_pix2.x + coeff[0];
 	m_measure2.weld_left_pix = i1;
 	m_measure2.weld_right_pix = i2;
+//	*/
 
 	// convert laser pixels to mm
 	// will draw with pixels, but navigate with mm
@@ -695,8 +758,12 @@ int CLaserControl::CalcLaserMeasures( double pos_avg, const double velocity4[4],
 	{
 		memcpy(m_measure2.wheel_velocity4, velocity4, 4 * sizeof(double));
 	}
+
 	m_measure2.status = 0;
-	return (int)(m_measure2.weld_cap_pix2.x + 0.5);
+	int ret = (int)(m_measure2.weld_cap_pix2.x + 0.5);
+
+	g_critMeasures.Unlock();
+	return ret;
 }
 
 

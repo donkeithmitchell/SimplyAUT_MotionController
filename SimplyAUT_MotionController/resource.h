@@ -101,7 +101,6 @@
 #define IDC_BUTTON_LASER_STATUS         1056
 #define IDC_STATIC_MOTOR_A              1057
 #define IDC_BUTTON_LEFT                 1057
-#define IDC_CHECK_AUTOHOME2             1057
 #define IDC_CHECK_PREDRIVE              1057
 #define IDC_STATIC_MOTOR_B              1058
 #define IDC_CHECK_SEEK_START_REVERSE    1058
@@ -125,8 +124,10 @@
 #define IDC_TEMPERATURE_EDIT            1065
 #define IDC_SPIN_PREDRIVE               1065
 #define IDC_MSG_EDIT                    1066
+#define IDC_CHECK_SEEK_BLACK_LINE       1066
 #define IDC_LASERPOWER_BUTTON           1067
 #define IDC_STATIC_RGB_LINE             1067
+#define IDC_CHECK_CALIBRATE             1067
 #define IDC_LASERPOWER_EDIT             1068
 #define IDC_STATIC_RGB_VALUE            1068
 #define IDC_SENSORVERSION_EDIT          1069
@@ -156,6 +157,8 @@
 #define IDC_BUTTON_MAG_ON               1090
 #define IDC_BUTTON_ROI_RESET            1091
 #define IDC_STATIC_RGB_STATUS           1091
+#define IDC_BUTTON_MAG_ON2              1091
+#define IDC_BUTTON_MAG_ERNABLED         1091
 #define IDC_EDIT_RGB_CAL                1092
 #define IDC_BUTTON_SET_CALIBRATION      1093
 #define IDC_STATIC_MAG_RGB_CAL          1094
@@ -177,16 +180,25 @@
 #define IDC_EDIT1                       1109
 #define IDC_EDIT_SEEK_START_LINE        1109
 #define IDC_STATIC_FWD                  1110
+#define IDC_CHECK_USE_BLACK_LINE        1110
 #define IDC_STATIC_BACK                 1111
 #define IDC_STATIC1                     1112
+#define IDC_STATICPID_P                 1112
 #define IDC_STATIC2                     1113
+#define IDC_STATICPID_I                 1113
 #define IDC_STATIC3                     1114
+#define IDC_STATICPID_D                 1114
 #define IDC_STATIC4                     1115
+#define IDC_STATICPID                   1115
 #define IDC_SLIDER_STEER                1116
 #define IDC_EDIT_PREDRIVE               1117
 #define IDC_LIST1                       1117
 #define IDC_LIST_FILES                  1117
 #define IDC_BUTTON_RESET                1118
+#define IDC_STATIC_MAG_STATUS           1118
+#define IDC_EDIT_NAV_P                  1119
+#define IDC_EDIT_NAV_I                  1120
+#define IDC_EDIT_NAV_D                  1121
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 
@@ -196,7 +208,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1119
+#define _APS_NEXT_CONTROL_VALUE         1123
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -229,6 +229,7 @@ void CDialogFiles::UpdateFileList()
 			sprintf_s(buffer, sizeof(buffer), "%5.2f", cnt ? sum/cnt : 0);
 			m_listFiles.SetItemText(j, 3, buffer);
 			j++;
+			fclose(fp);
 		}
 	}
 }

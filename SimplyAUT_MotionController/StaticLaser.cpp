@@ -11,7 +11,7 @@
 
 static double PI = 4 * atan(1.0); 
 
-#ifdef _DEBUG_TIMING
+#ifdef _DEBUG_TIMING_
 clock_t g_LaserOnPaintTime = 0;
 int g_LaserOnPaintCount = 0;
 #endif
@@ -99,8 +99,10 @@ void CStaticLaser::OnPaint()
 	//	m_wndLaserProfile.InvalidateRgn(NULL);
 	dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
 
+#ifdef _DEBUG_TIMING_
 	g_LaserOnPaintTime += clock() - t1;
 	g_LaserOnPaintCount++;
+#endif
 }
 
 void CStaticLaser::OnSize(UINT nFlag, int cx, int cy)
@@ -626,8 +628,8 @@ void CStaticLaser::GetLaserProfile()
 		m_edge_pos[0].x = measure2.weld_left_mm;
 		m_edge_pos[0].y = measure2.weld_left_height_mm;
 
-		m_edge_pos[0].x = measure2.weld_right_mm;
-		m_edge_pos[0].y = measure2.weld_right_height_mm;
+		m_edge_pos[1].x = measure2.weld_right_mm;
+		m_edge_pos[1].y = measure2.weld_right_height_mm;
 
 		m_edge_pos[2].x = m_edge_pos[1].x - m_edge_pos[0].x;
 		m_edge_pos[2].y = m_edge_pos[1].y - m_edge_pos[0].y;

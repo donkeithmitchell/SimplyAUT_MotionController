@@ -44,10 +44,12 @@ void Gclib::SetLastError(const CString& str)
 
 void Gclib::SendDebugMessage(const CString& msg)
 {
+#ifdef _DEBUG_TIMING_
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
         m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
     }
+#endif
 }
 
 int Gclib::GetMotorSpeed(GCStringIn axis, int& rAccel)
@@ -476,7 +478,7 @@ CString Gclib::GCommand(GCStringIn Command, bool bTrim /*= true*/)
         return _T("ERR");
     }
 
-    if( strcmp(Command, "ST") == 0 )
+ //   if( strcmp(Command, "ST") == 0 )
         SendDebugMessage(_T("Downloading Program --> ") + CString(Command));
     
     GReturn rc = ::GCommand(m_ConnectionHandle, Command, m_Buffer, m_BufferSize, &bytes_read);

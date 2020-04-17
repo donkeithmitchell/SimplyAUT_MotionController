@@ -15,6 +15,7 @@ public:
 	CDoublePoint(double _x, double _y) { x = _x; y = _y; }
 	void Reset() { x = y = FLT_MAX; }
 	BOOL IsSet()const { return x != FLT_MAX && y != FLT_MAX; }
+	BOOL operator != (const CDoublePoint& xx) { return xx.x != x || xx.y != y; }
 
 	double x, y;
 };

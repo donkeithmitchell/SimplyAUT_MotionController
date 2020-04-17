@@ -51,9 +51,11 @@ public:
 	void    StopMotors(BOOL);
 	double  GetRGBSum();
 	BOOL    GoToPosition(double pos);
+	BOOL    SetMotorJogging(int dir);
 	BOOL    GoToPosition2(double left, double right);
 	BOOL    ResetEncoderCount();
 	double	GetAvgMotorPosition();
+	double  GetEncoderDistance();
 	BOOL    DefinePositions(double);
 	BOOL    WaitForMotorsToStop();
 	BOOL	AreMotorsRunning();
@@ -67,6 +69,8 @@ public:
 	void	NoteRGBCalibration();
 	double	GetCalibrationValue();
 	BOOL	SeekStartLine();
+	BOOL    CalibrateCircumference();
+	BOOL    StartNewScan();
 	double	GetMotorSpeed();
 	double	GetMotorAccel();
 	double  GetAccelDistance()const;
@@ -74,11 +78,12 @@ public:
 	void	UpdateScanFileList();
 	void    Serialize(CArchive& ar);
 	void    ResetParameters();
+	void	EnableMagSwitchControl(BOOL bEnableMAG);
 
 	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK, WM_ARE_MOTORS_RUNNING
 	};
 	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_DEFINE_POSITION, 
-		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GOTO_POSITION2};
+		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GET_ENC_DIST, MC_GOTO_POSITION2, MC_MOTOR_JOGGING};
 	enum TIMER_GW { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_TEMPERATURE, TIMER_LASER_STATUS1, TIMER_RGB_STATUS, TIMER_RUN_TIME, 
 		TIMER_NOTE_RGB, TIMER_GET_LASER_PROFILE, TIMER_ARE_MOTORS_RUNNING, TIMER_NOTE_CALIBRATION	};
 	enum { STATUS_GETLOCATION=0, STATUS_SHOWLASERSTATUS};
@@ -124,6 +129,8 @@ public:
 	CBitmap	m_bitmapLaserError;		// red
 	CBitmap	m_bitmapLaserHot;		// magenta
 	CBitmap	m_bitmapLaserLoading;	// blue
+	CBitmap	m_bitmapDisconnect;	// blue
+	CBitmap	m_bitmapConnect;	// blue
 
 	CStatic		    m_staticLaser;
 	CStatic		    m_staticMag;
@@ -150,9 +157,7 @@ public:
 	CString		m_szTempLaser;
 	CString		m_szTempSensor;
 	CString		m_szRunTime;
-	CString		m_szRGBValue;
 	CString		m_szRGBLinePresent;
-	CString		m_szRGBCalibration;
 
 	double	m_fDestinationPosition;
 	double  m_fScanStartPos;
@@ -165,6 +170,7 @@ public:
 	double m_fMotorScanAccel;
 	double m_fSeekAndStartAtLine;
 	double m_fPredriveDistance;
+	double m_fNavigationPID[3];
 
 	CButton m_buttonPause;
 	CButton m_buttonManual;
@@ -173,6 +179,7 @@ public:
 	CButton m_buttonBack;
 	CButton m_buttonFwd;
 	CButton m_buttonLaserStatus;
+	CButton m_butMagOn;
 
 	BOOL    m_bResumeScan;
 	BOOL	m_bInit;
@@ -187,6 +194,9 @@ public:
 	BOOL	m_bSeekStartLineInReverse;
 	BOOL	m_bSeekWithLaser;
 	BOOL	m_bPredrive;
+	BOOL	m_bSeekBlackLine;
+	BOOL	m_bCalibrate;
+	BOOL m_bEnableMAG;
 
 	CBrush	m_brRed;
 	CBrush	m_brGreen;
@@ -229,4 +239,6 @@ public:
 	afx_msg void OnDeltaposSpinPredrive(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDeltaposSpinSeekStart(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnClickedCheckPredrive();
+	afx_msg void OnClickedCheckCalibrate();
+	afx_msg void OnClickedCheckEnableMag();
 };

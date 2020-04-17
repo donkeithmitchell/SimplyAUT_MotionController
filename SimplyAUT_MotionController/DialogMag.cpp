@@ -32,7 +32,7 @@ CDialogMag::CDialogMag(CMotionControl& motion, CLaserControl& laser, CMagControl
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_wndMag(mag, m_bScanReverse, m_bCalibrateWithLaser, m_fCalibrationLength)
+	, m_wndMag(mag, m_bCalibrateWithLaser, m_bSeekBlackLine, m_fCalibrationLength)
 
 	, m_szRGBEncCount(_T(""))
 	, m_szRGBValue(_T(""))
@@ -80,6 +80,7 @@ void CDialogMag::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_RGB_CALIBRATION, m_fCalibrationLength);
 	DDX_Text(pDX, IDC_EDIT_RGB_SPEED, m_szCalibrationSpeed);
 	DDX_Check(pDX, IDC_CHECK_USE_LASER, m_bCalibrateWithLaser);
+	DDX_Check(pDX, IDC_CHECK_USE_BLACK_LINE, m_bSeekBlackLine);
 	DDX_Check(pDX, IDC_CHECK_RETURN_TO_START, m_bCalibrateReturnToStart);
 }
 
@@ -174,8 +175,9 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 				GetDlgItem(IDC_STATIC_MAG_RGB_CAL)->SetWindowText(m_szRGBCalValue);
 
 				int nEncoderCount = m_magControl.GetMagStatus(MAG_IND_ENC_CNT);
+				double fEncoderDist = m_magControl.GetEncoderDistance();
 				if (nEncoderCount != INT_MAX)
-					m_szRGBEncCount.Format("%d", nEncoderCount);
+					m_szRGBEncCount.Format("%d (%.1f mm)", nEncoderCount, fEncoderDist);
 				else
 					m_szRGBEncCount.Format("***");
 				GetDlgItem(IDC_STATIC_MAG_ENCODER)->SetWindowText(m_szRGBEncCount);
@@ -254,6 +256,7 @@ void CDialogMag::Serialize(CArchive& ar)
 		ar << m_bCalibrateWithLaser;
 		ar << m_bCalibrateReturnToStart;
 		ar << m_bScanReverse;
+		ar << m_bSeekBlackLine;
 		ar << mask;
 	}
 	else
@@ -265,6 +268,7 @@ void CDialogMag::Serialize(CArchive& ar)
 			ar >> m_bCalibrateWithLaser;
 			ar >> m_bCalibrateReturnToStart;
 			ar >> m_bScanReverse;
+			ar >> m_bSeekBlackLine;
 			ar >> mask;
 		}
 		catch (CArchiveException * e1)
@@ -295,9 +299,10 @@ double CDialogMag::GetCalibrationValue()
 	{
 		if (m_laserControl.GetProfile(10))
 		{
+			LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
 			m_laserControl.CalcLaserMeasures(0.0/*pos*/, NULL, -1);
-			double avg_side_height = (m_laserControl.m_measure2.weld_left_height_mm + m_laserControl.m_measure2.weld_right_height_mm) / 2;
-			double weld_cap_height = m_laserControl.m_measure2.weld_cap_mm.y;
+			double avg_side_height = (measure2.weld_left_height_mm + measure2.weld_right_height_mm) / 2;
+			double weld_cap_height = measure2.weld_cap_mm.y;
 			
 			return -weld_cap_height;
 	//		return avg_side_height - weld_cap_height; // the sides will not be well calculated
@@ -487,7 +492,7 @@ LRESULT CDialogMag::OnUserWaitCalibrationFinished(WPARAM, LPARAM)
 	if (m_nCalibrating == 1)
 	{
 		m_hThreadWaitCalibration = NULL;
-		m_magControl.CalculateRGBCalibration(m_bCalibrateWithLaser);
+		m_magControl.CalculateRGBCalibration(m_bCalibrateWithLaser, m_bSeekBlackLine);
 		// now drive to the calibration location
 		m_nCalibrating++;
 		GetDlgItem(IDC_STATIC_RGB_STATUS)->SetWindowText("Drive To Calibration Line");

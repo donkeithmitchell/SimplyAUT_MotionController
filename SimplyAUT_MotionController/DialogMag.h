@@ -83,6 +83,7 @@ public:
 	double	m_fCalibrationLength;
 	CString m_szCalibrationSpeed;
 	BOOL	m_bCalibrateWithLaser;
+	BOOL    m_bSeekBlackLine;
 	afx_msg void OnClickedCheckUseLaser();
 	BOOL m_bCalibrateReturnToStart;
 	afx_msg void OnClickedCheckReturnToStart();

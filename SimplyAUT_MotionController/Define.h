@@ -13,6 +13,7 @@
 #define MAX_LASER_CAP_DEVIATION		100
 
 // used for navigation
+#define GAP_PREDICT					5 // mm
 #define MIN_TRAVEL_DIST				20 // minimum trav el dist of 20 mm befiore navigation kicks in
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres
 #define GAP_FILTER_MIN__WIDTH		10 // mm (filter over last 50 mm, 2nd order, so can handle variations)
@@ -29,15 +30,21 @@
 #define MAX_STEERING_TIME			2000
 #define DESIRED_SPEED_VARIATION		5 // percent
 #define MAX_SPEED_VARIATION			20 // percent
-#define MAX_GAP_CHANGE_PER_MM       1
 #define DIVE_STRAIGHT_DIST			50
+#define MAX_GAP_CHANGE_PER_MM		0.5
 
-#define CRAWLER_WIDTH				25.4 // mm
+#define CRAWLER_WIDTH				26.0 // mm
 #define CRAWLER_LENGTH				23.0 // mm
 
 #define MIN_GAP_TOLERANCE			0.1  // do nothing below this
 #define MAX_GAP_TOLERANCE			0.5  // try to keep within this
 
-#define MIN_TURN_RATE               0.975
-#define MAX_TURN_RATE               0.80
+#define MIN_TURN_RATE               0.99
+#define MAX_TURN_RATE               0.70
+
+#define NAVIGATION_P				2.0
+#define NAVIGATION_I				0.005
+#define NAVIGATION_D				200
+
+#define TORQUE_LIMIT				"TL*=9.9982"
 

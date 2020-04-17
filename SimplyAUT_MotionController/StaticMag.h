@@ -30,8 +30,8 @@ public:
 	CRect				m_disp_rect;
 	CMagControl&		m_magControl;
 	const double&		m_fCalibrationLength;
-	const BOOL&			m_bScanReverse;
 	const BOOL&			m_bScanLaser;
+	const BOOL&			m_bSeekBlackLine;
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME

@@ -57,7 +57,7 @@ public:
     void    SendErrorMessage(const CString& msg);
     int     Send(const CString& str);
     int     GetMagStatus(int ind);
-    BOOL    CalculateRGBCalibration(BOOL);
+    BOOL    CalculateRGBCalibration(BOOL, BOOL);
     void    ResetRGBCalibration();
     void    NoteRGBCalibration(double pos, double val, int len);
     const RGB_CALIBRATION& GetRGBCalibration()const { return m_rgbCalibration; }

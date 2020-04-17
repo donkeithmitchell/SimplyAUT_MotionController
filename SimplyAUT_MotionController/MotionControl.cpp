@@ -38,10 +38,12 @@ void CMotionControl::Init(CWnd* pParent, UINT nMsg)
 
 void CMotionControl::SendDebugMessage(const CString& msg)
 {
+#ifdef _DEBUG_TIMING_
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
         m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
     }
+#endif
 }
 
 void CMotionControl::SendErrorMessage(const CString& msg)
@@ -125,7 +127,7 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
     m_pGclib->GCommand("BR*=0");
     m_pGclib->GCommand("AU*=0.5");
     m_pGclib->GCommand("AG*=0");
-    m_pGclib->GCommand("TL*=1.655");
+    m_pGclib->GCommand(TORQUE_LIMIT); // 1.655");
     m_pGclib->DefinePosition(0);        // all to zero
     m_pGclib->SetAcceleration(50000);    // acceleration cts/sec
     m_pGclib->SetDeceleration(50000);    // deceleration cts/sec
@@ -165,6 +167,17 @@ BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
 {
     CString str;
     m_nGotoPosition = (int)(pos_mm + 0.5);
+
+    m_pGclib->GCommand("KP*=1.05");     // proportional constant
+    m_pGclib->GCommand("KI*=0");        // integrator
+    m_pGclib->GCommand("KD*=0");        // derivative constant
+    m_pGclib->GCommand("ER*=20000");    // magnitude of the position errors cnts
+    m_pGclib->GCommand("OE*=1");        // Off On Error function   
+    m_pGclib->GCommand("BR*=0");
+    m_pGclib->GCommand("AU*=0.5");
+    m_pGclib->GCommand(TORQUE_LIMIT); // 1.655");
+    m_pGclib->GCommand("SH");       // enable all axes
+
     int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
     int posA = AxisDirection("A") * pos_cnt;
     int posB = AxisDirection("B") * pos_cnt;
@@ -258,6 +271,10 @@ BOOL CMotionControl::AreTheMotorsRunning()
 {
     m_critMotorsRunning.Lock();
     BOOL ret = m_bMotorsRunning;
+    if (ret == 0)
+    {
+        int xx = 1;
+    }
     m_critMotorsRunning.Unlock();
 
     return ret;
@@ -325,12 +342,11 @@ BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC
     m_pGclib->GCommand("KP*=1.05");     // proportional constant
     m_pGclib->GCommand("KI*=0");        // integrator
     m_pGclib->GCommand("KD*=0");        // derivative constant
-    m_pGclib->GCommand("ER*=20000");    // magnitude of the position errors cnts
-    m_pGclib->GCommand("OE*=1");        // Off On Error function   
+    m_pGclib->GCommand("ER*=20000");    // magnitude of the position errors cnts // 911
+    m_pGclib->GCommand("OE*=1");        // Off On Error function   // 911
     m_pGclib->GCommand("BR*=0");
     m_pGclib->GCommand("AU*=0.5");
- // m_pGclib->GCommand("AG*=0");        // amplifier gain (not while motor is run ning)
-    m_pGclib->GCommand("TL*=1.655");
+    m_pGclib->GCommand(TORQUE_LIMIT); // 1.655");
  // m_pGclib->DefinePosition(0);        // define position all to zero  (not while motor is run ning)
 //  m_pGclib->GCommand("AC*=50000");    // acceleration cts/sec (leave as were)
 //  m_pGclib->GCommand("DC*=50000");    // deceleration cts/sec

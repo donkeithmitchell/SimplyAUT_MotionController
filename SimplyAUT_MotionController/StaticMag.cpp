@@ -15,11 +15,11 @@ static double PI = 4 * atan(1.0);
 
 IMPLEMENT_DYNAMIC(CStaticMag, CWnd)
 
-CStaticMag::CStaticMag(CMagControl& mag, const BOOL& bScanRev, const BOOL& bScanLaser, const double& length)
+CStaticMag::CStaticMag(CMagControl& mag, const BOOL& bScanLaser, const BOOL& bLackLine, const double& length)
 	: CWnd()
 	, m_magControl(mag)
-	, m_bScanReverse(bScanRev)
 	, m_bScanLaser(bScanLaser)
+	, m_bSeekBlackLine(bLackLine)
 	, m_fCalibrationLength(length)
 {
 	m_pParent = NULL;
@@ -121,6 +121,9 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	if (len == 0)
 		return;
 
+	CDoublePoint pt1 = m_magControl.GetRGBCalibrationData(0);
+	CDoublePoint pt2 = m_magControl.GetRGBCalibrationData(len-1);
+	BOOL bScanReverse = (pt1.x > pt2.x);
 
 	// get a copy of the data to filter
 	/////////////////////////////////////
@@ -136,7 +139,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 
 	// high-cut the response
 	// only if using the laser, it is very spiky
-	// also filter with a +/- 1 median (i.e. over 3 samples)
+	// also filter with a +/- 1 median (i.e. over 3 samples), this removed any laser simgle sample spikes
 	CIIR_Filter filter(len);
 	if (len >= 5 && m_bScanLaser )
 	{
@@ -148,7 +151,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 
 	// draw a scale on the bottom
 	int y1 = rect.bottom;
-	double pos1 = X2[0];
+	double pos1 = bScanReverse ? X2[0] : 0;
 
 	CPen pen1(PS_SOLID, 0, RGB(250, 250, 250));
 	pDC->SelectObject(&pen1);
@@ -189,7 +192,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 
 	// scale to fit the run length
 	// scale from 0 -> 100
-	if(m_bScanReverse )
+	if(bScanReverse)
 		minX = min(minX, maxX - m_fCalibrationLength);
 	else
 		maxX = max(maxX, minX + m_fCalibrationLength);
@@ -201,11 +204,11 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	pDC->MoveTo(rect.left, y1);
 	pDC->LineTo(rect.right, y1);
 	int tick = 10;
-	int nticks = (int)m_fCalibrationLength / tick;
+	int nticks = (int)(maxX-minX) / tick;
 	while (nticks > 10)
 	{
 		tick *= 2;
-		nticks = (int)m_fCalibrationLength / tick;
+		nticks = (int)(maxX-minX) / tick;
 	}
 
 	for (double pos = minX; pos <= maxX; pos += tick)

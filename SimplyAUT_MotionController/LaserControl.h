@@ -22,6 +22,9 @@ struct LASER_MEASURES
 	CDoublePoint weld_cap_pix1; // from F/W
 	CDoublePoint weld_cap_pix2; // from S/W
 	CDoublePoint weld_cap_mm;
+	CDoublePoint dummy16[4 - 3];
+
+	double wheel_velocity4[4];
 	double us_coeff[3];
 	double ds_coeff[3];
 	double measure_pos_mm; // position that was at when took measure
@@ -31,7 +34,7 @@ struct LASER_MEASURES
 	double weld_right_height_mm;
 	double weld_left_start_mm;
 	double weld_right_end_mm;
-	double wheel_velocity4[4];
+	double dummy8[24 - 17];
 
 	int weld_left_pix;
 	int weld_right_pix;
@@ -39,6 +42,7 @@ struct LASER_MEASURES
 	int weld_right_end_pix;
 	int status;
 	int rgb_sum;
+	int dummy4[8 - 6];
 };
 
 class CLaserControl
@@ -84,7 +88,6 @@ public:
 
 	CIIR_Filter m_filter;
 
-	CCriticalSection m_critMeasures;
 	Measurement		m_measure1;
 	LASER_MEASURES	m_measure2;
 	Profile			m_profile;
