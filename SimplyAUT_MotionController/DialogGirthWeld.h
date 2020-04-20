@@ -34,7 +34,7 @@ public:
 	UINT	ThreadGoToHome(void);
 	UINT	ThreadRunScan();
 	void	SendDebugMessage(const CString&);
-	void	SendErrorMessage(const CString&);
+	void	SendErrorMessage(const char*);
 	void    ShowLaserTemperature();
 	void    ShowLaserStatus();
 	void	SetNoteRunTime(BOOL);

@@ -332,23 +332,23 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 	}
 
 	CString str;
-str.Format("%d", minVal);
-CSize sz = pDC->GetTextExtent(str);
-pDC->SetTextColor(RGB(0, 0, 0));
-pDC->SetBkMode(TRANSPARENT);
-pDC->TextOutA((rect.left + rect.right) / 2 - 5 * sz.cx / 4, rect.bottom - sz.cy, str);
+	str.Format("%d", minVal);
+	CSize sz = pDC->GetTextExtent(str);
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	pDC->TextOutA((rect.left + rect.right) / 2 - 5 * sz.cx / 4, rect.bottom - sz.cy, str);
 
-str.Format("%d", maxVal);
-sz = pDC->GetTextExtent(str);
-pDC->SetTextColor(RGB(0, 0, 0));
-pDC->SetBkMode(TRANSPARENT);
-pDC->TextOutA((rect.left + rect.right) / 2, rect.bottom - sz.cy, str);
+	str.Format("%d", maxVal);
+	sz = pDC->GetTextExtent(str);
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	pDC->TextOutA((rect.left + rect.right) / 2, rect.bottom - sz.cy, str);
 
-str.Format("%d", m_rgbData[len - 1]);
-sz = pDC->GetTextExtent(str);
-pDC->SetTextColor(RGB(0, 0, 0));
-pDC->SetBkMode(TRANSPARENT);
-pDC->TextOutA((rect.left + rect.right) / 2 - sz.cx / 2, rect.bottom, str);
+	str.Format("%d", m_rgbData[len - 1]);
+	sz = pDC->GetTextExtent(str);
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	pDC->TextOutA((rect.left + rect.right) / 2 - sz.cx / 2, rect.bottom, str);
 
 }
 
@@ -556,7 +556,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	CSize sz = pDC->GetTextExtent(text);
 
 	int x0 = (m_disp_rect.left + m_disp_rect.right) / 2;
-	if (pt1.x > x0)
+	if (pt1.x > x0/2)
 		pDC->TextOutA((m_disp_rect.left + x0) / 2 - sz.cx, (m_disp_rect.bottom + m_disp_rect.top) / 2, text);
 	else
 		pDC->TextOutA((x0 + m_disp_rect.right) / 2, (m_disp_rect.bottom + m_disp_rect.top) / 2, text); 

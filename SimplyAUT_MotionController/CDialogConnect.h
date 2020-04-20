@@ -15,12 +15,13 @@ public:
 	virtual ~CDialogConnect();
 	void Init(CWnd*, UINT);
 
-	void Create(CWnd* pParent);
-	void SetButtonBitmaps();
-	void EnableControls();
-	BOOL CheckVisibleTab() { return TRUE; }
+	void	Create(CWnd* pParent);
+	void	SetButtonBitmaps();
+	void	EnableControls();
+	BOOL	CheckVisibleTab() { return TRUE; }
 	void	Serialize(CArchive& ar);
 	void    ResetParameters();
+	void	SendErrorMessage(const char* msg);
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME

@@ -3,7 +3,9 @@
 //
 
 #pragma once
-#define _DEBUG_TIMING_ 1
+
+// enable this line to get a debug dialogs, files, etc.
+//#define _DEBUG_TIMING_ 1
 
 #ifndef __AFXWIN_H__
 	#error "include 'pch.h' before including this file for PCH"

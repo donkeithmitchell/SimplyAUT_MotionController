@@ -1,13 +1,14 @@
 #pragma once
 
-#define ENCODER_TICKS_PER_MM	17.09
+
 #define MAX_LASER_TEMPERATURE	50
 
 #define SOCKET_RECV_DELAY       1
 #define SOCKET_RECV_TIMEOUT     500
 #define SOCKET_CONNECT_TIMEOUT  500
 
-#define COUNTS_PER_TURN			(768000.0 * 1.5096)
+#define ENCODER_TICKS_PER_MM	16.79
+#define COUNTS_PER_TURN			(768000.0 * 1.4903) //m 1.5096)
 #define WHEEL_DIAMETER			50.0 // MM
 
 #define MAX_LASER_CAP_DEVIATION		100
@@ -34,7 +35,9 @@
 #define MAX_GAP_CHANGE_PER_MM		0.5
 
 #define CRAWLER_WIDTH				26.0 // mm
-#define CRAWLER_LENGTH				23.0 // mm
+#define CRAWLER_LENGTH				23.2 // mm
+#define LASER_OFFSET				(CRAWLER_LENGTH/2 + 18.0)
+#define RGB_OFFSET					(CRAWLER_LENGTH/2 - 65.0)
 
 #define MIN_GAP_TOLERANCE			0.1  // do nothing below this
 #define MAX_GAP_TOLERANCE			0.5  // try to keep within this
@@ -43,8 +46,8 @@
 #define MAX_TURN_RATE               0.70
 
 #define NAVIGATION_P				2.0
-#define NAVIGATION_I				0.005
-#define NAVIGATION_D				200
+#define NAVIGATION_I				0.001
+#define NAVIGATION_D				400
 
 #define TORQUE_LIMIT				"TL*=9.9982"
 

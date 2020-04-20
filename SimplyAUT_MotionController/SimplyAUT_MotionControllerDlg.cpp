@@ -202,7 +202,7 @@ void CSimplyAUTMotionControllerDlg::Serialize(BOOL bSave)
 
 	// get a list of the existing files
 	CString path;
-	path.Format("%s\\SimplyUTFiles\\Archive.txt", my_documents);
+	path.Format("%s\\SimplyAUTFiles\\Serialize.txt", my_documents);
 
 	if (file1.Open(path, bSave ? CFile::modeCreate | CFile::modeWrite : CFile::modeRead))
 	{
@@ -248,8 +248,8 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 		}
 		case MSG_ERROR_MSG: // receivbing address to a CString
 		{
-			const CString* pMsg = (CString*)lParam;
-			AppendErrorMessage(*pMsg);
+			const char* str = (char*)lParam;
+			AppendErrorMessage(str);
 			break;
 		}
 		case MSG_SETBITMAPS: // enable the various controlds
@@ -448,26 +448,34 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	m_dlgGirthWeld.PostMessage(WM_SIZE);
 }
 
-void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const CString& szMsg)
+void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const char* szMsg)
 {
 	UpdateData(TRUE);
-	CString temp = szMsg;
-	temp = temp.TrimLeft();
-	temp = temp.TrimRight();
-	int len = temp.GetLength();
-	if (len == 0)
-		return;
+	if (szMsg == NULL)
+	{
+		m_szErrorMsg = _T("");
+		UpdateData(FALSE);
+	}
+	else
+	{
+		CString temp = _T(szMsg);
+		temp = temp.TrimLeft();
+		temp = temp.TrimRight();
+		int len = temp.GetLength();
+		if (len == 0)
+			return;
 
-	if (temp[len - 1] == '\n')
-		temp = temp.Left(--len);
+		if (temp[len - 1] == '\n')
+			temp = temp.Left(--len);
 
-	// if this is identical to the last entry then do not re add
-	if (m_szErrorMsg.Left(len).Compare(temp) == 0)
-		return;
-
-	temp = temp + CString("\r\n") + m_szErrorMsg;
-	m_szErrorMsg = temp;
-	UpdateData(FALSE);
+		// if this is identical to the last entry then do not re add
+		if (m_szErrorMsg.Left(len).Compare(temp) != 0)
+		{
+			temp = temp + CString("\r\n") + m_szErrorMsg;
+			m_szErrorMsg = temp;
+			UpdateData(FALSE);
+		}
+	}
 }
 
 

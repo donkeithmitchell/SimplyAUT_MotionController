@@ -198,7 +198,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 		maxX = max(maxX, minX + m_fCalibrationLength);
 
 	double disp_width_factor = ((double)m_disp_rect.Width()) / (maxX-minX);
-	double disp_height_factor = ((double)m_disp_rect.Height()) / maxY;
+	double disp_height_factor = ((double)m_disp_rect.Height()) / (maxY-minY);
 
 
 	pDC->MoveTo(rect.left, y1);
@@ -251,7 +251,7 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	for (int i = 0; i < len; ++i)
 	{
 		int x = (int)(rect.left + (X2[i]-minX - pos1) * disp_width_factor + 0.5);
-		int y = (int)(rect.bottom - Y2[i] * disp_height_factor + 0.5);
+		int y = (int)(rect.bottom - (Y2[i]-minY) * disp_height_factor + 0.5);
 		(i == 0) ? pDC->MoveTo(x, y) : pDC->LineTo(x, y);
 	}
 

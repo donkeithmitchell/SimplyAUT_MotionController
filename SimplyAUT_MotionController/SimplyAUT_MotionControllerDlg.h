@@ -37,7 +37,7 @@ public:
 	void OnCancel();
 	void OnSelchangeTab2();
 	BOOL CheckVisibleTab();
-	void AppendErrorMessage(const CString& szMsg);
+	void AppendErrorMessage(const char* szMsg);
 	void StartReadMagStatus(BOOL);
 	void Serialize(BOOL bSave);
 	void Serialize(CArchive& ar);

@@ -85,7 +85,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	, m_szRGBLinePresent(_T(""))
 	, m_bPredrive(FALSE)
 	, m_bCalibrate(FALSE)
-	, m_bEnableMAG(FALSE)
+	, m_bEnableMAG(TRUE)
 {
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -216,7 +216,7 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 
 	DDX_Text(pDX, IDC_EDIT_SEEK_START_LINE, m_fSeekAndStartAtLine);
 	if (m_bCheck && m_bSeekAndStartAtLine)
-		DDV_MinMaxDouble(pDX, m_fSeekAndStartAtLine, 100.0, max(m_fScanLength, 100));
+		DDV_MinMaxDouble(pDX, m_fSeekAndStartAtLine, 50.0, max(m_fScanLength, 100));
 }
 
 
@@ -1040,10 +1040,10 @@ void CDialogGirthWeld::SendDebugMessage(const CString& msg)
 }
 
 
-void CDialogGirthWeld::SendErrorMessage(const CString& msg)
+void CDialogGirthWeld::SendErrorMessage(const char* msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)msg);
 }
 
 
@@ -1080,13 +1080,15 @@ void CDialogGirthWeld::SetButtonBitmaps()
 	m_buttonGoHome.SetBitmap(m_nGalilState == GALIL_GOHOME ? hBitmapStop : hBitmapRight);
 
 	// disasble buttonbs if within a mm
-	int pos = (int)(GetAvgMotorPosition() + 0.5);
+	int pos1 = (int)(GetAvgMotorPosition() + 0.5);
+	int pos2 = m_magControl.GetMagStatus(MAG_IND_ENC_CNT);
+	BOOL bNotHome = pos1 != 0 || pos2 != 0;
 
 	// set to 
 	m_buttonManual.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_SCAN || m_nGalilState == GALIL_IDLE));
 	m_buttonPause.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_SCAN)); // && !(m_bPaused && m_hThreadRunMotors != NULL) );
-	m_buttonGoHome.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) && pos != 0);
-	m_buttonZeroHome.EnableWindow(bGalil && bMag && m_nGalilState == GALIL_IDLE && pos != 0 );
+	m_buttonGoHome.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_GOHOME || m_nGalilState == GALIL_IDLE) && bNotHome);
+	m_buttonZeroHome.EnableWindow(bGalil && bMag && m_nGalilState == GALIL_IDLE && bNotHome );
 	m_sliderSteer.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_FWD || m_nGalilState == GALIL_BACK) && !m_bPaused);
 
 	m_buttonBack.EnableWindow(bGalil && bMag && (m_nGalilState == GALIL_IDLE || m_nGalilState == GALIL_BACK || 

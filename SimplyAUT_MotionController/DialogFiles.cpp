@@ -136,17 +136,8 @@ int CDialogFiles::GetFileList(CArray<CString, CString>& fileList)
 	if (::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, buffer) != S_OK)
 		return 0;
 
-	path.Format("%s\\SimplyUTFiles", buffer);
-	DWORD attrib = GetFileAttributes(buffer);
-	if (attrib == INVALID_FILE_ATTRIBUTES)
-	{
-		// format the path, and insure that it exists
-		if (!::CreateDirectory(path, NULL))
-			return 0;
-	}
-
 	CFileFind find;
-	path.Format("%s\\SimplyUTFiles\\*.txt", buffer);
+	path.Format("%s\\SimplyAUTFiles\\*.txt", buffer);
 	if (!find.FindFile(path))
 		return 0;
 
@@ -173,6 +164,9 @@ void CDialogFiles::UpdateFileList()
 	listItem.iSubItem = 0;
 	listItem.pszText = buffer;
 	listItem.cchTextMax = sizeof(buffer);
+
+	if (!IsWindow(m_listFiles.m_hWnd))
+		return;
 
 	CString szFile;
 	CArray<CString, CString> fileList;

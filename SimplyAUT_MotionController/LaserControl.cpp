@@ -48,11 +48,11 @@ void CLaserControl::SendDebugMessage(const CString& msg)
 #endif
 }
 
-void CLaserControl::SendErrorMessage(const CString& msg)
+void CLaserControl::SendErrorMessage(const char* msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 	{
-		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)&msg);
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)msg);
 	}
 }
 
@@ -747,6 +747,13 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	// calculate the Y value at i1 to be an estimate of the height on the left
 	::polyfit(m_polyX, m_polyY, j, 2, m_measure2.us_coeff);
 
+	// the F/W does a better job of findiung the centre of a gap
+	// enable this to use the F/W detection of the centre
+
+//		m_measure2.weld_cap_pix2.x = measures1.mp[0].x;
+//		m_measure2.weld_cap_pix2.y = measures1.mp[0].y;
+
+
 	ConvPixelToMm((int)m_measure2.weld_left_pix, (int)m_measure2.GetDnSideWeldHeight(), m_measure2.weld_left_mm, m_measure2.weld_left_height_mm);
 	ConvPixelToMm((int)m_measure2.weld_right_pix, (int)m_measure2.GetUpSideWeldHeight(), m_measure2.weld_right_mm, m_measure2.weld_right_height_mm);
 	ConvPixelToMm((int)m_measure2.weld_cap_pix2.x, (int)m_measure2.weld_cap_pix2.y, m_measure2.weld_cap_mm.x, m_measure2.weld_cap_mm.y);
@@ -761,6 +768,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 
 	m_measure2.status = 0;
 	int ret = (int)(m_measure2.weld_cap_pix2.x + 0.5);
+
 
 	g_critMeasures.Unlock();
 	return ret;

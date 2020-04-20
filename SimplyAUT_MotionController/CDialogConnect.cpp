@@ -118,6 +118,7 @@ void CDialogConnect::OnClickedButtonConnect()
 		m_bCheck = FALSE;
 		if (ret)
 		{
+			SendErrorMessage(NULL);
 			m_motionControl.Connect(m_galilIP, 0.0);
 			m_laserControl.Connect(m_laserIP);
 			m_magControl.Connect(m_magIP, atoi(m_szPort));
@@ -132,6 +133,14 @@ void CDialogConnect::OnClickedButtonConnect()
 //	SetButtonBitmaps(); // donwe in the above
 
 }
+void CDialogConnect::SendErrorMessage(const char* msg)
+{
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+	{
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)msg);
+	}
+}
+
 // this dialog is sized to a tab, and not the size that designed into
 // thus, must locate the controls on Size
 void CDialogConnect::OnSize(UINT nFlag, int cx, int cy)

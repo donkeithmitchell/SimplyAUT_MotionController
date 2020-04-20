@@ -18,7 +18,7 @@ public:
 	double GetMotorPosition(GCStringIn axis);
 	BOOL SetMotorJogging(double speedA, double speedB, double speedC, double speedD, double accel);
 	void SendDebugMessage(const CString&);
-	void SendErrorMessage(const CString&);
+	void SendErrorMessage(const char*);
 	void EnableControls();
 	void StopMotors(BOOL);
 	BOOL WaitForMotorsToStop();

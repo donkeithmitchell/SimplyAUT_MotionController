@@ -623,14 +623,23 @@ static void InterpolateVector(const CArray<double,double>& X, const CArray<doubl
 
 FILE* CWeldNavigation::OpenNextFile(const char* szFile1)
 {
+	CString path;
 	char my_documents[MAX_PATH];
+
 	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
 	if (result != S_OK)
 		return NULL;
 
+	path.Format("%s\\SimplyAUTFiles", my_documents);
+	DWORD attrib = GetFileAttributes(path);
+	if (attrib == INVALID_FILE_ATTRIBUTES)
+	{
+		if (!::CreateDirectory(path, NULL))
+			return NULL;
+	}
+
 	// get a list of the existing files
-	CString path;
-	path.Format("%s\\SimplyUTFiles\\*.txt", my_documents);
+	path.Format("%s\\SimplyAUTFiles\\*.txt", my_documents);
 
 	int nMaxFile = 0;
 	CFileFind find;
@@ -650,7 +659,7 @@ FILE* CWeldNavigation::OpenNextFile(const char* szFile1)
 		}
 	}
 
-	path.Format("%s\\SimplyUTFiles\\%s%d.txt", my_documents, szFile1, nMaxFile + 1);
+	path.Format("%s\\SimplyAUTFiles\\%s%d.txt", my_documents, szFile1, nMaxFile + 1);
 	FILE* fp1 = NULL;
 	fopen_s(&fp1, path, "w");
 	return fp1;
