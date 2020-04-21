@@ -12,6 +12,7 @@
 #define WHEEL_DIAMETER			50.0 // MM
 
 #define MAX_LASER_CAP_DEVIATION		100
+#define PROFILE_VALIDATE_LENGTH		10
 
 // used for navigation
 #define GAP_PREDICT					5 // mm
@@ -47,7 +48,7 @@
 
 #define NAVIGATION_P				2.0
 #define NAVIGATION_I				0.001
-#define NAVIGATION_D				400
+#define NAVIGATION_D				800
 
 #define TORQUE_LIMIT				"TL*=9.9982"
 

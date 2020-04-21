@@ -108,9 +108,7 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_fNavigationPID[1] = NAVIGATION_I;
 	m_fNavigationPID[2] = NAVIGATION_D;
 
-	m_szLaserEdge[0] = _T("---");
-	m_szLaserEdge[1] = _T("---");
-	m_szLaserEdge[2] = _T("---");
+	m_szLaserEdge = _T("---");
 	m_szLaserJoint = _T("---");
 
 	ResetParameters();
@@ -165,9 +163,7 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 
 	DDX_Text(pDX, IDC_STATIC_HOMEDIST, m_szHomeDist);
 	DDX_Text(pDX, IDC_STATIC_SCANNEDDIST, m_szScannedDist);
-	DDX_Text(pDX, IDC_STATIC_LASER_DS, m_szLaserEdge[0]);
-	DDX_Text(pDX, IDC_STATIC_LASER_US, m_szLaserEdge[1]);
-	DDX_Text(pDX, IDC_STATIC_LASER_DIFF, m_szLaserEdge[2]);
+	DDX_Text(pDX, IDC_STATIC_LASER_EDGE, m_szLaserEdge);
 	DDX_Text(pDX, IDC_STATIC_JOINT_LOCN, m_szLaserJoint);
 	DDX_Text(pDX, IDC_STATIC_TEMP_BOARD, m_szTempBoard);
 	DDX_Text(pDX, IDC_STATIC_TEMP_LASER, m_szTempLaser);
@@ -693,26 +689,24 @@ void CDialogGirthWeld::ShowLaserStatus()
 	if (joint.IsSet())
 	{
 		const char szSide[] = { "LR" };
-		m_szLaserJoint.Format("%.1f %c", fabs(joint.x), szSide[joint.x < 0]); // horizontal mm, so no need for decimal point
+		m_szLaserJoint.Format("Off: %.1f %c, Hgt: %.1f mm", 
+			fabs(joint.x), szSide[joint.x < 0],
+			joint.y ); // height above the average of the sides
+
+		// list as distance from the cap height
+		m_szLaserEdge.Format("%.1f / %.1f / %.1f",
+			joint.y - m_wndLaser.GetEdgePos(1).y,
+			m_wndLaser.GetEdgePos(2).y,
+			joint.y - m_wndLaser.GetEdgePos(0).y ); // height, so note to one decimal point
 	}
 	else
-		m_szLaserJoint = _T("");
-	GetDlgItem(IDC_STATIC_JOINT_LOCN)->SetWindowText(m_szLaserJoint);
-
-
-	const UINT IDC3[] = { IDC_STATIC_LASER_DS, IDC_STATIC_LASER_US, IDC_STATIC_LASER_DIFF };
-
-	// down and up sides heights ('Y')
-	// as well as the difference
-	for (int i = 0; i < 3; ++i)
 	{
-		CDoublePoint edge = m_wndLaser.GetEdgePos(i);
-		if (edge.IsSet())
-			m_szLaserEdge[i].Format("%.1f", edge.y); // height, so note to one decimal point
-		else
-			m_szLaserEdge[i] = _T("");
-		GetDlgItem(IDC3[i])->SetWindowText(m_szLaserEdge[i]);
+		m_szLaserEdge = _T("");
+		m_szLaserJoint = _T("");
 	}
+
+	GetDlgItem(IDC_STATIC_JOINT_LOCN)->SetWindowText(m_szLaserJoint);
+	GetDlgItem(IDC_STATIC_LASER_EDGE)->SetWindowText(m_szLaserEdge);
 
 	// check if the magnets have changed state
 	// calling this too often will cause the controls to flicker
@@ -1977,6 +1971,10 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			if (m_bReturnToStart)
 			{
 				// return to the start locatioon (less the accdeeration backup)
+				int start_pos = (int)(GetAvgMotorPosition() + 0.5);
+				int end_pos = (int)(m_fScanStartPos + 0.5);
+				SetSlewSpeed(m_fMotorScanSpeed / 2, m_fMotorScanAccel);
+				StartSteeringMotors(0x3, start_pos, end_pos, m_fMotorScanSpeed / 2);
 				GoToPosition(m_fScanStartPos);
 				if (WaitForMotorsToStart())
 					WaitForMotorsToStop();

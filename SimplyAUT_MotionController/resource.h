@@ -96,6 +96,7 @@
 #define IDC_CHECK_RETURNTOSTART         1051
 #define IDC_STATIC_JOINT_LOCN           1052
 #define IDC_STATIC_LASER_US             1053
+#define IDC_STATIC_LASER_EDGE           1053
 #define IDC_STATIC_LASER_DS             1054
 #define IDC_STATIC_LASER_DIFF           1055
 #define IDC_BUTTON_LASER_STATUS         1056
@@ -201,13 +202,14 @@
 #define IDC_EDIT_NAV_D                  1121
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
+#define ID_POPUP_CENTREWELD             32773
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
-#define _APS_NEXT_COMMAND_VALUE         32773
+#define _APS_NEXT_COMMAND_VALUE         32774
 #define _APS_NEXT_CONTROL_VALUE         1123
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

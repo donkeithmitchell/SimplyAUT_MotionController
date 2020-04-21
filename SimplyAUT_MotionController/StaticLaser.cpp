@@ -30,6 +30,7 @@ CStaticLaser::CStaticLaser(CMotionControl& motion, CLaserControl& laser, CMagCon
 	, m_fScanLength(fLength)
 	, m_weldNavigation(nav)
 	, m_ptMouse(INT_MAX, INT_MAX)
+	, m_bCentreWeld(TRUE)
 {
 	m_fHomeAng = 0;
 	m_disp_width_factor = 1;
@@ -60,6 +61,7 @@ BEGIN_MESSAGE_MAP(CStaticLaser, CWnd)
 	ON_WM_LBUTTONDBLCLK()
 	ON_COMMAND_RANGE(ID_POPUP_SETLOCATION, ID_POPUP_SETLOCATION, OnMenu)
 	ON_COMMAND_RANGE(ID_POPUP_TOGGLELASER, ID_POPUP_TOGGLELASER, OnMenu)
+	ON_COMMAND_RANGE(ID_POPUP_CENTREWELD, ID_POPUP_CENTREWELD, OnMenu)
 END_MESSAGE_MAP()
 
 
@@ -497,7 +499,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	m_disp_height_factor = ((double)m_disp_rect.Height()) / (m_disp_height_max- m_disp_height_min);
 
 	// measure2.weld_cap_pix2.x is shifted to the centre (i.e the weld does not move, the crawler does)
-	int shift = (int)(SENSOR_WIDTH / 2 - measure2.weld_cap_pix2.x);
+	int shift = m_bCentreWeld ? (int)(SENSOR_WIDTH / 2 - measure2.weld_cap_pix2.x) : 0;
 
 	// only draw one segment per 2 pixels
 	// average the hits if greater resolution
@@ -623,7 +625,8 @@ void CStaticLaser::GetLaserProfile()
 	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
 	if (measure2.status == 0)
 	{
-		m_joint_pos = measure2.weld_cap_mm;
+		m_joint_pos.x = measure2.weld_cap_mm.x;
+		m_joint_pos.y = (measure2.weld_right_height_mm + measure2.weld_left_height_mm) / 2 - measure2.weld_cap_mm.y;
 
 		m_edge_pos[0].x = measure2.weld_left_mm;
 		m_edge_pos[0].y = measure2.weld_left_height_mm;
@@ -633,6 +636,13 @@ void CStaticLaser::GetLaserProfile()
 
 		m_edge_pos[2].x = m_edge_pos[1].x - m_edge_pos[0].x;
 		m_edge_pos[2].y = m_edge_pos[1].y - m_edge_pos[0].y;
+	}
+	else
+	{
+		m_joint_pos.Reset();
+		m_edge_pos[0].Reset();
+		m_edge_pos[1].Reset();
+		m_edge_pos[2].Reset();
 	}
 }
 
@@ -653,7 +663,10 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 	mii.fState = MFS_DEFAULT;	
 	mii.fType |= MFT_RADIOCHECK;
 	mii.fState = m_laserControl.IsLaserOn() ? MFS_CHECKED : MFS_UNCHECKED;
-	pPopup->SetMenuItemInfoA(1, &mii, TRUE);
+	pPopup->SetMenuItemInfoA(ID_POPUP_TOGGLELASER, &mii, FALSE);
+
+	mii.fState = m_bCentreWeld ? MFS_CHECKED : MFS_UNCHECKED;
+	pPopup->SetMenuItemInfoA(ID_POPUP_CENTREWELD, &mii, FALSE);
 
 	m_ptMouse = pt;
 	ClientToScreen(&pt);
@@ -675,6 +688,9 @@ void CStaticLaser::OnMenu(UINT nID)
 		break;
 	case ID_POPUP_TOGGLELASER:
 		ToggleLaserOn();
+		break;
+	case ID_POPUP_CENTREWELD:
+		m_bCentreWeld = !m_bCentreWeld;
 		break;
 	}
 }

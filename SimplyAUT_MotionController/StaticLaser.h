@@ -64,6 +64,7 @@ public:
 	CArray<int, int>  m_rgbData;
 	int				m_rgbSum; // use to calculate the average
 	int				m_rgbCount;
+	BOOL			m_bCentreWeld;
 
 	CCriticalSection m_critLaserPos1;
 	CArray<CDoublePoint, CDoublePoint> m_laserPos1;

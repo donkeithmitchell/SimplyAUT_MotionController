@@ -151,7 +151,7 @@ public:
 	CString		m_szLROffset;
 	CString		m_szScannedDist;
 	CString		m_szHomeDist;
-	CString		m_szLaserEdge[3];
+	CString		m_szLaserEdge;
 	CString		m_szLaserJoint;
 	CString		m_szTempBoard;
 	CString		m_szTempLaser;

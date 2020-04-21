@@ -424,6 +424,24 @@ BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 	return TRUE;
 }
 
+// some values will be set to 10000 or ) if invalid
+// mcheck that not too many of these
+static BOOL ValidateProfile(const Profile& profile)
+{
+	int cnt = 0;
+	for (int i = 0; i < SENSOR_WIDTH; ++i)
+	{
+		if (profile.hits[i].pos1 <= 0 || profile.hits[i].pos1 >= SENSOR_HEIGHT)
+			cnt++;
+		else
+			cnt = 0;
+
+		if (cnt > PROFILE_VALIDATE_LENGTH)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 BOOL CLaserControl::GetProfile(int tries)
 {
 	if (!IsConnected())
@@ -437,10 +455,23 @@ BOOL CLaserControl::GetProfile(int tries)
 		return FALSE;
 	}
 
+	// while onl;y called by the startup thread, 
+	// due to the Sleep() if this fails and the Sleep() used
+	// it ism possible for an OnTimer() to use m_profile, while it is invalid
+	Profile profile;
 	for (int i = 0; i < tries; ++i)
 	{
-		if (::DLLGetProfile(&m_profile))
+		if (::DLLGetProfile(&profile) && ValidateProfile(profile))
+		{
+			// always access m_profile thouygh a critical section to make thread safe
+			g_critMeasures.Lock();
+			memcpy(&m_profile, &profile, sizeof(profile));
+			g_critMeasures.Unlock();
+
 			return TRUE;
+		}
+		// this Sleep() makes this re-entrant through an OnTimer() or message function
+		// 
 		Sleep(10);
 	}
 
@@ -493,8 +524,8 @@ static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 {
 	// find a previous value
 	int i1, i2;
-	for (i1 = ind - 1; i1 >= 0 && (buffer[i1] < 0 || buffer[i1] >= SENSOR_HEIGHT); --i1);
-	for (i2 = ind + 1; i2 < nSize && (buffer[i2] < 0 || buffer[i2] >= SENSOR_HEIGHT); ++i2);
+	for (i1 = ind - 1; i1 >= 0 && (buffer[i1] <= 0 || buffer[i1] >= SENSOR_HEIGHT); --i1);
+	for (i2 = ind + 1; i2 < nSize && (buffer[i2] <= 0 || buffer[i2] >= SENSOR_HEIGHT); ++i2);
 
 	if (i1 >= 0 && i2 < nSize)
 		return buffer[i1] + (ind - i1) * (buffer[i2] - buffer[i1]) / (i2 - i1);
@@ -645,18 +676,20 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	// get rid of scatter when copying to the buffer by 
 	// replacing each value with the max over a short range
 	// the scatter will be lower values
+	memset(m_hitBuffer, 0x0, sizeof(m_hitBuffer));
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
 		int maxInd = -1;
 		for (int j = max(i - SCATTER_WIDTH, 0); j <= min(i + SCATTER_WIDTH, SENSOR_WIDTH - 1); ++j)
 		{
-			if (m_profile.hits[j].pos1 >= 0 && m_profile.hits[j].pos1 < SENSOR_HEIGHT)
+			// both '0'; and >= SENSOR_HEIGHT are invaliud values
+			if (m_profile.hits[j].pos1 > 0 && m_profile.hits[j].pos1 < SENSOR_HEIGHT)
 			{
 				if (maxInd == -1 || m_profile.hits[j].pos1 > m_profile.hits[maxInd].pos1)
 					maxInd = j;
 			}
 		}
-		m_hitBuffer[i] = (maxInd == -1) ? FLT_MAX : m_profile.hits[maxInd].pos1;
+		m_hitBuffer[i] = (maxInd == -1) ? 0 : m_profile.hits[maxInd].pos1;
 	}
 
 	// interpolate invalid value
@@ -672,7 +705,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 		m_hitBuffer[i] = m_hitBuffer[SENSOR_WIDTH - 1];
 
 	// low-pass filter the data
-	m_filter.IIR_HighCut(m_hitBuffer, 100, 25.0);
+	m_filter.IIR_HighCut(m_hitBuffer, 100, 12.50);
 
 	// get both the maximumk and the minimum and the average
 	int dir, maxInd = CalculateMaximumIndex(m_hitBuffer, SENSOR_WIDTH, dir);
@@ -689,9 +722,20 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 //	else if (maxInd - i1 > i2 - maxInd)
 //		i1 = max(maxInd - (i2 - maxInd), 0);
 
+	// how many samples are +/- 5 mm
+	double hw, sw1, sw2;
+	ConvPixelToMm(i2, 5, sw2, hw);
+	ConvPixelToMm(i1, 5, sw1, hw);
+	double scale = (double)(i2 - i1) / (sw2 - sw1); // pixels / mm
+
+	// ideally only want to use about +/- 5 mm
+	int i11 = max((int)(maxInd - 5.0 * scale + 0.5), 0);
+	int i22 = min((int)(maxInd + 5.0 * scale + 0.5), SEWNSOR_WIDTH - 1);
+
+
 	// now put these values into a double vector and gtet the 2nd order polynomial parameters for
 	int j = 0;
-	for (int i = i1; i < i2; ++i)
+	for (int i = i11; i < i22; ++i)
 	{
 		m_polyX[j] = i;
 		m_polyY[j] = m_hitBuffer[i];
@@ -704,8 +748,10 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 
 	double centre = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
 
+	// if too far from maxInd, then asasume that did not mopdel correctly
+	// just replace with maxInd
 	if (fabs(centre - maxInd) > (i2 - i1) / 2)
-		centre = (double)(i1 + i2) / 2.0;
+		centre = (double)maxInd; //  (double)(i1 + i2) / 2.0;
 
 	centre = max(centre, 0.0);
 	centre = min(centre, (double)SENSOR_WIDTH - 1.0);
@@ -768,9 +814,8 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 
 	m_measure2.status = 0;
 	int ret = (int)(m_measure2.weld_cap_pix2.x + 0.5);
-
-
 	g_critMeasures.Unlock();
+
 	return ret;
 }
 
