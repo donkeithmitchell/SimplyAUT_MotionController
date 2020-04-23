@@ -21,23 +21,29 @@ CLaserControl::CLaserControl()
 	m_nCameraShutter = 0;
     m_pParent = NULL;
     m_nMsg = 0;
-	memset(m_polyX, 0x0, sizeof(m_polyX));
-	memset(m_polyY, 0x0, sizeof(m_polyY));
-	memset(m_work_buffer1, 0x0, sizeof(m_work_buffer1));
-	memset(m_work_buffer2, 0x0, sizeof(m_work_buffer2));
-	memset(m_hitBuffer, 0x0, sizeof(m_hitBuffer));
+
+	memset(&m_measure1, 0x0, sizeof(m_measure1));
+
+	m_polyX.SetSize(SENSOR_WIDTH);
+	m_polyY.SetSize(SENSOR_WIDTH);
+	m_hitBuffer.SetSize(2 * SENSOR_WIDTH);
+	m_work_buffer1.SetSize(SENSOR_WIDTH);
+	m_work_buffer2.SetSize(SENSOR_WIDTH);
+
 }
 
 CLaserControl::~CLaserControl()
 {
 }
 
+// used to pass messages to an owner dialog
 void CLaserControl::Init(CWnd* pParent, UINT nMsg)
 {
     m_pParent = pParent;
     m_nMsg = nMsg;
 }
 
+// only send messages if _DEBUG
 void CLaserControl::SendDebugMessage(const CString& msg)
 {
 #ifdef _DEBUG_TIMING_
@@ -48,6 +54,7 @@ void CLaserControl::SendDebugMessage(const CString& msg)
 #endif
 }
 
+// these are sent to the ewrror static
 void CLaserControl::SendErrorMessage(const char* msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -88,26 +95,12 @@ BOOL CLaserControl::Disconnect()
 	}
 }
 
+// c heck the laser status to see if it is on
 BOOL CLaserControl::IsLaserOn()
 {
-//	static clock_t total_time = 0;
-//	static int count = 0;
-//	clock_t t1 = clock();
-
 	SensorStatus SensorStatus;
 	::DLLGetSensorStatus(&SensorStatus);
 	::SLSGetSensorStatus();
-
-	// this was used to show that this function takes less than a ms
-	// not an issue
-//	clock_t dt = clock() - t1;
-//	total_time += dt;
-//	count++;
-
-//	CString str2;
-//	str2.Format("IsLaserOn: %d ms, avg: %d ms", dt, total_time / count);
-//	SendDebugMessage(str2);
-
 
 	return (SensorStatus.LaserStatus == 0) ? FALSE : TRUE;
 }
@@ -127,6 +120,8 @@ BOOL CLaserControl::GetLaserStatus(SensorStatus& SensorStatus)
 	}
 }
 
+// this just returns the serial number of the protype scanner
+// not used at this time (911)
 int CLaserControl::GetSerialNumber()
 {
 	if (!IsConnected())
@@ -135,7 +130,7 @@ int CLaserControl::GetSerialNumber()
 		return 0;
 	}
 	else
-		return 10357;
+		return LASER_SERIAL_NUMBER;
 }
 
 
@@ -147,11 +142,6 @@ BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE & temperature)
 		double t1 = (((double)SensorStatus.MainBrdTemp) / 100.0) - 100.0;
 		double t2 = (((double)SensorStatus.LaserTemp) / 100.0) - 100.0;
 		double t3 = (((double)SensorStatus.PsuBrdTemp) / 100.0) - 100.0;
-
-// happens too often to put in the status window
-//		CString str;
-//		str.Format("%.1f %.1f %.1f", t1, t2, t3);
-//		SendDebugMessage(str);
 		
 		temperature.BoardTemperature = t1;
 		temperature.SensorTemperature = t2;
@@ -164,6 +154,8 @@ BOOL CLaserControl::GetLaserTemperature(LASER_TEMPERATURE & temperature)
 	}
 }
 
+// 1= auto mode
+// 0 = manual mode, set intensity and camera shutter manually
 BOOL CLaserControl::SetLaserOptions(int opt)
 {
 	return SetLaserOptions(opt, opt, opt, opt);
@@ -175,6 +167,9 @@ BOOL CLaserControl::SetLaserOptions(int opt1, int opt2, int opt3, int opt4)
 	return TRUE;
 }
 
+// set to either auto or manual
+// note that this is only called by the laser dialog
+// which is only available in _DEBUG
 BOOL CLaserControl::SetAutoLaserCheck(BOOL bAuto)
 {
 	if (!IsLaserOn())
@@ -195,6 +190,9 @@ BOOL CLaserControl::SetAutoLaserCheck(BOOL bAuto)
 	}
 }
 
+// this is used when not in auto mode
+// this is only called by the laser dialog
+// which is only available in _DEBNUG
 BOOL CLaserControl::SetLaserIntensity(int nLaserPower)
 {
 	if (!IsConnected())
@@ -210,6 +208,9 @@ BOOL CLaserControl::SetLaserIntensity(int nLaserPower)
 	}
 }
 
+// the shuttewr is opnly ser when not in auto mode
+// gagain only use in the l;aser dialog
+//. whcih is only used in _DEBUG
 BOOL CLaserControl::SetCameraShutter(int nCameraShutter)
 {
 	if (!IsConnected())
@@ -225,6 +226,7 @@ BOOL CLaserControl::SetCameraShutter(int nCameraShutter)
 	}
 }
 
+// again only used in the laser dialog
 BOOL CLaserControl::SetCameraRoi(const CRect& rect)
 {
 	if (!IsConnected())
@@ -259,10 +261,7 @@ BOOL CLaserControl::GetCameraRoi(CRect& rect)
 	}
 }
 
-
-
-
-
+// start a netrwork thjreasd to talk to the lasedr
 BOOL CLaserControl::Connect(const BYTE address[4])
 {
 	CString str;
@@ -272,6 +271,7 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 	int Port = htons(8002) << 16;
 
 	// Set a timer to look for being connected
+	// the callback function will be called when connected
 	char ip_address[32];
 	sprintf_s(ip_address, sizeof(ip_address), "%d.%d.%d.%d", address[0], address[1], address[2], address[3] );
 	::BeginNetworkThread(ip_address, Port, &callback_fct); // from the DLL
@@ -287,7 +287,7 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 
 	// Should have received responses by now 
 	// 
-
+	// the above sleeps are enough to insure that if will be connected, will know by now
 	if (!g_sensor_initialised)
 	{
 		SendErrorMessage(_T("Laser ERROR: Not Initialized, Check if Power On"));
@@ -311,15 +311,18 @@ BOOL CLaserControl::Connect(const BYTE address[4])
 	str.Format("Laser Version: %d.%d", (int)major, (int)minor);
 	SendDebugMessage(str);
 
+	// set to auto mode
+	// thjus no need to set intensity or shutter speed
+	// they can only be set in the laser dialog in _DEBUG mode
+	SetLaserOptions(1);	// Turns Auto Laser ON
+	SetCameraRoi( CRect(0,0, SENSOR_WIDTH-1, SENSOR_HEIGHT-1) );
 
-	::SLSSetLaserOptions(1, 1, 1, 1);	// Turns Auto Laser ON
-	SetCameraRoi( CRect(0,0, 1023, 1279) );
-
-// only turn on ikf motor run n ing
-//	TurnLaserOn(TRUE);
     return TRUE;
 }
 
+// thse are the software measures
+// by storing in m_measures2, can be looked at by any thread
+// thus, the critical section
 LASER_MEASURES CLaserControl::GetLaserMeasures2()
 {
 	g_critMeasures.Lock();
@@ -328,6 +331,8 @@ LASER_MEASURES CLaserControl::GetLaserMeasures2()
 	return ret;
 }
 
+// get a copy of the laser hits array
+// insure that thread safe
 void CLaserControl::GetLaserHits(MT_Hits_Pos hits[], double hitBuffer[], int nSize)
 {
 	g_critMeasures.Lock();
@@ -335,11 +340,12 @@ void CLaserControl::GetLaserHits(MT_Hits_Pos hits[], double hitBuffer[], int nSi
 	for (int i = 0; i < nSize; ++i)
 		hits[i] = m_profile.hits[i].pos1;
 
-	memcpy(hitBuffer, m_hitBuffer, nSize * sizeof(double));
+	memcpy(hitBuffer, m_hitBuffer.GetData(), nSize * sizeof(double));
 	g_critMeasures.Unlock();
 }
 
-
+// set the last measurment value
+// make thread safew
 void CLaserControl::SetLaserMeasures2(const LASER_MEASURES& meas)
 {
 	g_critMeasures.Lock();
@@ -347,7 +353,9 @@ void CLaserControl::SetLaserMeasures2(const LASER_MEASURES& meas)
 	g_critMeasures.Unlock();
 }
 
-
+// the laser has ascan width of abgout 50 mm and 1024 pixels
+// this will convert the pixel location to a mm location
+// both width and height
 BOOL CLaserControl::ConvPixelToMm(int row, int col, double& sw, double& hw)
 {
 	if (!IsConnected())
@@ -362,6 +370,8 @@ BOOL CLaserControl::ConvPixelToMm(int row, int col, double& sw, double& hw)
 	}
 }
 
+// get the laser version
+// this is only shown in the laser dialog in _DEBUG mode
 BOOL CLaserControl::GetLaserVersion(unsigned short& major, unsigned short& minor)
 {
 	if (!IsConnected())
@@ -375,6 +385,8 @@ BOOL CLaserControl::GetLaserVersion(unsigned short& major, unsigned short& minor
 	::DLLGetSensorVersion(&major, &minor);
 	return TRUE;
 }
+
+// this gets the firmware laseer measurmentds
 BOOL CLaserControl::GetLaserMeasurment(Measurement& meas)
 {
 	if (!IsConnected())
@@ -396,6 +408,7 @@ BOOL CLaserControl::GetLaserMeasurment(Measurement& meas)
 		return TRUE;
 }
 
+// toggle the laser on /off status
 BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 {
 	if (!IsConnected())
@@ -411,21 +424,16 @@ BOOL CLaserControl::TurnLaserOn(BOOL bLaserOn)
 	}
 	else
 	{
+		// not only turn the laser on, but enable profile sending and measurments
 		::LaserOn(TRUE);
 		::Profile_Sending(TRUE);
 		::MsgMeasurementSending(TRUE);
-
-//		for (int i = 0; i < 100 && !IsLaserOn(); ++i)
-//			Sleep(1);
-//		for (int i = 0; i < 100 && !GetProfile(); ++i)
-//			Sleep(1);
-
 	}
 	return TRUE;
 }
 
-// some values will be set to 10000 or ) if invalid
-// mcheck that not too many of these
+// some values will be set to 10000 or 0 if invalid
+// check that not too many of these in a row
 static BOOL ValidateProfile(const Profile& profile)
 {
 	int cnt = 0;
@@ -442,7 +450,8 @@ static BOOL ValidateProfile(const Profile& profile)
 	return TRUE;
 }
 
-BOOL CLaserControl::GetProfile(int tries)
+// not sure whey this used 32788 bytes of stack (911)
+BOOL CLaserControl::GetProfile()
 {
 	if (!IsConnected())
 	{
@@ -458,8 +467,9 @@ BOOL CLaserControl::GetProfile(int tries)
 	// while onl;y called by the startup thread, 
 	// due to the Sleep() if this fails and the Sleep() used
 	// it ism possible for an OnTimer() to use m_profile, while it is invalid
+	// DLLGetProfile() occassionally fails as well as having too many 0 & 10000 hit values 911
 	Profile profile;
-	for (int i = 0; i < tries; ++i)
+	for (int i = 0; i < MAX_LASER_PROFILE_TRIES; ++i)
 	{
 		if (::DLLGetProfile(&profile) && ValidateProfile(profile))
 		{
@@ -479,6 +489,7 @@ BOOL CLaserControl::GetProfile(int tries)
 	return FALSE;
 }
 
+// not used at this time
 BOOL CLaserControl::GetProfilemm(Profilemm* pProfile, int hit_no)
 {
 	if (!IsConnected())
@@ -495,13 +506,14 @@ BOOL CLaserControl::GetProfilemm(Profilemm* pProfile, int hit_no)
 		return ::DLLGetProfilemm(pProfile, hit_no);
 }
 
+// not used
 void CLaserControl::Frm_Find_Sensors()
 {
 //	::SLSFrm_Find_Sensors();
-
 }
 
-
+// called by BeginNetworkThread()
+// seeing this indicates that connecteds
 static int __stdcall callback_fct(int val)
 {
 	/* This is called from DLL so we can't access any
@@ -512,6 +524,7 @@ static int __stdcall callback_fct(int val)
 
 	g_sensor_initialised = TRUE;
 
+	// this information is not used at this time (911)
 	g_log_msgs[g_log_ptr++] = val;
 	if (g_log_ptr == 100)
 		g_log_ptr = 0;
@@ -520,15 +533,18 @@ static int __stdcall callback_fct(int val)
 
 }
 
+// the laser profile regularily has (0) and (10000) values which are invalid
+// to insure that can low-pass filter the profile
+// interpolate these values
 static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 {
 	// find a previous value
 	int i1, i2;
-	for (i1 = ind - 1; i1 >= 0 && (buffer[i1] <= 0 || buffer[i1] >= SENSOR_HEIGHT); --i1);
-	for (i2 = ind + 1; i2 < nSize && (buffer[i2] <= 0 || buffer[i2] >= SENSOR_HEIGHT); ++i2);
+	for (i1 = ind - 1; i1 >= 0 && (buffer[i1] <= 0 || buffer[i1] >= (double)SENSOR_HEIGHT); --i1);
+	for (i2 = ind + 1; i2 < nSize && (buffer[i2] <= 0 || buffer[i2] >= (double)SENSOR_HEIGHT); ++i2);
 
 	if (i1 >= 0 && i2 < nSize)
-		return buffer[i1] + (ind - i1) * (buffer[i2] - buffer[i1]) / (i2 - i1);
+		return buffer[i1] + ((double)ind - (double)i1) * (buffer[i2] - buffer[i1]) / ((double)i2 - (double)i1);
 	else if (i2 < nSize)
 		return buffer[i2];
 	else if (i1 >= 0)
@@ -542,6 +558,8 @@ static double InterplateLaserHit(const double* buffer, int ind, int nSize)
 //m dir1: +1 if cap is +Ve, -1 if cap is a gap
 static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 {
+	// 1. get the average of the values
+	// note any invalid values will have been already interpolated (replaced)
 	double sum1 = 0;
 	int cnt1 = 0;
 	for (int i = i1; i < i2; ++i)
@@ -551,6 +569,7 @@ static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 	}
 	double avgPos = cnt1 ? sum1 / cnt1 : 0;
 
+	// 2. get the SD of the profile
 	double sum2 = 0;
 	int cnt2 = 0;
 	for (int i = i1; i < i2; ++i)
@@ -560,8 +579,8 @@ static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 	}
 	double sd = cnt2 ? sqrt(sum2 / cnt2) : 0;
 
-	// now recalculate he average that is above this SD
-		// now recalculate the sd and average not including the weld data
+	// now recalculate he average that is below the original average + 1 SD
+	// this effectivelyh removed the weld cap from the average
 	sum1 = 0;
 	cnt1 = 0;
 	for (int i = i1; i < i2; ++i)
@@ -574,6 +593,7 @@ static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 	}
 	avgPos = cnt1 ? sum1 / cnt1 : 0;
 
+	// now recalculate the sd and average not including the weld data
 	sum2 = 0;
 	cnt2 = 0;
 	for (int i = i1; i < i2; ++i)
@@ -585,6 +605,8 @@ static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 		}
 	}
 	// set the threshold as 1/2 SD above the average value
+	// wenbt to all this effort to insure that the threshold is near the side of the weld cap
+	// and not influenced by the height of the weld cap
 	sd = cnt2 ? sqrt(sum2 / cnt2) : 0;
 	double threshold1 = avgPos + dir1 * sd / 2.0;
 
@@ -607,6 +629,8 @@ static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 }
 
 // dir: 1 the peak is a maximum, -1: the peak is a minimum
+// this will return either the maximum or minimum
+// whcihever has the most energy under it
 static int CalculateMaximumIndex(const double hitBuffer[], int nSamp, int& rDir)
 {
 	int maxInd = -1;
@@ -652,10 +676,11 @@ static int CalculateMaximumIndex(const double hitBuffer[], int nSamp, int& rDir)
 	return maxInd;
 }
 
+// while the firmware appears to do a reasonable job of finding the measures for a gap
+// the noted cap location is as likely to be on the cap edge as in its centre
 int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], int last_cap_pix)
 {
 #define SCATTER_WIDTH 10
-
 
 	g_critMeasures.Lock();
 	m_measure2.status = -1;
@@ -666,6 +691,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	}
 
 	// also get the F/W measures
+	// these are display in the laser dialog in _DEBUG mode
 	Measurement measures1;
 	if (GetLaserMeasurment(measures1))
 	{
@@ -676,7 +702,8 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	// get rid of scatter when copying to the buffer by 
 	// replacing each value with the max over a short range
 	// the scatter will be lower values
-	memset(m_hitBuffer, 0x0, sizeof(m_hitBuffer));
+	// scatter if not removed will corrupt the low-pass filtering
+	memset(m_hitBuffer.GetData(), 0x0, sizeof(double)*m_hitBuffer.GetSize());
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
 		int maxInd = -1;
@@ -697,40 +724,35 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
 		if (m_hitBuffer[i] == 0 || m_hitBuffer[i] >= SENSOR_HEIGHT)
-			m_hitBuffer[i] = ::InterplateLaserHit(m_hitBuffer, i, SENSOR_WIDTH);
+			m_hitBuffer[i] = ::InterplateLaserHit(m_hitBuffer.GetData(), i, SENSOR_WIDTH);
 	}
 
 	// pad the end with copies of the last value
+	// this will remove edge effect from the low-pass filter
+	// m_hitBuffer has been set to 2048 VS 1024 length
 	for (int i = SENSOR_WIDTH; i < SENSOR_WIDTH + FILTER_MARGIN; ++i)
 		m_hitBuffer[i] = m_hitBuffer[SENSOR_WIDTH - 1];
 
 	// low-pass filter the data
-	m_filter.IIR_HighCut(m_hitBuffer, 100, 12.50);
+	m_filter.IIR_HighCut(m_hitBuffer.GetData(), 100, 12.50);
 
 	// get both the maximumk and the minimum and the average
-	int dir, maxInd = CalculateMaximumIndex(m_hitBuffer, SENSOR_WIDTH, dir);
+	int dir, maxInd = CalculateMaximumIndex(m_hitBuffer.GetData(), SENSOR_WIDTH, dir);
 
-	// the threshold is 1/2 way from average to maxVal
-	// incase following a gap, not a weld cap, check which is larget
-	// average to minimum or average to maximum
-	int i1 = CalculateWeldEdge(m_hitBuffer, 0, maxInd, dir);
-	int i2 = CalculateWeldEdge(m_hitBuffer, maxInd, SENSOR_WIDTH, dir);
-
-	// set to the same width as each other
-//	if (i2 - maxInd > maxInd - i1)
-//		i2 = min(maxInd + (maxInd - i1), SENSOR_WIDTH - 1);
-//	else if (maxInd - i1 > i2 - maxInd)
-//		i1 = max(maxInd - (i2 - maxInd), 0);
+	// the threshold will vary left to right if there ids upside/down side height varience
+	int i1 = CalculateWeldEdge(m_hitBuffer.GetData(), 0, maxInd, dir);
+	int i2 = CalculateWeldEdge(m_hitBuffer.GetData(), maxInd, SENSOR_WIDTH, dir);
 
 	// how many samples are +/- 5 mm
+	// if use too many the 2nd order polynomial fit may be unstable
 	double hw, sw1, sw2;
 	ConvPixelToMm(i2, 5, sw2, hw);
 	ConvPixelToMm(i1, 5, sw1, hw);
-	double scale = (double)(i2 - i1) / (sw2 - sw1); // pixels / mm
+	double scale = ((double)i2 - (double)i1) / (sw2 - sw1); // pixels / mm
 
 	// ideally only want to use about +/- 5 mm
 	int i11 = max((int)(maxInd - 5.0 * scale + 0.5), 0);
-	int i22 = min((int)(maxInd + 5.0 * scale + 0.5), SEWNSOR_WIDTH - 1);
+	int i22 = min((int)(maxInd + 5.0 * scale + 0.5), SENSOR_WIDTH - 1);
 
 
 	// now put these values into a double vector and gtet the 2nd order polynomial parameters for
@@ -744,8 +766,9 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 
 	// these coefficients will be for mm not laser units
 	double coeff[3];
-	::polyfit(m_polyX, m_polyY, j, 2, coeff);
+	::polyfit(m_polyX.GetData(), m_polyY.GetData(), j, 2, coeff);
 
+	// check that won't divide by zero
 	double centre = (coeff[2] == 0) ? (i2 - i1) / 2 : -coeff[1] / (2 * coeff[2]);
 
 	// if too far from maxInd, then asasume that did not mopdel correctly
@@ -761,7 +784,6 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	m_measure2.weld_cap_pix2.y = coeff[2] * m_measure2.weld_cap_pix2.x * m_measure2.weld_cap_pix2.x + coeff[1] * m_measure2.weld_cap_pix2.x + coeff[0];
 	m_measure2.weld_left_pix = i1;
 	m_measure2.weld_right_pix = i2;
-//	*/
 
 	// convert laser pixels to mm
 	// will draw with pixels, but navigate with mm
@@ -778,7 +800,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
-	::polyfit(m_polyX, m_polyY, j, 2, m_measure2.ds_coeff);
+	::polyfit(m_polyX.GetData(), m_polyY.GetData(), j, 2, m_measure2.ds_coeff);
 
 	// now get the slope of the up side
 	// get a 1st order fit to the left
@@ -791,7 +813,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
-	::polyfit(m_polyX, m_polyY, j, 2, m_measure2.us_coeff);
+	::polyfit(m_polyX.GetData(), m_polyY.GetData(), j, 2, m_measure2.us_coeff);
 
 	// the F/W does a better job of findiung the centre of a gap
 	// enable this to use the F/W detection of the centre
@@ -804,6 +826,24 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	ConvPixelToMm((int)m_measure2.weld_right_pix, (int)m_measure2.GetUpSideWeldHeight(), m_measure2.weld_right_mm, m_measure2.weld_right_height_mm);
 	ConvPixelToMm((int)m_measure2.weld_cap_pix2.x, (int)m_measure2.weld_cap_pix2.y, m_measure2.weld_cap_mm.x, m_measure2.weld_cap_mm.y);
 
+	// now that know where the centre is to a pixel
+	// note the profile of the weld cap
+	// no need to interpolate to a fractional pixel
+	// 1024 pixels is about 50 mm, so much less than a mm resolution already
+	double avg_side_height = (m_measure2.weld_left_height_mm + m_measure2.weld_right_height_mm) / 2;
+	double weld_cap_height = avg_side_height - m_measure2.weld_cap_mm.y;
+	for (int i = 0; i < 21; ++i)
+	{
+		int j = (int)(centre + scale * (i - 10));
+		if (j >= 0 && j < SENSOR_WIDTH)
+		{
+			double x,y;
+			ConvPixelToMm(j, (int)m_hitBuffer[j], x, y);
+			m_measure2.cap_profile_mm[i] = avg_side_height - y;
+		}
+		else
+			m_measure2.cap_profile_mm[i] = 0;
+	}
 
 	// now convert the laser units to mm
 	m_measure2.measure_pos_mm = pos_avg; 
@@ -819,7 +859,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	return ret;
 }
 
-
+/*
 BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 {
 	static clock_t total_time = 0;
@@ -840,11 +880,11 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 	for (int i = 0; i < SENSOR_WIDTH; ++i)
 	{
 		if (m_hitBuffer[i] < 0 || m_hitBuffer[i] >= SENSOR_HEIGHT)
-			m_hitBuffer[i] = ::InterplateLaserHit(m_hitBuffer, i, SENSOR_WIDTH);
+			m_hitBuffer[i] = ::InterplateLaserHit(m_hitBuffer.GetData(), i, SENSOR_WIDTH);
 	}
 
 	// now low pas filter this m_hitBuffer
-	m_filter.IIR_HighCut(m_hitBuffer, 100, 5.0);
+	m_filter.IIR_HighCut(m_hitBuffer.GetData(), 100, 5.0);
 
 	// find all local max or min values ibn the m_hitBuffer
 	int dir = 1;
@@ -909,7 +949,7 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 
 	// these coefficients will be for mm not laser units
 	double coeff[3];
-	::polyfit(m_polyX, m_polyY, j, 2, coeff);
+	::polyfit(m_polyX.GetData(), m_polyY.GetData(), j, 2, coeff);
 
 	// now differentiate the coeff to dind the location of the maximum
 	measures.weld_cap_pix2.x = (coeff[2] == 0) ? maxInd : -coeff[1] / (2 * coeff[2]);
@@ -932,7 +972,7 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
-	::polyfit(m_polyX, m_polyY, j, 1, measures.ds_coeff);
+	::polyfit(m_polyX.GetData(), m_polyY.GetData(), j, 1, measures.ds_coeff);
 
 	// now get the slope of the up side
 	// get a 1st order fit to the left
@@ -945,7 +985,7 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 		j++;
 	}
 	// calculate the Y value at i1 to be an estimate of the height on the left
-	::polyfit(m_polyX, m_polyY, j, 1, measures.us_coeff);
+	::polyfit(m_polyX.GetData(), m_polyY.GetData(), j, 1, measures.us_coeff);
 
 	// now convert the laser units to mm
 	measures.status = 0;
@@ -962,3 +1002,4 @@ BOOL CLaserControl::CalcLaserMeasures_old(LASER_MEASURES& measures)
 	return TRUE;
 
 }
+*/

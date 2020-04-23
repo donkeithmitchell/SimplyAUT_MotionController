@@ -5,6 +5,8 @@
 #include "include\gclib.h"
 #include "include\gclibo.h"
 
+// tyhjis is used to access the galil functions 
+
 Gclib::Gclib()
 {
     m_ConnectionHandle = NULL;
@@ -35,13 +37,15 @@ void Gclib::SetLastError()
         m_szLastError = _T("");
 }
 
-
+// note the last error
+// these will be forwarded tro the error static
 void Gclib::SetLastError(const CString& str)
 {
     if (this != NULL)
         m_szLastError = _T("Motor ERROR: ") + str;
 }
 
+// onmly send debug mewssages in _DEBUG
 void Gclib::SendDebugMessage(const CString& msg)
 {
 #ifdef _DEBUG_TIMING_

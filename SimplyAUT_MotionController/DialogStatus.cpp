@@ -9,6 +9,7 @@
 
 
 // CDialogStatus dialog
+// this dialog is only used in _DEBUG
 
 IMPLEMENT_DYNAMIC(CDialogStatus, CDialogEx)
 

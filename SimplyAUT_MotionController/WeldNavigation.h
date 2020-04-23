@@ -41,7 +41,7 @@ struct LASER_POS
 struct DRIVE_POS
 {
 	DRIVE_POS() { memset(this, 0x0, sizeof(DRIVE_POS)); }
-	DRIVE_POS(double _x, double _y, int seg) { x = _x; y = _y; segment = seg; }
+	DRIVE_POS(double _x, double _y, int seg) { memset(dummy4, 0x0, sizeof(dummy4)); x = _x; y = _y; segment = seg; }
 	double x;
 	double y;
 	int segment;
@@ -61,7 +61,7 @@ public:
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
 	LASER_POS GetLastNotedPosition(int ago_mm);
-	void    StartSteeringMotors(int nSteer, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
+	void    StartNavigation(int nSteer, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
 	UINT    ThreadSteerMotors();
 	UINT    ThreadNoteLaser();
 	void    GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);

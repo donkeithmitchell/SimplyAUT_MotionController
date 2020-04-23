@@ -13,6 +13,7 @@
 
 
 // CDialogConnect dialog
+// this dialoog is used to facilityate the connection to the motor, laser and MAG board
 
 IMPLEMENT_DYNAMIC(CDialogConnect, CDialogEx)
 
@@ -36,6 +37,7 @@ CDialogConnect::~CDialogConnect()
 	m_magControl.Disconnect();
 }
 
+// messages such as SendDebugMessage(), SendErrorMersasge() are passed to the parent using these
 void CDialogConnect::Init(CWnd* pParent, UINT nMsg)
 {
 	m_pParent = pParent;
@@ -72,10 +74,12 @@ void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CDialogConnect, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_CONNECT, &CDialogConnect::OnClickedButtonConnect)
-	ON_WM_SIZE()
 	ON_BN_CLICKED(IDC_BUTTON_RESET, &CDialogConnect::OnClickedButtonReset)
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
+// initially hide the dialog,
+// only show if its tab is being shown
 void CDialogConnect::Create(CWnd* pParent)
 {
 	CDialogEx::Create(IDD_DIALOG_CONNECT, pParent);
@@ -86,14 +90,14 @@ void CDialogConnect::Create(CWnd* pParent)
 // CDialogConnect message handlers
 
 
-// override OnClose() to insure that canot be closed
+// override OnClose() to insure that canot be closed with ESC
 void CDialogConnect::OnCancel()
 {
 	// TODO: Add your control notification handler code here
 }
 
 
-// override OnOK() to insure that canot be closed
+// override OnOK() to insure that canot be closed with ENTER
 void CDialogConnect::OnOK()
 {
 	// TODO: Add your control notification handler code here
@@ -118,6 +122,7 @@ void CDialogConnect::OnClickedButtonConnect()
 		m_bCheck = FALSE;
 		if (ret)
 		{
+			// pass NULL to remove all pre-existing error messages
 			SendErrorMessage(NULL);
 			m_motionControl.Connect(m_galilIP, 0.0);
 			m_laserControl.Connect(m_laserIP);
@@ -129,10 +134,9 @@ void CDialogConnect::OnClickedButtonConnect()
 	// request the parent to enable all controls 
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
-
-//	SetButtonBitmaps(); // donwe in the above
-
 }
+
+// if have errors connecting, they will be posted in the error static
 void CDialogConnect::SendErrorMessage(const char* msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -186,6 +190,7 @@ BOOL CDialogConnect::OnInitDialog()
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
+// disable the IP and Port controls once connected
 void CDialogConnect::SetButtonBitmaps()
 {
 	HBITMAP hBitmap1 = (HBITMAP)m_bitmapDisconnect.GetSafeHandle();
@@ -206,7 +211,7 @@ void CDialogConnect::SetButtonBitmaps()
 
 	GetDlgItem(IDC_EDIT_MAG_PORT)->EnableWindow(!bMag);
 
-
+	// change the connect button to disconnect once connected
 	if (!m_motionControl.IsConnected())
 		GetDlgItem(IDC_BUTTON_CONNECT)->SetWindowText(_T("Connect"));
 	else
@@ -220,6 +225,9 @@ void CDialogConnect::EnableControls()
 	SetButtonBitmaps();
 }
 
+// if use user specified IP and /or Port addresses
+// serialize those
+// they can always be reset with the reset button
 void CDialogConnect::Serialize(CArchive& ar)
 {
 	const int MASK = 0xCDCDCDCD;
@@ -235,6 +243,8 @@ void CDialogConnect::Serialize(CArchive& ar)
 			ar << m_galilIP[i];
 			ar << m_magIP[i];
 		}
+
+		// if change the number of bytes stored, then mask will be wrong and all tyhe values reset to the defaults
 		ar << mask;
 	}
 	else
@@ -250,6 +260,9 @@ void CDialogConnect::Serialize(CArchive& ar)
 			}
 			ar >> mask;
 		}
+
+		// this will likely only fail because the number of bytes in serialize has changed
+		// no need to inform the user
 		catch (CArchiveException * e1)
 		{
 			ResetParameters();
@@ -263,6 +276,7 @@ void CDialogConnect::Serialize(CArchive& ar)
 	}
 }
 
+// set all parameters to their defaults
 void CDialogConnect::ResetParameters()
 {
 	m_szPort = _T("23");
@@ -274,10 +288,6 @@ void CDialogConnect::ResetParameters()
 	memcpy(m_galilIP, galilIP, sizeof(galilIP));
 	memcpy(m_magIP, magIP, sizeof(magIP));
 }
-
-
-
-
 
 void CDialogConnect::OnClickedButtonReset()
 {

@@ -7,6 +7,9 @@
 #define new DEBUG_NEW
 #endif
 
+// these are a collection of filters used to lowpass data
+// i.e. the lasewrt profile
+
 
 static double PI = 4 * atan(1.0); 
 
@@ -329,6 +332,7 @@ int CIIR_Filter::GetLowCutCoeff(int srate, double* coef, int LC)
     }
 }
 
+// this filter replaces each sample with a local median of (+/- width)
 void CIIR_Filter::MedianFilter(double* tin, int width)
 {
     double buffer[100];
@@ -352,6 +356,7 @@ void CIIR_Filter::MedianFilter(double* tin, int width)
     memcpy(tin, m_work.GetData(), len * sizeof(double));
 }
 
+// a simple averaging filter of (+/- width)
 void CIIR_Filter::AveragingFilter(double* tin, int width)
 {
     int len = (int)m_work.GetSize();

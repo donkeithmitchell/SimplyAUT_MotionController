@@ -10,13 +10,13 @@
 const char* g_szTitle[] = { "#", "File", "Max Offset", "Avg Offset", NULL };
 
 // CDialogFiles dialog
-
+// this dialog is used to list the output files
 IMPLEMENT_DYNAMIC(CDialogFiles, CDialogEx)
 
 CDialogFiles::CDialogFiles(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_FILES, pParent)
 {
-	m_pParent = NULL;
+	m_pParent = NULL; // used to pass messagews to its parent
 	m_nMsg = 0;
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
@@ -58,6 +58,7 @@ BOOL CDialogFiles::OnInitDialog()
 
 	m_bInit = TRUE;
 
+	// create a list control, and insert colums for the statistics of the files
 	LV_COLUMN listColumn;
 	listColumn.mask = LVCF_FMT | LVCF_TEXT | LVCF_SUBITEM;
 	listColumn.cx = 0;
@@ -97,7 +98,7 @@ void CDialogFiles::OnSize(UINT nFlag, int cx, int cy)
 	cy = rect.Height();
 
 	CDC* pDC = GetDC();
-	CSize sz1 = pDC->GetTextExtent("8888");
+	CSize sz1 = pDC->GetTextExtent("8888"); // assume that never exceeds 4 digits
 	CSize sz2 = pDC->GetTextExtent("Max Offset");
 	ReleaseDC(pDC);
 
@@ -113,6 +114,8 @@ void CDialogFiles::Create(CWnd* pParent)
 	ShowWindow(SW_HIDE);
 }
 
+// the files are File_XX.txt
+// sort by XX
 static int SortFileList(const void* e1, const void* e2)
 {
 	const CString* file1 = (CString*)e1;
@@ -127,6 +130,7 @@ static int SortFileList(const void* e1, const void* e2)
 	return N1 - N2;
 }
 
+// get a list of all File_XX.txt files, and sort by XX
 int CDialogFiles::GetFileList(CArray<CString, CString>& fileList)
 {
 	char buffer[MAX_PATH];
@@ -156,6 +160,8 @@ int CDialogFiles::GetFileList(CArray<CString, CString>& fileList)
 	return (int)fileList.GetSize();
 }
 
+// for njow this is cheap and dirty
+// on every new entry, remove all entries and build again
 void CDialogFiles::UpdateFileList()
 {
 	char buffer[MAX_PATH];

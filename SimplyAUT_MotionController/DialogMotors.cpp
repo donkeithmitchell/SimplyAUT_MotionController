@@ -11,6 +11,7 @@
 #include "resource.h"
 
 // CDialogMotors dialog
+// display the motor speeds and positions
 
 IMPLEMENT_DYNAMIC(CDialogMotors, CDialogEx)
 

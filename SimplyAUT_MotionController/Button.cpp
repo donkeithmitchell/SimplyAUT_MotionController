@@ -6,7 +6,8 @@
 #define new DEBUG_NEW
 #endif
 
-
+// this class wasx originally used to tell the parent dfialoog, that a button had the mouse clicked on it
+// it is no longer used, with a slider control rep[lacing it
 CMyButton::CMyButton()
 	: CButton()
 {

@@ -12,6 +12,8 @@
 static double PI = 4 * atan(1.0); 
 
 // CStaticMag dialog
+// draw a graph of the calibration value VS wheel position
+// this overwrites the laser profile qwhen required
 
 IMPLEMENT_DYNAMIC(CStaticMag, CWnd)
 
@@ -121,6 +123,8 @@ void CStaticMag::DrawRGBProfile(CDC* pDC)
 	if (len == 0)
 		return;
 
+	// check if driving forward or in reverse
+	// may be seeking the line in reverse
 	CDoublePoint pt1 = m_magControl.GetRGBCalibrationData(0);
 	CDoublePoint pt2 = m_magControl.GetRGBCalibrationData(len-1);
 	BOOL bScanReverse = (pt1.x > pt2.x);

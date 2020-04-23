@@ -12,11 +12,13 @@ public:
 	virtual ~CDialogFiles();
 
 	void	Create(CWnd*);
-	void	UpdateFileList();
-	int		GetFileList(CArray<CString, CString>& fileList);
-	void	EnableControls();
 	void	Init(CWnd* pParent, UINT nMsg);
 	BOOL	CheckVisibleTab() { return TRUE; }
+	void	EnableControls();
+	void	UpdateFileList();
+
+protected:
+	int		GetFileList(CArray<CString, CString>& fileList);
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;

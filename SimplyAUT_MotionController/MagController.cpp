@@ -24,13 +24,17 @@ enum{MAG_REG_HW=1,
     MAG_REG_RGB_ALL=116
 };
 
-
+// recv() only returns once it has read the required number of byes
+// to prevent the main thread from being locked, use a thread to read the byutes
+// can always timeout if not going to be able to read all requested bytes
 static UINT ThreadReadSocket(LPVOID param)
 {
     CMagControl* this2 = (CMagControl*)param;
     return this2->ThreadReadSocket();
 }
 
+// if unable to connect, then will hang up
+// thus best to connect with a thread
 static UINT ThreadConnectSocket(LPVOID param)
 {
     CMagControl* this2 = (CMagControl*)param;
@@ -63,6 +67,7 @@ CMagControl::~CMagControl()
     Disconnect();
 }
 
+// used to pass messages to the owner diaolog
 void CMagControl::Init(CWnd* pParent, UINT nMsg)
 {
     m_pParent = pParent;
@@ -70,8 +75,6 @@ void CMagControl::Init(CWnd* pParent, UINT nMsg)
 }
 
 
-
-// this is only a stub
 BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
 {
 	CString str;
@@ -83,6 +86,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
 	char ip_address[32];
     u_long ip = 0;
     
+    // fiormat the IP address
     sprintf_s(ip_address, sizeof(ip_address), "%d.%d.%d.%d", address[0], address[1], address[2], address[3]);
     int nRecv = InetPton(AF_INET, ip_address, (void*)&ip);
     if(nRecv != 1)
@@ -102,6 +106,8 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
         SendErrorMessage(str);
         return FALSE;
     }
+
+    // get a handle for a socket
     m_server = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (m_server == INVALID_SOCKET)
     {
@@ -128,10 +134,15 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
     int ret = ::WaitForSingleObject(m_eventSocket, SOCKET_CONNECT_TIMEOUT);
 //    nRecv = ::connect(m_server, (SOCKADDR*)&addr, sizeof(addr));
 
+    // unlikelty that TerminateThread() will work, but if unable to connect, then liokely will terminate code anyways
     if (ret != WAIT_OBJECT_0 )
     {
+        DWORD exit_code = 0;
+        GetExitCodeThread(m_hTheadConnectSocket, &exit_code);
+        SendErrorMessage("Connect MAG socket timed out");
+        
         m_nConnect = SOCKET_ERROR;
-        ::TerminateThread(m_hTheadReadSocket, 0);
+        ::TerminateThread(m_hTheadConnectSocket, 0);
     }
 
  //   nRecv = ::connect(m_server, (SOCKADDR*)&addr, sizeof(addr));
@@ -146,8 +157,10 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
         return FALSE;
     }
 
+    // note that initialized
     g_sensor_initialised = TRUE;
     
+    // check that can talk to the MAG board
     if( !ResetEncoderCount() )
     {
         SendErrorMessage("Error: Disconnected from the Server.");
@@ -163,6 +176,7 @@ BOOL CMagControl::Connect(const BYTE address[4], u_short Port)
 	return TRUE;
 }
 
+// used so that main thread will not be permanently locked up if fail
 UINT CMagControl::ThreadConnectSocket()
 {
     m_nConnect = ::connect(m_server, (SOCKADDR*)&m_sockaddr_in, sizeof(m_sockaddr_in));
@@ -170,16 +184,21 @@ UINT CMagControl::ThreadConnectSocket()
     return 0;
 }
 
+// 911 note that reading the register takes about 200 ms
 int CMagControl::GetRGBCalibrationValue()
 {
     int nValue = GetMagRegister(MAG_REG_RGB_CAL);
     return nValue;
 }
+
+// not used
 double CMagControl::GetUserRGBCalibration()
 {
     return m_fRGBCalibration;
 }
 
+// actually cannot set the calibration value
+// it can only be set as the value being noted when this call is made
 BOOL CMagControl::SetMagRGBCalibrationValue(double fCal)
 {
     CString str;
@@ -195,6 +214,7 @@ BOOL CMagControl::SetMagRGBCalibrationValue(double fCal)
     return nRecv == (int)(fCal+0.5);
 }
 
+// 911 this also takes about 200 ms (way too slow)
 int  CMagControl::GetMagStatus()
 {
     clock_t t1 = clock();
@@ -232,6 +252,7 @@ int  CMagControl::GetMagStatus()
 
     m_critMagStatus.Unlock();
 
+// ind _DEBUG note the slow time to read the stgatus
 #ifdef _DEBUG_TIMING_
     static clock_t first_time = -1;
     clock_t t2 = clock();
@@ -266,7 +287,7 @@ int CMagControl::Send(const CString& str)
     return nRecv;
 }
 
-
+// this enables or disables the swith on the unit
 BOOL CMagControl::EnableMagSwitchControl(BOOL bEnabled)
 {
     CString str;
@@ -291,9 +312,7 @@ int CMagControl::ReadSocket(char* buffer, int nSize)
 */
 
 
-
-
-
+// read the socket with a thread so can't permanently lock up the main thread
 size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 {
     clock_t t1 = clock();
@@ -316,13 +335,13 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
     int len = 0;
     if (ret != WAIT_OBJECT_0)
     {
+        // TerminateThread() probably does not work (911)
+        // this should not happend regardless
         DWORD exit_code = 0;
         GetExitCodeThread(m_hTheadReadSocket, &exit_code);
- //       if (exit_code == STILL_ACTIVE)
-        {
-            ::TerminateThread(m_hTheadReadSocket, 0);
-//            CloseHandle(m_hTheadReadSocket);
-        }
+        SendErrorMessage("Reading MAG board timed out");
+        ::TerminateThread(m_hTheadReadSocket, 0);
+
         m_strBuffer[0] = 0;
         len = 0;
     }
@@ -332,12 +351,14 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
         len = (int)strlen(m_strBuffer);
     }
 
+    // send the timing to the debug status dialog
+    // but not more oftern than every second
 #ifdef _DEBUG_TIMING_
     static clock_t first_time = -1;
     clock_t t2 = clock();
     if (first_time == -1 || t1 - first_time > 1000)
     {
-        if (t2 - t1 > 10)
+        if (t2 - t1 > 1000)
         {
             CString str;
             str.Format("ReadMagBuffer: %d ms", (int)(t2 - t1));
@@ -371,12 +392,16 @@ UINT CMagControl::ThreadReadSocket()
             break;
         }
         // toss any NULL characters at the start
+        // there may be left over \r or \n characters from a pervious message
         else if (m_strBuffer[i] == 0)
             i--;
         else if (i == 0 && m_strBuffer[i] == '\r')
             i--;
         else if (i == 0 && m_strBuffer[i] == '\n')
             i--;
+
+        // always set a NULL characxter behind each character read
+        // thus can use string functionsd on at all times
         else
         {
             m_strBuffer[i + 1] = 0; // terminate so can use string functions on
@@ -395,6 +420,9 @@ UINT CMagControl::ThreadReadSocket()
     g_ThreadReadSocketCount++;
 #endif  
 
+    // check if \r was the first character
+    // 911 this should have been dealt with above
+    // but was used before that code was written
     size_t len = strlen(m_strBuffer);
     if (len > 0 && m_strBuffer[0] == '\r')
     {
@@ -408,12 +436,14 @@ UINT CMagControl::ThreadReadSocket()
     return 0;
 }
 
+// not used
 BOOL CMagControl::IsMagSwitchEnabled()
 {
     return TRUE;
-
 }
 
+// get the requested register 
+// 911 this takes about 200 ms
 int CMagControl::GetMagRegister(int reg)
 {
     CString str;
@@ -438,6 +468,7 @@ int CMagControl::GetMagRegister(int reg)
     if (ptr == NULL)
         return 0;
 
+    // verify that this response is for the register requested
     int version[2];
     int ret = sscanf_s(ptr + 5, "%d,%d", version + 0, version + 1);
 
@@ -472,6 +503,9 @@ int CMagControl::GetEncoderCount()
         return status[MAG_IND_ENC_CNT];
 }
 */
+
+// this is the sum of the RED,GREEN,BLUE values
+// it is way to slow to ask for all three let alone just 1
 int CMagControl::GetRGBSum()
 {
     CString str;
@@ -482,6 +516,8 @@ int CMagControl::GetRGBSum()
     return colour;
 }
 
+// this is not used at this time as too slow to get all three
+// 911 that would be 3*200 ms to get all three
 int CMagControl::GetRGBValues(int& red, int& green, int& blue)
 {
     CString str;
@@ -496,7 +532,7 @@ int CMagControl::GetRGBValues(int& red, int& green, int& blue)
     return (red == INT_MAX || green == INT_MAX || blue == INT_MAX || colour == INT_MAX) ? INT_MAX : colour;
 }
 
-
+// prior to a scan it is required to reset the encoder count
 BOOL CMagControl::ResetEncoderCount()
 {
     CString str;
@@ -512,7 +548,7 @@ BOOL CMagControl::ResetEncoderCount()
     return TRUE;
 }
 
-
+// only shown in the mag dialoig in _DEBUG mode
 BOOL CMagControl::GetMagVersion(int version[5])
 {
     if (!IsConnected())
@@ -531,6 +567,7 @@ BOOL CMagControl::GetMagVersion(int version[5])
         version[4] == INT_MAX ) ? FALSE : TRUE;
 }
 
+// close the socket and clean up
 BOOL CMagControl::Disconnect()
 {
 	if (g_sensor_initialised)
@@ -553,6 +590,7 @@ BOOL CMagControl::IsConnected()const
 	return g_sensor_initialised;
 }
 
+// only used in _DEBUG mode
 void CMagControl::SendDebugMessage(const CString& msg)
 {
 #ifdef _DEBUG_TIMING_
@@ -563,6 +601,7 @@ void CMagControl::SendDebugMessage(const CString& msg)
 #endif
 }
 
+// show any errors in the error static
 void CMagControl::SendErrorMessage(const char* msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -571,6 +610,10 @@ void CMagControl::SendErrorMessage(const char* msg)
     }
 }
 
+// 911
+// ENCODER_TICKS_PER_MM is at best a guess
+// lose ticks if scan too fast
+// needs validation
 static double CalculateEncoderDistance(int nCount)
 {
     if (nCount == INT_MAX)
@@ -588,6 +631,9 @@ double CMagControl::GetEncoderDistance()
     return fEncoderDistance;
 }
 
+// as slow to get status and get many values
+// want to remember those values in a member variable
+// mzake asccess thread safe
 int CMagControl::GetMagStatus(int ind)
 {
     m_critMagStatus.Lock();
@@ -596,6 +642,8 @@ int CMagControl::GetMagStatus(int ind)
     return ret;
 }
 
+// given a list of RGB (or laser) values in m_rgbData
+// calculate there the line (white or black) or weld bump is
 BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
 {
     // get the minimum point and aassume that is the line
@@ -608,19 +656,20 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
     X1.SetSize(nSize);
     Y1.SetSize(nSize);
 
-    // high-cut the response
-    CIIR_Filter filter(nSize);
     for (int i = 0; i < nSize; ++i)
     {
         X1[i] = m_rgbData[i].x;
         Y1[i] = m_rgbData[i].y;
     }
 
-    // the laser is very spiky
+    // the laser weld cap heigfht is very spiky
+    // can get single sample spikes
+    // thus must filter it first
+    CIIR_Filter filter(nSize);
     if (bWithLaser)
     {
-        filter.MedianFilter(Y1.GetData(), 1);
-        filter.AveragingFilter(Y1.GetData(), 2);
+        filter.MedianFilter(Y1.GetData(), 1); // this removes spikes
+        filter.AveragingFilter(Y1.GetData(), 2); // woulkd filter those spikes if not for above
     }
 
     // get the median value
@@ -634,9 +683,11 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
     {
         // ignore the first 10 mm
         // assume that values higfher than twice mnedian are bogus if a laser
+        // the weld cap bump will not be higher than twice the weld cap height
         if (bWithLaser && Y1[i] > 2 * median)
             continue;
 
+        // do not asasume that the first 10 mm is valid data
         if (fabs(X1[i]-X1[0]) > 10)
         {
             if (minInd == -1 || Y1[i] < Y1[minInd])
@@ -646,10 +697,13 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
         }
     }
 
+    // THIS WILL BE DISPLAYED IN THE CALIBRATION GRAPH
     m_rgbCalibration.median = median;
 
     int i1, i2;
     double threshold;
+
+    // laser and white line, looking for a value larger than the median
     if (bWithLaser || !bSeekBlackLine )
     {
         threshold = Y1[maxInd] - 2 * (Y1[maxInd] - median) / 3;
@@ -658,6 +712,8 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
         for (i1 = maxInd; i1 >= 0 && Y1[i1] > threshold; --i1);
         for (i2 = maxInd; i2 < nSize && Y1[i2] > threshold; ++i2);
     }
+
+    // a black line will be less than the median
     else
     {
         threshold = Y1[minInd] + (median - Y1[minInd]) / 4;
@@ -679,6 +735,7 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
         cnt2++;
     }
 
+    // need at least 3 samples for a 2nd order fit
     if (cnt2 >= 3)
     {
         double coeff[3];
@@ -697,6 +754,7 @@ BOOL CMagControl::CalculateRGBCalibration(BOOL bWithLaser, BOOL bSeekBlackLine)
     return TRUE;
 }
 
+// before calibration must remove previously noted values
 void CMagControl::ResetRGBCalibration()
 {
     m_rgbData.SetSize(0);
@@ -704,6 +762,7 @@ void CMagControl::ResetRGBCalibration()
     m_rgbPos = FLT_MAX;
 }
 
+// get the value for a given idex
 CDoublePoint CMagControl::GetRGBCalibrationData(int ind)const
 {
     CDoublePoint ret;
@@ -713,7 +772,8 @@ CDoublePoint CMagControl::GetRGBCalibrationData(int ind)const
     return ret;
 }
 
-
+// add the noted value by position to a list
+// nLength is the grow by value set to the length being scanned
 void CMagControl::NoteRGBCalibration(double pos, double val, int nLength)
 {
 

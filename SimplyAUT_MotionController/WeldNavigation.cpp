@@ -7,6 +7,9 @@
 #include "Define.h"
 #include "Misc.h"
 
+// this is an object to bath maintain a list of laser measurments by positioon
+// as well as navigate to the weld cap offset
+
 static double PI = 4 * atan(1.0);
 static double g_X[GAP_BUFFER_LEN], g_Y[GAP_BUFFER_LEN];
 enum { SOURCE_RAW_GAP = 0, SOURCE_FILT_GAP, SOURCE_RAW_VEL };
@@ -51,6 +54,7 @@ CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, c
 	m_pParent = NULL;
 	m_nMsg = 0;
 
+	// used fgor the PID navigation
 	m_p_error = 0;
 	m_d_error = 0;
 	m_i_error = 0;
@@ -69,13 +73,17 @@ void CWeldNavigation::Init(CWnd* pWnd, UINT nMsg)
 	m_pParent = pWnd;
 	m_nMsg = nMsg;
 }
-
+/*
 static double HammingWindow(double dist, double nWidth)
 {
 	double Wk = 0.54 - 0.46 * cos(PI * (nWidth-dist) / nWidth);
 	return Wk;
 }
+*/
 
+// using the coefficients and given order calculate 'y'
+// y = A x^2 + B x + C
+// y = m x + b
 static double ModelY(double x, const double coeff[], int order)
 {
 	if (order == 2)
@@ -118,25 +126,29 @@ static int RemoveOutliers(double X[], double Y[], int count, int max_sd)
 }
 
 */
-
-// fit to a polynomial and then check for outliers from thaqt poilynomial
+// the offset from the weld cap seems to have outliers
+// important that do not navigate to them
+// they must be removed before filtering the weld cap offset
+// fit to a polynomial and then check for outliers from that poilynomial
+// keep removing outliers until the SD is <= 0.1
 static int RemoveOutliers(double X[], double Y[], int order, int count, int max_sd )
 {
 	double coeff[3];
 
-	// look for Y changes greater than 1 mm
+	// if too few data data samples then not possible to say which are the outliers
 	if (count > 4)
 	{
-		// get the average
+		// get the average (order 0)
 		polyfit(X, Y, count, 0, coeff);
 		double avg = coeff[0];
 
+		// look at the difference betwen index (i) and (i-1)
 		for (int i = 1; i < count; ++i)
 		{
-			// if the difference is > 1 mm
+			// if the difference is > 1 mm per mm
 			// remvoed the entry furthest from the average
 			double diff = fabs(Y[i - 1] - Y[i]) / fabs(X[i - 1] - X[i]);
-			if (diff >= 1.0)
+			if (diff > MAX_GAP_CHANGE_PER_MM)
 			{
 				double diff1 = fabs(Y[i - 1] - avg);
 				double diff2 = fabs(Y[i - 0] - avg);
@@ -162,7 +174,7 @@ static int RemoveOutliers(double X[], double Y[], int order, int count, int max_
 	{
 		polyfit(X, Y, count, order, coeff);
 
-		// get the RMS variation 
+		// get the RMS variation from the above model
 		double sum2 = 0;
 		for (int i = 0; i < count; ++i)
 		{
@@ -200,7 +212,7 @@ static int RemoveOutliers(double X[], double Y[], int order, int count, int max_
 	return count;
 }
 
-
+// the weld cap offsets are filtered by modelling the previous samples to a 2nd order polynomial and using that mnodel to say where the current value should be
 static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction, double coeff[3], int order, int source, int nMinWidth, int nMaxWidth)
 {
 	// may need to minimize the width if not enough data
@@ -211,9 +223,9 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 	// start with the last entered value
 	// add values to the sum until too far away
 	double pos2 = buff1[nSize - 1].measures.measure_pos_mm;
-	double val2 = (source == SOURCE_RAW_GAP) ? buff1[nSize - 1].gap_raw : (source == SOURCE_RAW_VEL ? buff1[nSize - 1].vel_raw  : buff1[nSize - 1].gap_filt);
+//	double val2 = (source == SOURCE_RAW_GAP) ? buff1[nSize - 1].gap_raw : (source == SOURCE_RAW_VEL ? buff1[nSize - 1].vel_raw  : buff1[nSize - 1].gap_filt);
 
-	// if pos1 != 0, then do not use values less than it
+	// start at the most recent and look back in time for a maximum of nMaxWidth mm
 	int count = 0;
 	for (int i = nSize-1; i >= 0 && count < GAP_BUFFER_LEN; --i)
 	{
@@ -221,49 +233,40 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 		if (val1 == FLT_MAX)
 			continue;
 
-		// check if the gap has changed by more than 1 mm 
-		// getting positioons abgout every 1 mm, thus not able to change by this much
-//		if (source != SOURCE_RAW_VEL && fabs(val2 - val1) > MAX_GAP_CHANGE_PER_MM)
-//			continue;
-
+		// where was thje crawler at this measure
 		double pos1 = buff1[i].measures.measure_pos_mm;
 
-//		// never use the first 10 mm of data, as it does not appear to be stable
-//		if (pos1 < 10)
-//			break;
-
-		// if first order get no values prior to the lastr manoeuvre
+		// if first order get no values prior to the last manoeuvre
+		// note (direction) as may be travelling backwards
 		if (order == 1)
 		{
 			if (last_manoeuvre_pos != FLT_MAX && direction*(pos1+ nMinWidth) < direction*last_manoeuvre_pos)
 				break;
 		}
+		// if second order restrict to no furthjer previous to the manoeuvre than after it
 		else if( order == 2 )
 		{
-			// if second order restrict to no more prior to manoeuvre, than after it (NO)
 			if ((last_manoeuvre_pos != FLT_MAX) && direction*(last_manoeuvre_pos - pos1) > direction*(pos2 - last_manoeuvre_pos) )
 				break;
 		}
 
+		// add this value to a vector to be modelled
 		g_X[count] = pos1;
 		g_Y[count] = val1;
 		count++;
-		val2 = val1;
+	//	val2 = val1;
 
 		// check after adding to insure that pass the check later on for minimum width
+		// i.e. allow to have one value past the designated maximum width
 		if (fabs(pos2 - pos1) > nMaxWidth)
 			break;
 
 	}
 
 
-	// for 2nd order need at least two samples
+	// for 2nd order need at least three samples, for 1st order at least 2
 	if (count < order + 1)
 		return FALSE;
-	// remove outliers
-//	if (source == SOURCE_RAW_GAP && count > 2)
-//		count = RemoveOutliers(g_X, g_Y, count, 2/*sd*/);
-
 
 	// just get the average, dont worry if have minimnum width
 	if (order == 0)
@@ -274,9 +277,10 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 
 
 	// check if have minimum length of data (10 mm) to get a filtered value
-	if (fabs(g_X[0] - g_X[count - 1]) < nMinWidth)
+	if (fabs(g_X[0] - g_X[count - 1]) < (double)nMinWidth)
 		return FALSE;
 
+	// outliers can corrupt the model
 	count = RemoveOutliers(g_X, g_Y, order, count, 2/*max_sd*/);
 	if (count < 1+order)
 		return FALSE;
@@ -287,7 +291,6 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 }
 
 // this is intended to filter only the last added value
-// set the hammin window to the length available up to nWidth
 // use the position offset for the qwindow, not the index
 static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction)
 {
@@ -296,7 +299,7 @@ static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff
 	FILTER_RESULTS ret;
 
 	// filter the last 50 mm
-	// 2nd order, so can handle changes in the gap distance
+	// 2nd order, so can handle changes in the offset distance
 	// using 1st order only, causes more delay in the filtering
 	if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 2/*order*/, SOURCE_RAW_GAP/*source*/, GAP_FILTER_MIN__WIDTH, GAP_FILTER_MAX__WIDTH))
 	{
@@ -306,7 +309,7 @@ static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff
 		ret.vel_raw = 1000.0 * 2 * coeff[2] * pos2 + coeff[1]; // differentiated
 
 		// predict the future
-		double pos = pos2 + GAP_PREDICT*direction;
+		double pos = pos2 + GAP_PREDICT*(double)direction;
 		ret.gap_predict = coeff[2] * pos * pos + coeff[1] * pos + coeff[0];
 		ret.pos_predict = pos;
 	}
@@ -320,7 +323,7 @@ static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff
 		ret.vel_raw = 1000.0 * coeff[1]; // differentiated
 
 		// predict the future
-		double pos = pos2 + GAP_PREDICT *direction;
+		double pos = pos2 + GAP_PREDICT * (double)direction;
 		ret.gap_predict = coeff[1] * pos + coeff[0];
 		ret.pos_predict = pos;
 	}
@@ -349,9 +352,11 @@ static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff
 	}
 
 
-	// now get the slope over the last 10 mm
+	// now get the slope over the last 5 to 10 mm
+	// this is used for the (D) in the PID navigation
+	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
 	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_RAW_GAP/*source*/, GAP_FILTER_MIN__WIDTH, 2 * GAP_FILTER_MIN__WIDTH))
-		ret.slope10 = coeff[1];
+		ret.slope10 = coeff[1]; // mm per mm
 	else
 		ret.slope10 = FLT_MAX;
 
@@ -362,11 +367,10 @@ static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff
 
 	return ret;
 }
-// this is intended to filter only the last added value
-// set the hammin window to the length available up to nWidth
-// use the position offset for the qwindow, not the index
-// this function will end using the filtered gap locations
 
+// this is only used in _DEBUG
+// it is an attempt to calculate the weld cap offset trend (velocvity to from weld)
+#ifdef _DEBUG_TIMING_
 static double CalcGapVelocity(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction)
 {
 	double coeff[3];
@@ -398,8 +402,11 @@ static double CalcGapVelocity(const CArray<LASER_POS, LASER_POS >& buff1, double
 	else*/
 		return FLT_MAX;
 }
+#endif
 
-
+// get the last noted position
+// this must be thread safe
+// optionally look back in time by ago_mm
 LASER_POS CWeldNavigation::GetLastNotedPosition(int ago_mm)
 {
 	LASER_POS ret;
@@ -429,6 +436,7 @@ LASER_POS CWeldNavigation::GetLastNotedPosition(int ago_mm)
 	return ret;
 }
 
+// must only use the main thread to stop the motors
 BOOL CWeldNavigation::StopMotors(BOOL bWait)
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
@@ -439,7 +447,7 @@ BOOL CWeldNavigation::StopMotors(BOOL bWait)
 	else
 		return FALSE;
 }
-
+// not used 911
 double CWeldNavigation::GetLRPositionDiff()
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
@@ -451,6 +459,8 @@ double CWeldNavigation::GetLRPositionDiff()
 		return 0.0;
 }
 
+// just prior to stopping the motors, increase the deceleration rate
+// want the motors to travel as short a distance as possible while stopping
 BOOL CWeldNavigation::SetMotorDeceleration(double decel)
 {
 	if (m_pParent && IsWindow(m_pParent->m_hWnd))
@@ -462,7 +472,9 @@ BOOL CWeldNavigation::SetMotorDeceleration(double decel)
 		return FALSE;
 }
 
-
+// this is used to steer the crawler
+// set the L/R wheels speeds faster/slower
+// again a thread should not talk to the controller
 BOOL CWeldNavigation::SetMotorSpeed(const double speed[4] )
 {
 	clock_t t1 = clock();
@@ -479,6 +491,7 @@ BOOL CWeldNavigation::SetMotorSpeed(const double speed[4] )
 		return FALSE;
 }
 
+// used in _DERBUG to note the timing
 void CWeldNavigation::SendDebugMessage(const CString& str)
 {
 #ifdef _DEBUG_TIMING_
@@ -487,94 +500,122 @@ void CWeldNavigation::SendDebugMessage(const CString& str)
 #endif
 }
 
-// get these every mm
+// get laser measures VS motor positions as often as possibler
+// ideally every mm
 BOOL CWeldNavigation::NoteNextLaserPosition()
 {
 	clock_t t1 = clock();
 
+	// get the last measured value
+	// this is thread safe, different thread writing it as this one
 	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
-	if (measure2.weld_cap_mm.x != FLT_MAX )
+
+	// checkm if there is a weld cap height, if not, then the measures are not valid
+	if (measure2.weld_cap_mm.x == FLT_MAX  )
+		return FALSE;
+	
+	double motor_pos = measure2.measure_pos_mm; //  GetAvgMotorPosition();
+	if (motor_pos == FLT_MAX)
+		return FALSE;
+
+	// mkust get this before locking the critical section to avoid grid lock
+	double last_manoeuvre_pos = m_motionControl.GetLastManoeuvrePosition();
+
+	// if the motor has not yet moved a full mm, then return
+	// less than this and the velocity will not be stable
+	// can only access m_listLaserPositions inside a critical section
+	m_crit1.Lock();
+	int nSize = (int)m_listLaserPositions.GetSize();
+
+	// mujst have moved at least 1 mm from the last value
+	if (nSize > 0 && fabs(motor_pos - m_listLaserPositions[nSize - 1].measures.measure_pos_mm) < 1 )
 	{
-		// m_measure will be updatre regularily 
-		double motor_pos = measure2.measure_pos_mm; //  GetAvgMotorPosition();
-		if (motor_pos == FLT_MAX)
-			return FALSE;
+		m_crit1.Unlock();
+		return FALSE;
+	}
 
-		// mkust get this before locking the critical section to avoid grid lock
-		double last_manoeuvre_pos = m_motionControl.GetLastManoeuvrePosition();
-
-		// if the motor has not yet moved a full mm, then return
-		// less than this and the velocity will not be stable
-		m_crit1.Lock();
-		int nSize = (int)m_listLaserPositions.GetSize();
-
-		// mujst have moved at least 1 mm from the last value
-		if (nSize > 0 && fabs(motor_pos - m_listLaserPositions[nSize - 1].measures.measure_pos_mm) < 1 )
+	// this RAW value must be within 1 mm per 1 mm of travel
+	// else consider it to be bogus
+	if (nSize > 5)
+	{
+		// do not allow to fault more than twice in a row, 
+		// this could potentially cause this to be hit every tiime if no limit
+		static int err_count = 0;
+		double gap_diff = fabs(measure2.weld_cap_mm.x - m_listLaserPositions[nSize - 1].gap_filt);
+		double pos_diff = fabs(motor_pos - m_listLaserPositions[nSize - 1].measures.measure_pos_mm);
+		if (gap_diff / pos_diff > MAX_GAP_CHANGE_PER_MM)
 		{
-			m_crit1.Unlock();
-			return FALSE;
-		}
-
-		// this RAW value must be within 1 mm per 10 mm of travel
-		// else consider it to be bogus
-		if (nSize > 5)
-		{
-			double gap_diff = fabs(measure2.weld_cap_mm.x - m_listLaserPositions[nSize - 1].gap_filt);
-			double pos_diff = fabs(motor_pos - m_listLaserPositions[nSize - 1].measures.measure_pos_mm);
-			if (gap_diff / pos_diff > MAX_GAP_CHANGE_PER_MM)
+			err_count++;
+			if (err_count < 2)
 			{
 				m_crit1.Unlock();
 				return FALSE;
 			}
 		}
-
-		// add to the list, then check if get a valoid filtered value
-		// if noit remove it from the list
-
-		int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-		m_listLaserPositions.SetSize(++nSize, NAVIGATION_GROW_BY);
-		m_listLaserPositions[nSize - 1].measures.measure_pos_mm = motor_pos;
-		m_listLaserPositions[nSize - 1].gap_raw = measure2.weld_cap_mm.x;
-		FILTER_RESULTS ret = ::LowPassFilterGap(m_listLaserPositions, last_manoeuvre_pos, direction);
-
-
-
-		m_listLaserPositions[nSize - 1].gap_filt = ret.gap_filt;
-		m_listLaserPositions[nSize - 1].gap_predict = ret.gap_predict;
-		m_listLaserPositions[nSize - 1].pos_predict = ret.pos_predict;
-		m_listLaserPositions[nSize - 1].vel_raw  = ret.vel_raw;
-
-		if (m_listLaserPositions[nSize - 1].gap_filt == FLT_MAX)
-			m_listLaserPositions[nSize - 1].gap_filt = m_listLaserPositions[nSize - 1].gap_raw;
-
-		m_listLaserPositions[nSize - 1].slope10 = ret.slope10; // niote wshen this position was, used to calculate velocities
-		m_listLaserPositions[nSize - 1].time_noted = clock(); // niote wshen this position was, used to calculate velocities
-		m_listLaserPositions[nSize - 1].measures.measure_pos_mm				= motor_pos;
-		m_listLaserPositions[nSize - 1].last_manoeuvre_pos	= last_manoeuvre_pos;
-		m_listLaserPositions[nSize - 1].measures			= measure2;
-		m_listLaserPositions[nSize - 1].pid_steering		= GetPIDSteering();
-		m_listLaserPositions[nSize - 1].manoeuvre1.x = CalculateTurnRate(m_listLaserPositions[nSize - 1].pid_steering);
-		m_listLaserPositions[nSize - 1].pid_error[0] = m_p_error;
-		m_listLaserPositions[nSize - 1].pid_error[1] = m_i_error;
-		m_listLaserPositions[nSize - 1].pid_error[2] = m_d_error;
-
-#ifdef _DEBUG_TIMING_
-		m_listLaserPositions[nSize - 1].vel_filt = ::CalcGapVelocity(m_listLaserPositions, last_manoeuvre_pos, direction);
-#endif
-		m_crit1.Unlock();
-#ifdef _DEBUG_TIMING_
-		g_NoteNextLaserPositionTime += clock() - t1;
-		g_NoteNextLaserPositionCount++;
-#endif
+		else
+			err_count = 0;
 	}
+
+// counld be driving forwards or back
+	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
+
+	// the grow by should be longer than any ;potential run
+	// thus minimize reallocates
+	m_listLaserPositions.SetSize(++nSize, NAVIGATION_GROW_BY);
+	m_listLaserPositions[nSize - 1].measures.measure_pos_mm = motor_pos;
+	m_listLaserPositions[nSize - 1].gap_raw = measure2.weld_cap_mm.x;
+
+	// get a filtered value for the weld cap offset
+	// alsdo get a predicted offset at 5 mm in the future
+	// 911 will want to see if sterring latency make s this better
+	// (i.e. drive to where you think you are going, not where you think you are)
+	FILTER_RESULTS ret = ::LowPassFilterGap(m_listLaserPositions, last_manoeuvre_pos, direction);
+	m_listLaserPositions[nSize - 1].gap_filt	= ret.gap_filt;
+	m_listLaserPositions[nSize - 1].gap_predict = ret.gap_predict;
+	m_listLaserPositions[nSize - 1].pos_predict = ret.pos_predict;
+	m_listLaserPositions[nSize - 1].vel_raw		= ret.vel_raw;
+
+	// if there is no filtered value for the offset, jusrt use the original raw value
+	if (m_listLaserPositions[nSize - 1].gap_filt == FLT_MAX)
+		m_listLaserPositions[nSize - 1].gap_filt = m_listLaserPositions[nSize - 1].gap_raw;
+
+	m_listLaserPositions[nSize - 1].slope10		= ret.slope10; // the slope (mm/mm) of ther last 10 mm, used for (D) in PID navigation
+	m_listLaserPositions[nSize - 1].time_noted	= clock(); // niote wshen this position was, used to calculate velocities
+	m_listLaserPositions[nSize - 1].measures.measure_pos_mm	= motor_pos;
+	m_listLaserPositions[nSize - 1].last_manoeuvre_pos		= last_manoeuvre_pos;
+	m_listLaserPositions[nSize - 1].measures				= measure2;
+
+	// calculate the desired steering at this point from the PID values
+	m_listLaserPositions[nSize - 1].pid_steering			= GetPIDSteering();
+	m_listLaserPositions[nSize - 1].manoeuvre1.x			= CalculateTurnRate(m_listLaserPositions[nSize - 1].pid_steering);
+
+	// 911 these are included to go into the test_xx.txt file
+	// this is useful to deterfmine optimal PID constants
+	m_listLaserPositions[nSize - 1].pid_error[0]		= m_p_error;
+	m_listLaserPositions[nSize - 1].pid_error[1]		= m_i_error;
+	m_listLaserPositions[nSize - 1].pid_error[2]		= m_d_error;
+
+#ifdef _DEBUG_TIMING_
+	m_listLaserPositions[nSize - 1].vel_filt = ::CalcGapVelocity(m_listLaserPositions, last_manoeuvre_pos, direction);
+#endif
+	m_crit1.Unlock();
+
+
+#ifdef _DEBUG_TIMING_
+	g_NoteNextLaserPositionTime += clock() - t1;
+	g_NoteNextLaserPositionCount++;
+#endif
 	return TRUE;
 }
 
+// the handle will be NULL before and after navigation
 BOOL CWeldNavigation::IsNavigating()const
 {
 	return m_hThreadSteerMotors != NULL;
 }
 
+// used when writing File_XX.txt file to set the interval to 1 mm
+// the measured position interval though intended to be 1 mm, will vary as not a real time operating system
 static void InterpolateVector(const CArray<double,double>& X, const CArray<double,double>& src, CArray<double, double>& dest, int start_pos, int end_pos)
 {
 	static double X2[100], Y2[100];
@@ -584,15 +625,21 @@ static void InterpolateVector(const CArray<double,double>& X, const CArray<doubl
 	double coeff[3];
 	int nSize = (int)X.GetSize();
 	len = 0;
+
+	// get amn interpolated value every mm from start to end
 	for (int pos = start_pos; pos <= end_pos; ++pos)
 	{
+		// get the 1st and last value within 10 mm of (pos), these may be before start or afgter end
 		int i1, i2;
-		for (i1 = 0; i1 < nSize && X[i1] < pos-10; ++i1);
-		for (i2 = nSize - 1; i2 >= 0 && i2 > pos+10; --i2); 
+		for (i1 = 0; i1 < nSize && X[i1] < pos-10L; ++i1);
+		for (i2 = nSize - 1; i2 >= 0 && i2 > pos+10L; --i2); 
 
+		// want at least 3 values so can use 2nd order model
+		// first add earlier values, and if that is not enough add later ones
 		if (i2 - i1 < 3 && i1 - 1 >= 0) i1--;
 		if (i2 - i1 < 3 && i2 + 1 < nSize) i2++;
 
+		// add the values to double vectors to use in the model
 		int count = 0;
 		for (int i = i1; i < i2 && count < 100; ++i)
 		{
@@ -600,36 +647,50 @@ static void InterpolateVector(const CArray<double,double>& X, const CArray<doubl
 			Y2[count] = src[i];
 			count++;
 		}
+
+		// use 2nd order if have at least 3 samples
 		if (count >= 3)
 		{
 			polyfit(X2, Y2, count, 2, coeff);
 			dest[len] = coeff[2] * pos * pos + coeff[1] * pos + coeff[0];
 			len++;
 		}
+
+		// use first order if at least 2 samples
 		else if (count >= 2)
 		{
 			polyfit(X2, Y2, count, 1, coeff);
 			dest[len] = coeff[1] * pos + coeff[0];
 			len++;
 		}
+
+		// use (0) order if only 1
 		else if (count >= 1)
 		{
 			polyfit(X2, Y2, count, 0, coeff);
 			dest[len] = coeff[0];
 			len++;
 		}
+		else
+		{
+			dest[len] = 0;
+			len++;
+		}
 	}
 }
 
+// open the next File_XX.txt or Test_XX.txt file to write to
 FILE* CWeldNavigation::OpenNextFile(const char* szFile1)
 {
 	CString path;
 	char my_documents[MAX_PATH];
 
+	// get the decoment folder of the current user
 	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
 	if (result != S_OK)
 		return NULL;
 
+	// insure that the sub follder exists
 	path.Format("%s\\SimplyAUTFiles", my_documents);
 	DWORD attrib = GetFileAttributes(path);
 	if (attrib == INVALID_FILE_ATTRIBUTES)
@@ -639,6 +700,7 @@ FILE* CWeldNavigation::OpenNextFile(const char* szFile1)
 	}
 
 	// get a list of the existing files
+	// need to check which value for XX
 	path.Format("%s\\SimplyAUTFiles\\*.txt", my_documents);
 
 	int nMaxFile = 0;
@@ -659,6 +721,7 @@ FILE* CWeldNavigation::OpenNextFile(const char* szFile1)
 		}
 	}
 
+	// format and open the file
 	path.Format("%s\\SimplyAUTFiles\\%s%d.txt", my_documents, szFile1, nMaxFile + 1);
 	FILE* fp1 = NULL;
 	fopen_s(&fp1, path, "w");
@@ -666,6 +729,8 @@ FILE* CWeldNavigation::OpenNextFile(const char* szFile1)
 }
 
 #ifdef _DEBUG_TIMING_
+// this file is only writen in _DEBUG
+// it has data to help with navigation development
 BOOL CWeldNavigation::WriteTestFile()
 {
 	int nSize1 = (int)m_listLaserPositions.GetSize();
@@ -743,11 +808,18 @@ BOOL CWeldNavigation::WriteTestFile()
 
 	return TRUE;
 }
-#else
+#endif
+
+// this is a file with the scan output
+// ideally it would be shared with UT recording
+// but for now is jhust written tto a afile
 BOOL CWeldNavigation::WriteScanFile()
 {
 	int nSize = (int)m_listLaserPositions.GetSize();
 	if (nSize < 10)
+		return FALSE;
+
+	if (!m_bScanning)
 		return FALSE;
 
 	FILE* fp = OpenNextFile("File_");
@@ -755,14 +827,19 @@ BOOL CWeldNavigation::WriteScanFile()
 		return FALSE;
 
 	// pos, cap H, cap W, L/R diff, weld offset
-	fprintf(fp, "Pos\tCap H\tCap W\tHi/Lo\tOffset\n");
+	fprintf(fp, "Pos\t  Cap H\t  Cap W\t  Hi/Lo\t Offset");
+	for (int i = 0; i < 21; ++i)
+		fprintf(fp, "\t   %d", i - 10);
+	fprintf(fp, "\n");
 
-	CArray<double, double> X, Y1[2], Y2[2], Y3[2], Y4[2];
+	CArray<double, double> X, Y1[2], Y2[2], Y3[2], Y4[2], Y5[21][2];
 	X.SetSize(nSize);
 	Y1[0].SetSize(nSize);
 	Y2[0].SetSize(nSize);
 	Y3[0].SetSize(nSize);
 	Y4[0].SetSize(nSize);
+	for (int j = 0; j < 21; ++j)
+		Y5[j][0].SetSize(nSize);
 
 	for (int i = 0; i < nSize; ++i)
 	{
@@ -770,32 +847,53 @@ BOOL CWeldNavigation::WriteScanFile()
 		double avg_side_height = (measure2.weld_left_height_mm + measure2.weld_right_height_mm) / 2;
 		double weld_cap_height = measure2.weld_cap_mm.y;
 
+		// write all the values at whatrever interval now exzist into vectors
 		X[i] = m_listLaserPositions[i].measures.measure_pos_mm;
 		Y1[0][i] = avg_side_height - weld_cap_height;
 		Y2[0][i] = fabs(measure2.weld_right_mm - measure2.weld_left_mm);
 		Y3[0][i] = fabs(measure2.weld_left_height_mm - measure2.weld_right_height_mm);
 		Y4[0][i] = m_listLaserPositions[i].gap_filt;
+
+		for (int j = 0; j < 21; ++j)
+			Y5[j][0][i] = measure2.cap_profile_mm[j];
 	}
 
-
+	// interpolate all to 1 mm intervals
 	InterpolateVector(X, Y1[0], Y1[1], m_nStartPos, m_nEndPos);
 	InterpolateVector(X, Y2[0], Y2[1], m_nStartPos, m_nEndPos);
 	InterpolateVector(X, Y3[0], Y3[1], m_nStartPos, m_nEndPos);
 	InterpolateVector(X, Y4[0], Y4[1], m_nStartPos, m_nEndPos);
+	for (int j = 0; j < 21; ++j)
+		InterpolateVector(X, Y5[j][0], Y5[j][1], m_nStartPos, m_nEndPos);
 
+	// write to the file
 	for(int i=0; i < Y1[1].GetSize(); ++i)
 	{
-		fprintf(fp, "%d\t%7.3f\t%7.3f\t%7.3f\t%7.3f\n",
+		fprintf(fp, "%d\t%7.3f\t%7.3f\t%7.3f\t%7.3f",
 			i, Y1[1][i], Y2[1][i], Y3[1][i], Y4[1][i]);
+		for (int j = 0; j < 21; ++j)
+			fprintf(fp, "\t%7.3f", Y5[j][1][i]);
+		fprintf(fp, "\n");
 	}
 
 	fclose(fp);
 	return TRUE;
 }
-#endif
-void CWeldNavigation::StartSteeringMotors(int nSteer, int start_mm, int end_mm, double motor_speed, double motor_accel, double offset, BOOL bScanning)
+
+// start the navigation
+// nSteer = 0 (stop navigation)
+// 0x1 start a thread to note the weld cap offset history
+// 0x2 start the navigation and vary L/R wheel speeds
+// start_mm, end_mm: note where to navigate from and to, stop mthe motors once reach end_mm
+// motor_speed: the default speed for allm motors, weill vary tyop steer
+// motor_accel: default acceleration in the control, will double prior to stopping
+// offset: may want to navigate to a samall offset from tyhe centre of the weld cap
+// bScanning: used to dertmine if to write a scan file at the end of navigation
+void CWeldNavigation::StartNavigation(int nSteer, int start_mm, int end_mm, double motor_speed, double motor_accel, double offset, BOOL bScanning)
 {
+	// if any threads active, stop them now
 	StopSteeringMotors();
+
 	if ( nSteer)
 	{
 		m_fMotorSpeed = motor_speed;
@@ -829,6 +927,8 @@ void CWeldNavigation::StartSteeringMotors(int nSteer, int start_mm, int end_mm, 
 		g_LowPassFilterGapTime = 0;
 		g_LowPassFilterGapCount = 0;
 #endif
+
+		// strart threads to manage these function
 		if( nSteer & 0x1 )
 			m_hThreadNoteLaser = AfxBeginThread(::ThreadNoteLaser, this);
 		if (nSteer & 0x2)
@@ -839,9 +939,9 @@ void CWeldNavigation::StartSteeringMotors(int nSteer, int start_mm, int end_mm, 
 		m_crit1.Lock();
 #ifdef _DEBUG_TIMING_
 		WriteTestFile();
-#else
-		WriteScanFile();
 #endif
+		WriteScanFile();
+
 		m_listLaserPositions.SetSize(0);
 		m_crit1.Unlock();
 #ifdef _DEBUG_TIMING_
@@ -856,6 +956,7 @@ void CWeldNavigation::StartSteeringMotors(int nSteer, int start_mm, int end_mm, 
 	}
 }
 
+// request any existing theasds to stop and then wait for them to stop
 void CWeldNavigation::StopSteeringMotors()
 {
 	if (m_hThreadNoteLaser != NULL)
@@ -872,18 +973,21 @@ void CWeldNavigation::StopSteeringMotors()
 	}
 }
 
-// try to get a new position every 5 mm
+// try to get a new position every 1 mm
 UINT CWeldNavigation::ThreadNoteLaser()
 {
 	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 	while (m_bSteerMotors)
 	{
-		Sleep(1);
+		Sleep(1); // avoid tight loop
+		// will keep lookinjmg until travel at least 1 mm
 		NoteNextLaserPosition();
 	}
 	return 0;
 }
 
+// m_listLaserPositions is not thread safe, so may want a copy
+// not used at this time
 void CWeldNavigation::GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>& list)
 {
 	m_crit1.Lock();
@@ -891,13 +995,14 @@ void CWeldNavigation::GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>& list)
 	m_crit1.Unlock();
 }
 
-
+// with the given weldf cap offset (gap) what variation is desired between L and R
+// this is used by the non PID navigation
 static CDoublePoint GetTurnRateAndPivotPoint(double gap, BOOL bInTolerance, int direction)
 {
 	CDoublePoint ret(1.0, 0.5);
 	gap = fabs(gap);
 
-	// less than 0.1 mm (should not hit this as < 0.1 is do nothing)
+	// less than 0.1 mm just use the minimum variation
 	if (gap < MIN_GAP_TOLERANCE)
 	{
 		ret.x = MIN_TURN_RATE;
@@ -933,10 +1038,11 @@ static CDoublePoint GetTurnRateAndPivotPoint(double gap, BOOL bInTolerance, int 
 	return ret;
 }
 
+// the PID navigation seems to work forward but not well in reverse at this time
 UINT CWeldNavigation::ThreadSteerMotors()
 {
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	if( direction == -1 )
+	if(  direction == -1 )
 		ThreadSteerMotors_try3();
 	else
 		ThreadSteerMotors_PID();
@@ -944,17 +1050,26 @@ UINT CWeldNavigation::ThreadSteerMotors()
 	return 0;
 }
 
+// this is used by the PID navigtation
+// steering: limit to +/- 1
+// +1 mhard turn left, -1 hard turn right
 double CWeldNavigation::CalculateTurnRate(double steering)const
 {
 	steering = max(steering, -1);	// 1=turn hard (L/R MAX_TURN_RATE)
 	steering = min(steering, 1);	// 0 = no turn (L/R 100%)
 	int dir = (steering > 0) ? 1 : -1;
 
+	// limit the turn rate to 0.7
+	// too much as the slippage required will be extreme
+	// too little and will not rturn fast enough
 	double rate = MAX_TURN_RATE + (1 - fabs(steering)) * (1 - MAX_TURN_RATE);
 	return dir*rate;
 }
 
-
+// P: note the current weld cap offset
+// I: sum of the weld cap offset values
+//    (could also be a sum of the difference of (now - 25 mm ago) )
+// D: weld cap tendancy to/from weld cap centre in mm per mm
 double CWeldNavigation::GetPIDSteering()
 {
 	// at 2 mm offset, want hardest steering of 0.8
@@ -975,7 +1090,9 @@ double CWeldNavigation::GetPIDSteering()
 	LASER_POS pos0 = GetLastNotedPosition(0);
 	LASER_POS pos25 = GetLastNotedPosition(I_ERR_LEN);
 	
-	// still need to determine if better using a predicted value
+	// still need to determine if better using a predicted value about 5 mm in the furture
+	// this would potentially correct some of the latency in the steering
+	// i.e. takeds time to start a turn, must look further doewn the road
 	// 911
 	double this_pos = pos0.measures.measure_pos_mm;
 	double this_gap = pos0.gap_filt;
@@ -986,16 +1103,24 @@ double CWeldNavigation::GetPIDSteering()
 	// update the error sums
 	m_d_error = (pos0.slope10 == FLT_MAX) ? 0 : pos0.slope10; //  (pos0.vel_raw == FLT_MAX) ? this_gap - m_p_error : pos0.vel_raw / 1000.0;
 	m_p_error = this_gap;
+
 	//if (Ki != 0 && pos25.gap_filt != FLT_MAX)
 	//	m_i_error += (this_gap - pos25.gap_filt);
 	//else
 		m_i_error += this_gap;
 
 	// calculate the steering value
+	// the constants are fixed if not _DEBUG
 	double steer = -(Kp * m_p_error + Kd * m_d_error + Ki * m_i_error);
 	return steer;
 }
 
+// the original non PID steering technique
+// 1. note how fast need to steer towards the centre
+// 2. when half eay there if forward, stop turning and continue towards the centre
+//    if in reverse stop turning sooner as the laser in the the back of the unit
+// 3. drive straight towards the line without any further turning for maximum of 50 mm, or until cross the centre
+// 4. repeat
 UINT CWeldNavigation::ThreadSteerMotors_try3()
 {
 	const int MAX_TRAVEL_TIME = 1000;
@@ -1170,6 +1295,11 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 	return 0;
 }
 
+// navigate using PID
+// 1. note the PID steering calculated in the list of weld cap offsets
+// 2. use manoeuvre.x as that is the L/R speed ratio calculated from the PID steering value
+// 3. drive for 50 ms (at 50 mm/sec this would be 2.5 mm)
+// 4. repeat
 UINT CWeldNavigation::ThreadSteerMotors_PID()
 {
 	// note if driving backwards

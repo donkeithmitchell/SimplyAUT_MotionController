@@ -18,7 +18,8 @@ int g_LaserOnPaintCount = 0;
 
 #define DISP_MARGIN 5
 
-// CStaticLaser dialog
+// CStaticLaser window
+// this window draws the laser profile, weld cap offset and scan progress report
 
 IMPLEMENT_DYNAMIC(CStaticLaser, CWnd)
 
@@ -71,9 +72,6 @@ void CStaticLaser::Create(CWnd* pParent)
 	BOOL ret = CWnd::Create(NULL, _T(""), WS_CHILD | WS_VISIBLE, CRect(0,0, 0,0), pParent, 1, NULL);
 	ASSERT(m_hWnd != NULL);
 
-//	m_wndLaserProfile.Create(this);
-//	m_wndLaserProfile.Init(this, 0);
-
 	EnableWindow(TRUE);
 	InvalidateRgn(NULL);
 }
@@ -86,6 +84,7 @@ void CStaticLaser::OnPaint()
 	CPaintDC dc(this);
 	GetClientRect(&rect);
 
+	// use bitblt so faster, and so that do not see drawing
 	CDC memDC;
 	memDC.CreateCompatibleDC(&dc);
 	ASSERT(memDC.m_hDC);
@@ -113,7 +112,6 @@ void CStaticLaser::OnSize(UINT nFlag, int cx, int cy)
 
 	GetLaserRect(&m_disp_rect);
 	m_disp_width_factor = ((double)m_disp_rect.Width()) / (double)SENSOR_WIDTH;
-	//	m_disp_height_factor = ((double)m_disp_rect.Height()) / (double)(SENSOR_HEIGHT); // mut set when get data
 }
 
 CPoint CStaticLaser::GetScreenPixel(double x, double y)
@@ -127,6 +125,8 @@ CPoint CStaticLaser::GetScreenPixel(double x, double y)
 
 // draw a circle with the current location of the crawler noted on the circle
 // also note the SET home location and the line detected by the RGB sensor
+// this acts as a progress report for a scan
+// 911 the actual position can be set, but not required
 void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 {
 	CRect rect1;
@@ -172,17 +172,17 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 		CBrush* pBrush2 = pDC->SelectObject(&brush2);
 		pDC->Ellipse(x1 - 5, y1 - 5, x1 + 5, y1 + 5);
 	}
-
-
-	//pDC->SelectObject(pBrush1);
-	//pDC->SelectObject(pPen);
 }
 
+// the popup menu and double clicking can toggle the laser on/off
 void CStaticLaser::ToggleLaserOn()
 {
 	m_laserControl.TurnLaserOn(!m_laserControl.IsLaserOn());
 	InvalidateRgn(NULL);
 }
+
+// this is added to set the green dot in the correct location
+// not documented as not rewuired 911
 void CStaticLaser::SetCrawlerLocation(CPoint pt)
 {
 	// get the angle of pt from the centre
@@ -190,8 +190,8 @@ void CStaticLaser::SetCrawlerLocation(CPoint pt)
 	GetPipeRect(&rect);
 
 	// get the angle from the centre and add 90 deg
-	double x0 = (rect.left + rect.right) / 2.0;
-	double y0 = (rect.top + rect.bottom) / 2.0;
+	double x0 = ((double)rect.left + (double)rect.right) / 2.0;
+	double y0 = ((double)rect.top + (double)rect.bottom) / 2.0;
 
 	// will draw thew crawler from this position on
 	m_fHomeAng = atan2((double)(pt.y) - y0, (double)(pt.x) - x0) + PI / 2;
@@ -199,6 +199,7 @@ void CStaticLaser::SetCrawlerLocation(CPoint pt)
 	InvalidateRgn(NULL);
 }
 
+// this is the portion of the window where to place the laser profile
 void CStaticLaser::GetLaserRect(CRect* rect)
 {
 	// positioon in the bottom half and in the centre half of that
@@ -212,7 +213,8 @@ void CStaticLaser::GetLaserRect(CRect* rect)
 	rect->SetRect(x1, y1, x2, y2);
 }
 
-
+// the laser offset is the line drawen below the laser profile
+// showing the offset from the weld-cap by crawler position
 void CStaticLaser::GetOffsetRect(CRect* rect)
 {
 	// positioon in the bottom half and in the centre half of that
@@ -230,7 +232,7 @@ void CStaticLaser::GetOffsetRect(CRect* rect)
 }
 
 
-
+// this is the location to draw the scan progrtess (dircle which emulates a pipe)
 int CStaticLaser::GetPipeRect(CRect* rect)
 {
 	GetClientRect(rect);
@@ -246,14 +248,16 @@ int CStaticLaser::GetPipeRect(CRect* rect)
 	}
 	else
 	{
-
 		rect->top = y0 - radius1;
 		rect->bottom = y0 + radius1;
 	}
 	return radius1;
 }
 
-
+// not used at this time
+// but was for a graph of the RGB values
+// 911 getting them is too slow
+// consider adding back in if fix the time to get the RGB sum
 void CStaticLaser::GetRGBRect(CRect* rect)
 {
 	// positioon in the bottom half and in the centre half of that
@@ -265,11 +269,13 @@ void CStaticLaser::GetRGBRect(CRect* rect)
 	rect->SetRect(x1, y1, x2, y2);
 }
 
+// part of drawing the RGB values
 double CStaticLaser::GetAverageRGBValue()
 {
 	return (m_rgbCount < 0) ? (double)m_rgbSum / (double)m_rgbCount : 0;
 }
 
+// 911 not used at this time, as too slow to get during a scan
 void CStaticLaser::DrawRGBProfile(CDC* pDC)
 {
 	if (!m_magControl.IsConnected())
@@ -354,6 +360,7 @@ void CStaticLaser::DrawRGBProfile(CDC* pDC)
 
 }
 
+// keep a list of the RGB values so can display them (not used at this time)
 int CStaticLaser::AddRGBData(const int& value)
 {
 	if (value != INT_MAX)
@@ -380,6 +387,7 @@ void CStaticLaser::ResetRGBData()
 }
 
 // arecord of the laser offsets is being kept by the steering function
+// enable the user to visually see if the crawler is staying close to the weld
 void CStaticLaser::DrawLaserOffset(CDC* pDC)
 {
 	if (!m_laserControl.IsLaserOn())
@@ -499,6 +507,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	m_disp_height_factor = ((double)m_disp_rect.Height()) / (m_disp_height_max- m_disp_height_min);
 
 	// measure2.weld_cap_pix2.x is shifted to the centre (i.e the weld does not move, the crawler does)
+	// the popup menu can disable this
 	int shift = m_bCentreWeld ? (int)(SENSOR_WIDTH / 2 - measure2.weld_cap_pix2.x) : 0;
 
 	// only draw one segment per 2 pixels
@@ -527,6 +536,8 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 		}
 		if (cnt2 > 0)
 		{
+			// MioveTo(), LineTo() is much faster than SetPixel()
+			// as scatter has been filtered out, no need tfor SetPixel()
 			CPoint pt = GetScreenPixel((double)(sum1/cnt2 + shift), sum2/cnt2);
 			(init) ? pDC->MoveTo(pt) : pDC->LineTo(pt); // thbuis is faster, scatter has been removed regardless
 			init = 0;
@@ -571,20 +582,20 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	pDC->MoveTo(pt.x, m_disp_rect.bottom);
 	pDC->LineTo(pt.x, m_disp_rect.top);
 
-	CPoint pt11 = GetScreenPixel((measure2.weld_left_pix+shift) / 2, measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel(measure2.weld_left_pix+shift, measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel((double)(measure2.weld_left_pix+shift) / 2, measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel((double)(measure2.weld_left_pix+shift), measure2.GetDnSideWeldHeight());
 	CPen PenPrimaryEdge(PS_SOLID, 1, RGB(10, 10, 250));
 	pDC->SelectObject(&PenPrimaryEdge);
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel(measure2.weld_right_pix+shift, measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel((measure2.weld_right_pix+shift + SENSOR_WIDTH) / 2, measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel((double)(measure2.weld_right_pix+shift), measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel((double)(measure2.weld_right_pix+shift + SENSOR_WIDTH) / 2, measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 }
 
-
+// 911 these timers are not set at this time
 void CStaticLaser::OnTimer(UINT_PTR nIDEvent)
 {
 	Measurement meas;
@@ -622,6 +633,7 @@ void CStaticLaser::GetLaserProfile()
 	// 0: gap value
 	// 1: mismatch
 
+	// noter the last measured laser values
 	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
 	if (measure2.status == 0)
 	{
@@ -646,6 +658,7 @@ void CStaticLaser::GetLaserProfile()
 	}
 }
 
+// show a popup menu
 void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 {
 	CWnd::OnRButtonDown(nFlags, pt);

@@ -40,7 +40,7 @@ public:
 	void	SetNoteRunTime(BOOL);
 //	void    StartNotingRGBData(BOOL);
 	void	StartNotingMotorSpeed(BOOL);
-	void    StartSteeringMotors(int nSteer, int start_pos, int end_pos, double fSpeed);
+	void    StartNavigation(int nSteer, int start_pos, int end_pos, double fSpeed);
 	void    StartReadMagStatus(BOOL);
 	void    StartMeasuringLaser(BOOL);
 	void    GetLaserProfile();
@@ -120,7 +120,7 @@ public:
 
 	CBitmap	m_bitmapPause;
 	CBitmap	m_bitmapGoRight;
-	CBitmap	m_bitmapGoLeft;
+//	CBitmap	m_bitmapGoLeft;
 	CBitmap	m_bitmapGoDown;
 	CBitmap	m_bitmapGoUp;
 	CBitmap	m_bitmapStop;
@@ -163,7 +163,7 @@ public:
 	double  m_fScanStartPos;
 	double m_fScanCirc;
 	double m_fDistToScan;
-	double m_fDistScanned;
+//	double m_fDistScanned;
 	double m_fScanOverlap;
 	double m_fScanLength;
 	double m_fMotorScanSpeed;
@@ -198,10 +198,10 @@ public:
 	BOOL	m_bCalibrate;
 	BOOL m_bEnableMAG;
 
-	CBrush	m_brRed;
-	CBrush	m_brGreen;
-	CBrush	m_brBlue;
-	CBrush	m_brMagenta;
+//	CBrush	m_brRed;
+//	CBrush	m_brGreen;
+//	CBrush	m_brBlue;
+//	CBrush	m_brMagenta;
 
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	afx_msg LRESULT OnUserStopMotorFinished(WPARAM, LPARAM);
@@ -229,7 +229,6 @@ public:
 	afx_msg void OnRadioScanType();
 	afx_msg void OnClickedCheckGoToHome();
 	afx_msg void OnClickedCheckReturnToStart();
-	afx_msg void OnStnClickedStaticTempBoard();
 	afx_msg void OnChangeEditLrOffset();
 	afx_msg void OnClickedCheckSeekStartLine();
 	afx_msg void OnDeltaposSpinScanSpeed(NMHDR* pNMHDR, LRESULT* pResult);

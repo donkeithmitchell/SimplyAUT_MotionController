@@ -16,6 +16,7 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+// this dialog is only used in _DEBUG
 static UINT ThreadWaitCalibration(LPVOID param)
 {
 	CDialogMag* this2 = (CDialogMag*)param;
@@ -297,7 +298,7 @@ double CDialogMag::GetCalibrationValue()
 {
 	if (m_bCalibrateWithLaser)
 	{
-		if (m_laserControl.GetProfile(10))
+		if (m_laserControl.GetProfile())
 		{
 			LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
 			m_laserControl.CalcLaserMeasures(0.0/*pos*/, NULL, -1);
@@ -482,7 +483,12 @@ LRESULT CDialogMag::OnUserWaitCalibrationFinished(WPARAM, LPARAM)
 	CString str;
 	int ret = ::WaitForSingleObject(m_hThreadWaitCalibration, 1000);
 	if (ret != WAIT_OBJECT_0 && m_hThreadWaitCalibration != NULL)
+	{
+		DWORD exit_code = 0;
+		GetExitCodeThread(m_hThreadWaitCalibration, &exit_code);
+
 		::TerminateThread(m_hThreadWaitCalibration, 0);
+	}
 
 	// if gettring calibration data
 	double speed = atof(m_szCalibrationSpeed);

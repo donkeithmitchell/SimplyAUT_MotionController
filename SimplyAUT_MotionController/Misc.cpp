@@ -7,8 +7,12 @@
 #define new DEBUG_NEW
 #endif
 
+// a collection of usefuyl functions
 
 
+// 0 order: just the average
+// 1 order: y = m x + b
+// 2 order: y =  A x^2 + B x + c
 int polyfit(const double* const dependentValues,
             const double* const independentValues,
             unsigned int        countOfElements,
@@ -139,7 +143,7 @@ int polyfit(const double* const dependentValues,
 }
 
 
-
+// used in qsort
 int MinMaxI4(const void* i1, const void* i2)
 {
     int val1 = *((int*)i1);
@@ -147,7 +151,7 @@ int MinMaxI4(const void* i1, const void* i2)
 
     return val1 - val2;
 }
-
+// used in qsort
 int MinMaxDP_X(const void* i1, const void* i2)
 {
     const CDoublePoint* val1 = (CDoublePoint*)i1;

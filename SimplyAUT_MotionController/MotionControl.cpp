@@ -18,6 +18,8 @@ CMotionControl::CMotionControl()
     m_bMotorsRunning = FALSE;
 }
 
+// make sure the motors are off before closing
+// else may leave the scanner running with the only way to stop the kill switch
 CMotionControl::~CMotionControl()
 {
     if (m_pGclib)
@@ -30,12 +32,14 @@ CMotionControl::~CMotionControl()
 	m_pGclib = NULL;
 }
 
+// used to pass messafgs to the owner dialoig
 void CMotionControl::Init(CWnd* pParent, UINT nMsg)
 {
     m_pParent = pParent;
     m_nMsg = nMsg;
 }
 
+// used in _DEBUG
 void CMotionControl::SendDebugMessage(const CString& msg)
 {
 #ifdef _DEBUG_TIMING_
@@ -46,6 +50,7 @@ void CMotionControl::SendDebugMessage(const CString& msg)
 #endif
 }
 
+// write error messages to the error static
 void CMotionControl::SendErrorMessage(const char* msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -54,6 +59,7 @@ void CMotionControl::SendErrorMessage(const char* msg)
     }
 }
 
+// the parent dialoog will ask all dialog to enable/disable their controls
 void CMotionControl::EnableControls()
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
@@ -119,17 +125,17 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
     SendDebugMessage(_T("Initialization of the Galil..."));
     StopMotors(TRUE); //stop all motion and programs
 
-    m_pGclib->GCommand(_T("KP*=1.05"));     // proportional constant
-    m_pGclib->GCommand(_T("KI*=0"));        // integrator
-    m_pGclib->GCommand("KD*=0");        // derivative constant
-    m_pGclib->GCommand("ER*=20000");    // magnitude of the position errors cnts
-    m_pGclib->GCommand("OE*=1");        // Off On Error function   
+    m_pGclib->GCommand("KP*=1.05");     // proportional constant
+    m_pGclib->GCommand("KI*=0");        // integrator
+    m_pGclib->GCommand("KD*=0");            // derivative constant
+    m_pGclib->GCommand("ER*=20000");        // magnitude of the position errors cnts
+    m_pGclib->GCommand("OE*=1");            // Off On Error function   
     m_pGclib->GCommand("BR*=0");
     m_pGclib->GCommand("AU*=0.5");
     m_pGclib->GCommand("AG*=0");
-    m_pGclib->GCommand(TORQUE_LIMIT); // 1.655");
+    m_pGclib->GCommand(TORQUE_LIMIT); // 1.655"); // this must be as large as possible to enable driving vertically
     m_pGclib->DefinePosition(0);        // all to zero
-    m_pGclib->SetAcceleration(50000);    // acceleration cts/sec
+    m_pGclib->SetAcceleration(50000);    // acceleration cts/sec // these will be reset with user values
     m_pGclib->SetDeceleration(50000);    // deceleration cts/sec
     m_pGclib->SetJogSpeed(0);           // always connect at zero speed
     m_pGclib->SetServoHere();           // enable all axes
@@ -175,8 +181,8 @@ BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
     m_pGclib->GCommand("OE*=1");        // Off On Error function   
     m_pGclib->GCommand("BR*=0");
     m_pGclib->GCommand("AU*=0.5");
-    m_pGclib->GCommand(TORQUE_LIMIT); // 1.655");
-    m_pGclib->GCommand("SH");       // enable all axes
+    m_pGclib->GCommand(TORQUE_LIMIT);       // 1.655");
+    m_pGclib->GCommand("SH");               // enable all axes, this was added to re-enable after hitting torque limit
 
     int pos_cnt = DistancePerSecondToEncoderCount(pos_mm);
     int posA = AxisDirection("A") * pos_cnt;
@@ -207,6 +213,8 @@ BOOL CMotionControl::GoToPosition(double pos_mm, BOOL bWaitToStop)
     return TRUE;
 }
 
+// 911 this is not used at this time
+// it was added to drive the L/R motors to different positions
 BOOL CMotionControl::GoToPosition2(double left, double right)
 {
     CString str;
@@ -230,6 +238,7 @@ BOOL CMotionControl::GoToPosition2(double left, double right)
     return TRUE;
 }
 
+// wait until all motors are at zero
 BOOL CMotionControl::WaitForMotorsToStop()
 {
     double accel = 0;
@@ -267,14 +276,12 @@ BOOL CMotionControl::SetMotorJogging(double speed, double accel)
     return SetMotorJogging(speed, speed, speed, speed, accel);
 }
 
+// the main thread polls the motors to see if running
+// thus all other threads can just look here
 BOOL CMotionControl::AreTheMotorsRunning()
 {
     m_critMotorsRunning.Lock();
     BOOL ret = m_bMotorsRunning;
-    if (ret == 0)
-    {
-        int xx = 1;
-    }
     m_critMotorsRunning.Unlock();
 
     return ret;
@@ -293,6 +300,7 @@ void CMotionControl::NoteIfMotorsRunning()
     m_critMotorsRunning.Unlock();
 }
 
+// noite that the L/R motors actuall go in opposite directions, thus AxisDirection()
 double CMotionControl::GetMotorSpeed(GCStringIn axis, double& rAccel)
 {
     int accel, speed = m_pGclib->GetMotorSpeed(axis, accel); // thjis is in counts, want the speed in mm/sec
@@ -308,6 +316,7 @@ double CMotionControl::GetMotorPosition(GCStringIn axis)
     return AxisDirection(axis) *  fPos;
 }
 
+// the L/R motors actually go in oppositre directions
 int CMotionControl::AxisDirection( GCStringIn axis)const
 {
     switch (axis[0])
@@ -333,7 +342,7 @@ BOOL CMotionControl::AreMotorsRunning()
     return fabs(fSA) > 0 || fabs(fSB) > 0 || fabs(fSC) > 0 || fabs(fSD) > 0;
 }
 
-
+// jogging unlike gotoposition() drives until stopped with no end position
 BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC, double speedD, double accel)
     {
     if (!IsConnected())
@@ -352,8 +361,9 @@ BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC
 //  m_pGclib->GCommand("DC*=50000");    // deceleration cts/sec
 
     // the left side motors are inverted
-    m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(accel));
-    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(2*accel));
+    // set decelertion to be twice the acceleration
+    m_pGclib->SetAcceleration(DistancePerSecondToEncoderCount(min(accel, MAX_MOTOR_ACCEL)));
+    m_pGclib->SetDeceleration(DistancePerSecondToEncoderCount(min(2*accel, MAX_MOTOR_ACCEL)));
 
     m_pGclib->SetJogSpeed("A", AxisDirection("A") * DistancePerSecondToEncoderCount(speedA));
     m_pGclib->SetJogSpeed("B", AxisDirection("B") * DistancePerSecondToEncoderCount(speedB));
@@ -368,6 +378,7 @@ BOOL CMotionControl::SetMotorJogging(double speedA, double speedB, double speedC
     return FALSE;
 }
 
+// this corrects for both counts per turn and the wheel circumference
 double CMotionControl::EncoderCountToDistancePerSecond(int encoderCount)const
 {
     double distancePerSecond;
@@ -396,7 +407,9 @@ BOOL CMotionControl::SetSlewSpeed(double A_mm_sec, double B_mm_sec, double C_mm_
 
 BOOL CMotionControl::SetSlewSpeed(double speed_mm_sec, double accel_mm_sec_sec)
 {
+    accel_mm_sec_sec = max(min(accel_mm_sec_sec, MAX_MOTOR_ACCEL), MIN_MOTOR_ACCEL);
     int accel = DistancePerSecondToEncoderCount(accel_mm_sec_sec);
+
     m_pGclib->SetAcceleration(accel);
     m_pGclib->SetDeceleration(accel);
     return SetSlewSpeed(speed_mm_sec, speed_mm_sec, speed_mm_sec, speed_mm_sec);
@@ -404,6 +417,8 @@ BOOL CMotionControl::SetSlewSpeed(double speed_mm_sec, double accel_mm_sec_sec)
 
 BOOL CMotionControl::SetSlewDeceleration(double decel_mm_sec_sec)
 {
+    decel_mm_sec_sec = max(min(decel_mm_sec_sec, MAX_MOTOR_ACCEL), MIN_MOTOR_ACCEL);
+
     int decel = DistancePerSecondToEncoderCount(decel_mm_sec_sec);
     return m_pGclib->SetDeceleration(decel);
 }
@@ -413,11 +428,15 @@ BOOL CMotionControl::SetSlewDeceleration(double decel_mm_sec_sec)
 // else return both sides to the same speed
 BOOL CMotionControl::SteerMotors(double fSpeed, double rate)
 {
-    double spLeft = fSpeed * (1 - rate / 2);;
-    double spRight = fSpeed * (1 + rate / 2);;
+    double spLeft = fSpeed * (1 - rate / 2);
+    double spRight = fSpeed * (1 + rate / 2);
  
     return SetSlewSpeed(spLeft, spRight, spRight, spLeft);
 }
+
+// when filtering the weld cap offsets
+// can onluy cross a last manoeuvre positoon with care
+// the offsets prior to the manoeuvre may not be representative of after it
 double CMotionControl::GetLastManoeuvrePosition()
 { 
     m_critLastManoeuvre.Lock();
@@ -439,9 +458,6 @@ void CMotionControl::ResetLastManoeuvrePosition()
     m_manoeuvre_pos = FLT_MAX;
     m_critLastManoeuvre.Unlock();
 }
-
-
-
 
 double CMotionControl::GetAvgMotorPosition()
 {

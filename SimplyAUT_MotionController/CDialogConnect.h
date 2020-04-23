@@ -16,10 +16,12 @@ public:
 	void Init(CWnd*, UINT);
 
 	void	Create(CWnd* pParent);
-	void	SetButtonBitmaps();
-	void	EnableControls();
 	BOOL	CheckVisibleTab() { return TRUE; }
 	void	Serialize(CArchive& ar);
+	void	EnableControls();
+
+protected:
+	void	SetButtonBitmaps();
 	void    ResetParameters();
 	void	SendErrorMessage(const char* msg);
 
@@ -35,7 +37,7 @@ protected:
 	virtual void OnOK();
 
 	DECLARE_MESSAGE_MAP()
-public:
+
 	afx_msg void OnClickedButtonConnect();
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	CIPAddressCtrl m_ipLaser;
@@ -44,7 +46,6 @@ public:
 	CButton m_buttonLaser;
 	CButton m_buttonMAG;
 	CButton m_buttonGalil;
-	CString m_szPort;
 
 	CBitmap	m_bitmapDisconnect;
 	CBitmap	m_bitmapConnect;
@@ -52,6 +53,7 @@ public:
 	CLaserControl& m_laserControl;
 	CMagControl& m_magControl;
 
+	CString m_szPort;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 

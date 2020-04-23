@@ -16,6 +16,7 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 // CDialogLaser dialog
+// this dialog is only used in _DEBUG at this time (911)
 
 IMPLEMENT_DYNAMIC(CDialogLaser, CDialogEx)
 
@@ -181,7 +182,7 @@ HCURSOR CDialogLaser::OnQueryDragIcon()
 }
 
 
-
+// display the laser measures
 LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 {
 	CString str;
@@ -208,6 +209,7 @@ LRESULT CDialogLaser::OnUserUpdateDialog(WPARAM, LPARAM)
 
 }
 
+// turn the laser on/off
 void CDialogLaser::OnLaserButton()
 {
 	BOOL bOn = !m_laserControl.IsLaserOn();
@@ -217,6 +219,7 @@ void CDialogLaser::OnLaserButton()
 	EnableControls();
 }
 
+// noite the laser temperatures
 void CDialogLaser::OnTimer(UINT nIDEvent)
 {
 	CString tstr;
@@ -248,6 +251,8 @@ void CDialogLaser::OnTimer(UINT nIDEvent)
 	CDialog::OnTimer(nIDEvent);
 }
 
+// set if auto laser or manual
+// without _DEBUG the user is stuck with auto
 void CDialogLaser::OnAutolaserCheck()
 {
 	UpdateData(TRUE);
@@ -261,6 +266,7 @@ void CDialogLaser::OnAutolaserCheck()
 //	EnableControls();
 }
 
+// note that changing the lasert shutter speed
 void CDialogLaser::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
 	// Slider Controls have been adjusted
@@ -277,7 +283,7 @@ void CDialogLaser::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 //	CPropertyPage::OnHScroll(nSBCode, nPos, pScrollBar);
 }
 
-
+// don't enact until release the slider
 void CDialogLaser::OnReleasedcaptureLaserpowerSlider(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	UpdateData(TRUE);
@@ -350,11 +356,6 @@ void CDialogLaser::EnableControls()
 		GetDlgItem(IDC_ROI_EDIT)->SetWindowTextA(m_wndProfile.m_ROI_str);
 	}
 }
-
-
-
-
-
 
 void CDialogLaser::OnClickedButtonRoiReset()
 {

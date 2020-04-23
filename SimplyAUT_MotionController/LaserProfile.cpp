@@ -148,8 +148,8 @@ void CStaticLaserProfile::OnSize(UINT nFlag, int cx, int cy)
 	CRect rect;
 	GetClientRect(&rect);
 
-	m_disp_width_factor  = ((double)rect.Width()  - 2 * DISP_MARGIN) / (double)SENSOR_WIDTH;
-	m_disp_height_factor = ((double)rect.Height() - 2 * DISP_MARGIN) / (double)SENSOR_HEIGHT;
+	m_disp_width_factor  = ((double)rect.Width()  - (double)(2 * DISP_MARGIN)) / (double)SENSOR_WIDTH;
+	m_disp_height_factor = ((double)rect.Height() - (double)(2 * DISP_MARGIN)) / (double)SENSOR_HEIGHT;
 	m_disp_height = rect.Height();
 }
 
@@ -240,7 +240,7 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	pDC->SelectObject(&PenTrackingPoint);
 	for (int i = 0; i < SENSOR_WIDTH; i++)
 	{
-		CPoint pt = GetScreenPixel(i + shift, hitBuffer[i]);
+		CPoint pt = GetScreenPixel((double)(i + shift), hitBuffer[i]);
 		if (pt.x >= rect.left && pt.x < rect.right)
 			pDC->SetPixel(pt, RGB(250, 50, 50));
 
@@ -286,13 +286,13 @@ void CStaticLaserProfile::DrawLaserProfile(CDC* pDC)
 	// alread have points at the inside of the sides, now need the outside point
 	//////////////////////////////////////////////////////
 	pDC->SelectObject(&PenSecondaryEdge);
-	CPoint pt11 = GetScreenPixel(measure2.weld_left_start_pix+shift, measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel(measure2.weld_left_pix+shift, measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel((double)(measure2.weld_left_start_pix+shift), measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel((double)(measure2.weld_left_pix+shift), measure2.GetDnSideWeldHeight());
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel(measure2.weld_right_pix+shift, measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel(measure2.weld_right_end_pix+shift, measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel((double)(measure2.weld_right_pix+shift), measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel((double)(measure2.weld_right_end_pix+shift), measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 
@@ -357,7 +357,7 @@ void CStaticLaserProfile::OnTimer(UINT_PTR nIDEvent)
 	if (!m_laserControl.IsConnected() || !m_laserControl.IsLaserOn())
 		return;
 
-	if (!m_laserControl.GetProfile(10))
+	if (!m_laserControl.GetProfile())
 		return;
 
 	// will truy every 50 ms, but only draw every 500 ms

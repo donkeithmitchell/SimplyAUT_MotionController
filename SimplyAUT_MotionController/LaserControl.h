@@ -25,6 +25,7 @@ struct LASER_MEASURES
 	CDoublePoint dummy16[4 - 3];
 
 	double wheel_velocity4[4];
+	double cap_profile_mm[21];
 	double us_coeff[3];
 	double ds_coeff[3];
 	double measure_pos_mm; // position that was at when took measure
@@ -34,7 +35,7 @@ struct LASER_MEASURES
 	double weld_right_height_mm;
 	double weld_left_start_mm;
 	double weld_right_end_mm;
-	double dummy8[24 - 17];
+	double dummy8[42 - 38];
 
 	int weld_left_pix;
 	int weld_right_pix;
@@ -69,7 +70,7 @@ public:
 	BOOL SetAutoLaserCheck(BOOL);
 	BOOL SetLaserIntensity(int nLaserPower);
 	BOOL SetCameraShutter(int nCameraShutter);
-	BOOL GetProfile(int);
+	BOOL GetProfile();
 	BOOL GetProfilemm(Profilemm* pProfile, int hit_no);
 	void Frm_Find_Sensors();
 	int  GetSerialNumber();
@@ -83,18 +84,17 @@ public:
 	void GetLaserHits(MT_Hits_Pos hits[], double hitBuffer[], int nSize);
 	void SetLaserMeasures2(const LASER_MEASURES& meas);
 
-	double m_polyX[SENSOR_WIDTH];
-	double m_polyY[SENSOR_WIDTH];
+	CArray<double, double> m_polyX;
+	CArray<double, double> m_polyY;
+	CArray<double, double> m_work_buffer1;
+	CArray<double, double> m_work_buffer2;
+	CArray<double, double> m_hitBuffer;
 
 	CIIR_Filter m_filter;
 
 	Measurement		m_measure1;
 	LASER_MEASURES	m_measure2;
 	Profile			m_profile;
-	double			m_hitBuffer[2 * SENSOR_WIDTH];
-
-	double  m_work_buffer1[SENSOR_WIDTH];
-	double  m_work_buffer2[SENSOR_WIDTH];
 	int		m_nLaserPower;
 	int		m_nCameraShutter;
 	CWnd* m_pParent;
