@@ -9,6 +9,11 @@
 
 // a collection of usefuyl functions
 
+#define BSWAP32(x) ( ((x & 0xff000000) >> 24) | ((x & 0x00ff0000) >> 8) | ((x & 0x0000ff00) << 8) | ((x & 0x000000ff) << 24) )
+#define BSWAP16(x) ( ((x & 0xff00) >> 8) | ((x & 0x00ff) << 8) )
+
+
+
 
 // 0 order: just the average
 // 1 order: y = m x + b
@@ -188,6 +193,70 @@ int MinMaxR8(const void* i1, const void* i2)
         return -1;
     else
         return 0;
+}
+
+int ConvertToWavFormat(const CArray<float, float>& trace, int samp_rate, int volume, CArray<char, char>& wav_vector)
+{
+    static double PI = 4 * atan(1.0);
+    int i;
+    // int NumSamples1 = min(32000, trace.GetSize());
+    int NumSamples1 = trace.GetSize();
+
+    int SampleRate1 = (int)samp_rate * 1; // max(atoi(m_szSpeed),1);
+    short AudioFormat1 = 1; // PCM
+    short NumChannels1 = 2; // mono
+    short BitsPerSample1 = 16; // the data is signed shorts (2's complement)
+    short BlockAlign1 = NumChannels1 * BitsPerSample1 / 8;
+    int ByteRate1 = SampleRate1 * NumChannels1 * BitsPerSample1 / 8;
+
+    int SubChunk1Size1 = 16;
+    int SubChunk2Size1 = NumSamples1 * NumChannels1 * BitsPerSample1 / 8;
+    int ChunkSize1 = 4 + (8 + SubChunk1Size1) + (8 + SubChunk2Size1); // this chunk contains the format and data chunks
+
+    // define 
+    wav_vector.SetSize(ChunkSize1 + 8 + 8);
+
+    // RIFF chunk indicating that a wave file
+    int offset = 0;
+    memcpy(wav_vector.GetData() + offset, "RIFF", 4); offset += 4;
+    memcpy(wav_vector.GetData() + offset, &ChunkSize1, sizeof(ChunkSize1)); offset += sizeof(ChunkSize1);
+    memcpy(wav_vector.GetData() + offset, "WAVE", 4); offset += 4;
+
+    // inidcate that the format chunk to follow (24 bytes) 
+    memcpy(wav_vector.GetData() + offset, "fmt ", 4); offset += 4;
+    memcpy(wav_vector.GetData() + offset, &SubChunk1Size1, sizeof(SubChunk1Size1)); offset += sizeof(SubChunk1Size1);
+    memcpy(wav_vector.GetData() + offset, &AudioFormat1, sizeof(AudioFormat1)); offset += sizeof(AudioFormat1);
+    memcpy(wav_vector.GetData() + offset, &NumChannels1, sizeof(NumChannels1)); offset += sizeof(NumChannels1);
+    memcpy(wav_vector.GetData() + offset, &SampleRate1, sizeof(SampleRate1)); offset += sizeof(SampleRate1);
+    memcpy(wav_vector.GetData() + offset, &ByteRate1, sizeof(ByteRate1)); offset += sizeof(ByteRate1);
+    memcpy(wav_vector.GetData() + offset, &BlockAlign1, sizeof(BlockAlign1)); offset += sizeof(BlockAlign1);
+    memcpy(wav_vector.GetData() + offset, &BitsPerSample1, sizeof(BitsPerSample1)); offset += sizeof(BitsPerSample1);
+
+    double scale = volume / 10000.0; // m_sliderVolume.GetPos()/100.0;
+
+    // the data must be -32768 -> +332767
+    // scale so that the maximum 
+    double maxVal = 0;
+    for (i = 0; i < trace.GetSize(); ++i)
+        maxVal = max(maxVal, fabs(trace[i]));
+
+    // indicagte that this is a data chunk (8 + 4*nsamp bytes)
+    memcpy(wav_vector.GetData() + offset, "data", 4); offset += 4;
+    memcpy(wav_vector.GetData() + offset, &SubChunk2Size1, sizeof(SubChunk2Size1)); offset += sizeof(SubChunk2Size1);
+
+    for (i = 0; i < trace.GetSize() && offset < wav_vector.GetSize() + 4; ++i)
+    {
+        // the data is 2's complement
+        short val1 = (short)(32767 / 8 * scale * trace[i] / maxVal + 0.5);
+        short val2 = BSWAP16(val1);
+        // short val2 = ~val1 + 1;
+        // short val2 = val1;
+        memcpy(wav_vector.GetData() + offset, &val2, sizeof(val2)); offset += sizeof(val2);// left
+        memcpy(wav_vector.GetData() + offset, &val2, sizeof(val2)); offset += sizeof(val2);// right
+    }
+
+
+    return wav_vector.GetSize();
 }
 
 

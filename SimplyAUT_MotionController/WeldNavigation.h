@@ -75,6 +75,7 @@ private:
 	void	StopSteeringMotors();
 	void	SendDebugMessage(const CString& msg);
 	BOOL    SetMotorSpeed(const double speed[]);
+	double  GetAvgMotorSpeed();
 	double  GetLRPositionDiff();
 	BOOL	StopMotors(BOOL);
 	BOOL    SetMotorDeceleration(double);

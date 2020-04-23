@@ -48,8 +48,11 @@ public:
 	void   ResetRGBData();
 	double GetAverageRGBValue();
 	void   ResetLaserOffsetList() {	m_critLaserPos1.Lock();  m_laserPos1.SetSize(0); m_critLaserPos1.Unlock(); 	}
+	void   PlayOffsetSound();
+	UINT   PlaySoundThread();
 
-	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE};
+	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE, TIMER_PLAYSOUND};
+	enum{ WM_USER_PLAY_FINISHEFD  = WM_USER+1};
 
 	double	m_fHomeAng;
 	const double&	m_fScanLength;
@@ -60,20 +63,23 @@ public:
 	double			m_disp_height_factor;
 	double          m_disp_height_min;
 	double          m_disp_height_max;
+	double          m_gap;
 	CRect			m_disp_rect;
 	CArray<int, int>  m_rgbData;
 	int				m_rgbSum; // use to calculate the average
 	int				m_rgbCount;
 	BOOL			m_bCentreWeld;
+	BOOL			m_bPlayOffsetSound;
 
 	CCriticalSection m_critLaserPos1;
 	CArray<CDoublePoint, CDoublePoint> m_laserPos1;
 
 //	CStaticLaserProfile m_wndLaserProfile;
-	CLaserControl& m_laserControl;
-	CMagControl& m_magControl;
-	CMotionControl& m_motionControl;
-	CWeldNavigation& m_weldNavigation;
+	CLaserControl&		m_laserControl;
+	CMagControl&		m_magControl;
+	CMotionControl&		m_motionControl;
+	CWeldNavigation&	m_weldNavigation;
+	HANDLE				m_hPlaySoundThread;
 
 	CPoint m_ptMouse;
 
@@ -89,6 +95,7 @@ protected:
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint pt);
 	afx_msg void OnMenu(UINT nID);
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
+	afx_msg LRESULT OnUserMessagePlayFinished(WPARAM, LPARAM);
 
 	DECLARE_MESSAGE_MAP()
 };

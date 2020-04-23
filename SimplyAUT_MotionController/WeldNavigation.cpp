@@ -491,6 +491,17 @@ BOOL CWeldNavigation::SetMotorSpeed(const double speed[4] )
 		return FALSE;
 }
 
+double CWeldNavigation::GetAvgMotorSpeed()
+{
+	if (m_pParent && IsWindow(m_pParent->m_hWnd))
+	{
+		int speed = m_pParent->SendMessage(m_nMsg, CDialogGirthWeld::NAVIGATE_GET_AVG_SPEED);
+		return speed == INT_MAX ? FLT_MAX : speed / 1000.0;
+	}
+	else
+		return FLT_MAX;
+}
+
 // used in _DERBUG to note the timing
 void CWeldNavigation::SendDebugMessage(const CString& str)
 {
@@ -1309,6 +1320,7 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 	// jog the crawler to the centre, and then check again\
 	// a jog is a turn first towartds the centrte, then back to the original direction
 	double last_pos = FLT_MAX;
+	BOOL bStop = FALSE;
 	while (m_bSteerMotors)
 	{
 		// avoid risk of a tight loop
@@ -1326,8 +1338,11 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		// that way nall the mnotors will stop at the sazme exact time
 		if (direction * this_pos >= (double)(direction * m_nEndPos))
 		{
+			// once the mootors are asked to stop, use the actual average mfotor speed as the referene
+			// not m_fMotorSpeed
 			SetMotorDeceleration(2 * m_fMotorAccel);
 			StopMotors(TRUE);
+			bStop = TRUE;
 			break; // stop navigating now
 		}
 
@@ -1335,14 +1350,18 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		if (last_pos != FLT_MAX && fabs(this_pos - last_pos) < 1)
 			continue;
 
+		// until deceleration, must use the default speed, else it will drift
+		// during decelerqation, use the average as the defrault
+		double fMotorSpeed = bStop ? GetAvgMotorSpeed() : m_fMotorSpeed;
+
 		last_pos = this_pos;
 		double rate = pos0.manoeuvre1.x;
 		int dir = (rate > 0) ? 1 : -1;
-		double diff = m_fMotorSpeed * (1 - fabs(rate)) / 2.0;
+		double diff = fMotorSpeed * (1 - fabs(rate)) / 2.0;
 
 		// the closer to the weld, the slower the required turn rate
-		double speedLeft = m_fMotorSpeed - dir*diff; // if was to the left (-1), make left wheels faster
-		double speedRight = m_fMotorSpeed + dir*diff;
+		double speedLeft = fMotorSpeed - dir*diff; // if was to the left (-1), make left wheels faster
+		double speedRight = fMotorSpeed + dir*diff;
 		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft }; // LF, RF, RR, LR
 		SetMotorSpeed(speed1);
 		Sleep(50);

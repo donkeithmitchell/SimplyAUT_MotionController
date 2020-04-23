@@ -34,6 +34,7 @@ public:
 	BOOL   SetSlewSpeed(double speed, double accel);
 	void   GoToHomePosition();
 	double GetAvgMotorPosition();
+	double GetAvgMotorSpeed();
 	double GetLastManoeuvrePosition();
 	void   ResetLastManoeuvrePosition();
 	void   SetLastManoeuvrePosition();

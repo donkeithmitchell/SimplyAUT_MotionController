@@ -8,6 +8,7 @@
 #include "LaserControl.h"
 #include "MagController.h"
 #include "afxdialogex.h"
+#include "mmsystem.h"
 
 static double PI = 4 * atan(1.0); 
 
@@ -17,6 +18,12 @@ int g_LaserOnPaintCount = 0;
 #endif
 
 #define DISP_MARGIN 5
+
+static UINT PlaySoundThread(void* param)
+{
+	CStaticLaser* this2 = (CStaticLaser*)param;
+	return this2->PlaySoundThread();
+}
 
 // CStaticLaser window
 // this window draws the laser profile, weld cap offset and scan progress report
@@ -32,6 +39,7 @@ CStaticLaser::CStaticLaser(CMotionControl& motion, CLaserControl& laser, CMagCon
 	, m_weldNavigation(nav)
 	, m_ptMouse(INT_MAX, INT_MAX)
 	, m_bCentreWeld(TRUE)
+	, m_bPlayOffsetSound(FALSE)
 {
 	m_fHomeAng = 0;
 	m_disp_width_factor = 1;
@@ -41,10 +49,15 @@ CStaticLaser::CStaticLaser(CMotionControl& motion, CLaserControl& laser, CMagCon
 	m_disp_rect = CRect(0, 0, 0, 0);
 	m_rgbSum = 0;
 	m_rgbCount = 0;
+	m_hPlaySoundThread = NULL;
+	m_gap = FLT_MAX;
 }
 
 CStaticLaser::~CStaticLaser()
 {
+	m_bPlayOffsetSound = FALSE;
+	if (m_hPlaySoundThread)
+		WaitForSingleObject(m_hPlaySoundThread, INFINITE);
 }
 
 
@@ -60,9 +73,11 @@ BEGIN_MESSAGE_MAP(CStaticLaser, CWnd)
 	ON_WM_TIMER()
 	ON_WM_RBUTTONDOWN()
 	ON_WM_LBUTTONDBLCLK()
+	ON_MESSAGE(WM_USER_PLAY_FINISHEFD, OnUserMessagePlayFinished)
 	ON_COMMAND_RANGE(ID_POPUP_SETLOCATION, ID_POPUP_SETLOCATION, OnMenu)
 	ON_COMMAND_RANGE(ID_POPUP_TOGGLELASER, ID_POPUP_TOGGLELASER, OnMenu)
 	ON_COMMAND_RANGE(ID_POPUP_CENTREWELD, ID_POPUP_CENTREWELD, OnMenu)
+	ON_COMMAND_RANGE(ID_POPUP_PLAYOFFSETSOUND, ID_POPUP_PLAYOFFSETSOUND, OnMenu)
 END_MESSAGE_MAP()
 
 
@@ -609,7 +624,82 @@ void CStaticLaser::OnTimer(UINT_PTR nIDEvent)
 	case TIMER_GET_TEMPERATURE:
 		m_laserControl.GetLaserTemperature(temp);
 		break;
+	case TIMER_PLAYSOUND:
+		PlayOffsetSound();
+		break;
 	}
+}
+
+// check if the laser is on and 
+void CStaticLaser::PlayOffsetSound()
+{
+	if (!m_bPlayOffsetSound)
+		return;
+
+	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
+	double gap1 = measure2.weld_cap_mm.x;
+	if (gap1 == FLT_MAX)
+		return;
+
+	m_gap = min(fabs(gap1), 20.0);
+
+	BOOL bMag = m_magControl.GetMagStatus(MAG_IND_MAG_ON) == 1;
+	BOOL bOn = m_laserControl.IsLaserOn();
+	if (bMag || !bOn)
+		m_bPlayOffsetSound = FALSE;
+
+	if (m_bPlayOffsetSound && m_hPlaySoundThread == NULL)
+		m_hPlaySoundThread = AfxBeginThread(::PlaySoundThread, this);
+}
+
+UINT CStaticLaser::PlaySoundThread()
+{
+	int srate = 10000;
+	int tone = 300;
+	CArray<char, char> wav_vector;
+	CArray<float, float> trace;
+	trace.SetSize(10 * srate);
+
+	for (int j = 0; j < trace.GetSize(); ++j)
+		trace[j] = (float)sin(2 * PI * tone * j / srate);
+
+	::ConvertToWavFormat(trace, srate, 250, wav_vector);
+
+	BOOL bPlaySound = FALSE;
+	HINSTANCE hInstance = GetModuleHandle(0);
+	while (m_bPlayOffsetSound)
+	{
+		// if tyh gap is less than 0.25 mm, then play a continuous tone
+		if (m_gap > 0.5)
+		{
+			if(bPlaySound )
+				::PlaySound(NULL, NULL, 0);
+
+			bPlaySound = FALSE;
+			// the closer the faster
+			int sleep = (int)((m_gap) * 20 + 0.5);
+			int freq = (int)((20 - m_gap) * 25 + 0.5);
+			Beep(freq, 250);
+			Sleep(sleep);
+		}
+		else if( !bPlaySound )
+		{
+			bPlaySound = TRUE;
+			::PlaySound(wav_vector.GetData(), hInstance, SND_MEMORY | SND_ASYNC | SND_LOOP);
+			Sleep(1);
+		}
+	}
+	if(bPlaySound )
+		::PlaySound(NULL, NULL, 0);
+
+	PostMessage(WM_USER_PLAY_FINISHEFD);
+	return 0;
+}
+
+LRESULT CStaticLaser::OnUserMessagePlayFinished(WPARAM, LPARAM)
+{
+	m_hPlaySoundThread = NULL;
+	return 0L;
 }
 
 void CStaticLaser::GetLaserProfile()
@@ -681,6 +771,13 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 	mii.fState = m_bCentreWeld ? MFS_CHECKED : MFS_UNCHECKED;
 	pPopup->SetMenuItemInfoA(ID_POPUP_CENTREWELD, &mii, FALSE);
 
+	// onl;y use the sound if magnetds noit on and the laser is onb
+	mii.fState = m_bPlayOffsetSound ? MFS_CHECKED : MFS_UNCHECKED;
+	if (!m_laserControl.IsLaserOn() || m_magControl.GetMagStatus(MAG_IND_MAG_ON))
+		mii.fState |= MFS_DISABLED;
+
+	pPopup->SetMenuItemInfoA(ID_POPUP_PLAYOFFSETSOUND, &mii, FALSE);
+
 	m_ptMouse = pt;
 	ClientToScreen(&pt);
 	pPopup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, this);
@@ -689,7 +786,7 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 void CStaticLaser::OnLButtonDblClk(UINT nFlags, CPoint pt)
 {
 	CWnd::OnLButtonDblClk(nFlags, pt);
-	ToggleLaserOn();
+	OnMenu(ID_POPUP_TOGGLELASER);
 }
 
 void CStaticLaser::OnMenu(UINT nID)
@@ -700,10 +797,26 @@ void CStaticLaser::OnMenu(UINT nID)
 		SetCrawlerLocation(m_ptMouse);
 		break;
 	case ID_POPUP_TOGGLELASER:
+	{
+		BOOL bOn = !m_laserControl.IsLaserOn();
 		ToggleLaserOn();
+		if (!bOn)
+			m_bPlayOffsetSound = FALSE;
+
 		break;
+	}
 	case ID_POPUP_CENTREWELD:
 		m_bCentreWeld = !m_bCentreWeld;
+		break;
+	case ID_POPUP_PLAYOFFSETSOUND:
+		m_bPlayOffsetSound = !m_bPlayOffsetSound;
+		if (m_bPlayOffsetSound)
+		{
+			m_gap = FLT_MAX;
+			SetTimer(TIMER_PLAYSOUND, 100, NULL);
+		}
+		else
+			KillTimer(TIMER_PLAYSOUND);
 		break;
 	}
 }

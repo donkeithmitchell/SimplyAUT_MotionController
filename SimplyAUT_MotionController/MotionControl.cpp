@@ -459,6 +459,19 @@ void CMotionControl::ResetLastManoeuvrePosition()
     m_critLastManoeuvre.Unlock();
 }
 
+double CMotionControl::GetAvgMotorSpeed()
+{
+    double accel;
+    double fSA = GetMotorSpeed("A", accel);
+    double fSB = GetMotorSpeed("B", accel);
+    double fSC = GetMotorSpeed("C", accel);
+    double fSD = GetMotorSpeed("D", accel);
+    if (fSA == FLT_MAX || fSB == FLT_MAX || fSC == FLT_MAX || fSD == FLT_MAX )
+        return FLT_MAX;
+    else
+        return (fSA + fSB + fSC + fSD) / 4.0;
+}
+
 double CMotionControl::GetAvgMotorPosition()
 {
     // NOTE THAT A,D and B,C will be cvorrected for direction al,ready

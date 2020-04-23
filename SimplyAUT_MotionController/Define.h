@@ -40,7 +40,7 @@
 #define MIN_TURN_RATE               0.99 // the unit turns by varying L/R wheel speeds
 #define MAX_TURN_RATE               0.70// the greater the variance, the greater the slip, the slower, the long it takes to navigate
 #define NAVIGATION_P				2.0	// default constants for PID navigation
-#define NAVIGATION_I				0.001 // ideally these would be modified during the cvalibration run
+#define NAVIGATION_I				0.01 // ideally these would be modified during the cvalibration run
 #define NAVIGATION_D				800
 
 #define CRAWLER_WIDTH				26.0 // mm // the wheels are measured to be this distance apart outer 'O' ring gasker to gasket

@@ -2394,6 +2394,11 @@ LRESULT CDialogGirthWeld::OnUserWeldNavigation(WPARAM wParam, LPARAM lParam)
 		return 1L;
 	}
 
+	case NAVIGATE_GET_AVG_SPEED:
+	{
+		double speed = m_motionControl.GetAvgMotorSpeed();
+		return (speed == FLT_MAX) ? INT_MAX : (LRESULT)(speed*1000.0 + 0.5);
+	}
 	// send a message to the status view used in _DEBUG
 	case NAVIGATE_SEND_DEBUG_MSG:
 	{

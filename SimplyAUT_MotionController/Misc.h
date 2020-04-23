@@ -26,3 +26,5 @@ int MinMaxI4(const void* i1, const void* i2);
 int MinMaxR8(const void* i1, const void* i2);
 int MinMaxDP_X(const void* i1, const void* i2);
 int MinMaxDP_Y(const void* i1, const void* i2);
+
+int ConvertToWavFormat(const CArray<float, float>& trace, int samp_rate, int volume, CArray<char, char>& wav_vector);
