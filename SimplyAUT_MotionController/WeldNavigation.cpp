@@ -1315,12 +1315,17 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 {
 	// note if driving backwards
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
+	double init_pos = GetLastNotedPosition(0).measures.measure_pos_mm;	
+	double accel_time = m_fMotorSpeed / m_fMotorAccel;
+	double accel_dist = accel_time * m_fMotorSpeed / 2.0;
 
 	// if the gap is to one side or the other by more than about 0.1 mm
 	// jog the crawler to the centre, and then check again\
 	// a jog is a turn first towartds the centrte, then back to the original direction
 	double last_pos = FLT_MAX;
 	BOOL bStop = FALSE;
+	BOOL bStart = init_pos != FLT_MAX;
+
 	while (m_bSteerMotors)
 	{
 		// avoid risk of a tight loop
@@ -1333,10 +1338,13 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		if( this_pos == FLT_MAX )
 			continue;
 
+		if (bStart && fabs(this_pos - init_pos) > accel_dist)
+			bStart = FALSE;
+
 		// have programmed the motors to travel further than desired
 		// thus issue a stop in this case
 		// that way nall the mnotors will stop at the sazme exact time
-		if (direction * this_pos >= (double)(direction * m_nEndPos))
+		if (direction * this_pos >= ((double)direction * (double)m_nEndPos))
 		{
 			// once the mootors are asked to stop, use the actual average mfotor speed as the referene
 			// not m_fMotorSpeed
@@ -1352,7 +1360,7 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 
 		// until deceleration, must use the default speed, else it will drift
 		// during decelerqation, use the average as the defrault
-		double fMotorSpeed = bStop ? GetAvgMotorSpeed() : m_fMotorSpeed;
+		double fMotorSpeed = (bStop || bStart) ? GetAvgMotorSpeed() : m_fMotorSpeed;
 
 		last_pos = this_pos;
 		double rate = pos0.manoeuvre1.x;
