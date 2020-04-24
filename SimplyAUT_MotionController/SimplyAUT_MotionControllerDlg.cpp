@@ -32,6 +32,7 @@ public:
 // Implementation
 protected:
 	DECLARE_MESSAGE_MAP()
+public:
 };
 
 CAboutDlg::CAboutDlg() : CDialogEx(IDD_ABOUTBOX)
@@ -54,8 +55,9 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	: CDialogEx(IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG, pParent)
 	, m_dlgConnect(m_motionControl, m_laserControl, m_magControl)
 	, m_dlgMotors(m_motionControl, m_magControl, m_galil_state)
-	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_magControl, m_galil_state)
+	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_magControl, m_galil_state, m_pid)
 	, m_dlgLaser(m_motionControl, m_laserControl)
+	, m_dlgNavigation(m_pid)
 	, m_dlgMag(m_motionControl, m_laserControl, m_magControl)
 	, m_szErrorMsg(_T(""))
 {
@@ -74,6 +76,7 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_dlgMotors.Init(this, WM_DEGUG_MSG);
 	m_dlgFiles.Init(this, WM_DEGUG_MSG);
 #ifdef _DEBUG_TIMING_
+	m_dlgNavigation.Init(this, WM_DEGUG_MSG);
 	m_dlgLaser.Init(this, WM_DEGUG_MSG);
 	m_dlgMag.Init(this, WM_DEGUG_MSG);
 	m_dlgStatus.Init(this, WM_DEGUG_MSG);
@@ -138,6 +141,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 
 	// these are for debug purposes only
 #ifdef _DEBUG_TIMING_
+	m_tabControl.InsertItem(TAB_NAVIGATION, CString("Navigation"));
 	m_tabControl.InsertItem(TAB_LASER, CString("Laser"));
 	m_tabControl.InsertItem(TAB_MAG, CString("Mag"));
 	m_tabControl.InsertItem(TAB_STATUS, CString("Status"));
@@ -149,6 +153,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	m_dlgGirthWeld.Create(&m_tabControl);
 	m_dlgFiles.Create(&m_tabControl);
 #ifdef _DEBUG_TIMING_
+	m_dlgNavigation.Create(&m_tabControl);
 	m_dlgLaser.Create(&m_tabControl);
 	m_dlgMag.Create(&m_tabControl);
 	m_dlgStatus.Create(&m_tabControl);
@@ -163,7 +168,7 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 
 	Serialize(FALSE);
 
-	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL); // 911
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -230,6 +235,7 @@ void CSimplyAUTMotionControllerDlg::Serialize(CArchive& ar)
 #ifdef _DEBUG_TIMING_
 	m_dlgMag.Serialize(ar);
 	m_dlgLaser.Serialize(ar);
+	m_dlgNavigation.Serialize(ar);
 #endif
 	UpdateData(FALSE);
 }
@@ -258,6 +264,7 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			m_dlgGirthWeld.EnableControls();
 			m_dlgFiles.EnableControls();
 #ifdef _DEBUG_TIMING_
+			m_dlgNavigation.EnableControls();
 			m_dlgLaser.EnableControls();
 			m_dlgMag.EnableControls();
 			m_dlgStatus.EnableControls();
@@ -371,6 +378,7 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 	m_dlgGirthWeld.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgFiles.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 #ifdef _DEBUG_TIMING_
+	m_dlgNavigation.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgLaser.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgMag.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
 	m_dlgStatus.MoveWindow(2, 28, cx3 - 4, cy3 - 30);
@@ -403,6 +411,7 @@ BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 	case TAB_SCAN: return m_dlgConnect.CheckVisibleTab();
 	case TAB_FILES: return m_dlgFiles.CheckVisibleTab();
 #ifdef _DEBUG_TIMING_
+	case TAB_NAVIGATION: m_dlgNavigation.CheckVisibleTab();
 	case TAB_LASER: return m_dlgLaser.CheckVisibleTab();
 	case TAB_MAG: return m_dlgMag.CheckVisibleTab();
 	case TAB_STATUS: return m_dlgStatus.CheckVisibleTab();
@@ -428,6 +437,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	ASSERT(IsWindow(m_dlgGirthWeld.m_hWnd));
 	ASSERT(IsWindow(m_dlgFiles.m_hWnd));
 #ifdef _DEBUG_TIMING_
+	ASSERT(IsWindow(m_dlgNavigation.m_hWnd));
 	ASSERT(IsWindow(m_dlgLaser.m_hWnd));
 	ASSERT(IsWindow(m_dlgMag.m_hWnd));
 	ASSERT(IsWindow(m_dlgStatus.m_hWnd));
@@ -438,6 +448,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 	m_dlgGirthWeld.ShowWindow(m_nSel == TAB_SCAN ? SW_SHOW : SW_HIDE);
 	m_dlgFiles.ShowWindow(m_nSel == TAB_FILES ? SW_SHOW : SW_HIDE);
 #ifdef _DEBUG_TIMING_
+	m_dlgNavigation.ShowWindow(m_nSel == TAB_NAVIGATION ? SW_SHOW : SW_HIDE);
 	m_dlgLaser.ShowWindow(m_nSel == TAB_LASER ? SW_SHOW : SW_HIDE);
 	m_dlgMag.ShowWindow(m_nSel == TAB_MAG ? SW_SHOW : SW_HIDE);
 	m_dlgStatus.ShowWindow(m_nSel == TAB_STATUS ? SW_SHOW : SW_HIDE);

@@ -259,5 +259,46 @@ int ConvertToWavFormat(const CArray<float, float>& trace, int samp_rate, int vol
     return wav_vector.GetSize();
 }
 
+void MySleep(DWORD dwMilliseconds, DWORD msgMask) 
+{
+    // The message loop lasts until we get a WM_QUIT message,
+    // upon which we shall return from the function.
+    clock_t t1 = clock();
+    while ((DWORD)(clock() - t1) < dwMilliseconds)
+    {
+        // block-local variable 
+        MSG msg;
+
+        // Read all of the messages in this next loop, 
+        // removing each message as we read it.
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            // If it's a quit message, we're out of here.
+            if (msg.message == WM_QUIT)
+                return;
+
+            // Otherwise, dispatch the message.
+            if( msg.message & msgMask)
+              DispatchMessage(&msg);
+        } // End of PeekMessage while loop.
+    }
+
+} // End of function.
+
+DWORD MyWaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds, DWORD msgMask)
+{
+    DWORD ret = WAIT_TIMEOUT;
+    clock_t t1 = clock();
+    while (ret == WAIT_TIMEOUT && (dwMilliseconds == INFINITE || (DWORD)(clock() - t1) < dwMilliseconds) )
+    {
+        ret = WaitForSingleObject(hHandle, 0);
+        if( ret == WAIT_TIMEOUT )
+            MySleep(1, msgMask);
+    }
+
+    return ret;
+}
+
+
 
 

@@ -2,6 +2,18 @@
 #include "time.h"
 #include "SLSDef.h"
 #include "LaserControl.h"
+#include "Define.h"
+
+struct NAVIGATION_PID
+{
+	NAVIGATION_PID() { Reset(); }
+	void Reset() { P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; pivot = 0.5; turn_time = 50; }
+	double P;
+	double I;
+	double D;
+	double pivot;
+	int turn_time;
+};
 
 struct FILTER_RESULTS
 {
@@ -56,7 +68,7 @@ class CDoublePoint;
 class CWeldNavigation
 {
 public:
-	CWeldNavigation(CMotionControl&, CLaserControl&, const double pid[3]);
+	CWeldNavigation(CMotionControl&, CLaserControl&, const NAVIGATION_PID& pid);
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
@@ -88,7 +100,7 @@ private:
 
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
-	const double*	m_PID;
+	const NAVIGATION_PID&	m_pid;
 
 	CArray<LASER_POS, LASER_POS> m_listLaserPositions;
 	CCriticalSection m_crit1;

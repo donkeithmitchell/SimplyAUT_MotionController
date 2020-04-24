@@ -73,12 +73,12 @@ static UINT ThreadRunScan(LPVOID param)
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, const NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_weldNavigation(motion,laser, m_fNavigationPID)
+	, m_weldNavigation(motion,laser, pid)
 	, m_wndLaser(motion, laser, mag, m_weldNavigation, m_fScanLength)
 	, m_wndMag(mag, m_bSeekWithLaser, m_bSeekBlackLine, m_fSeekAndStartAtLine)
 	, m_nGalilState(nState)
@@ -110,9 +110,6 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_rgbLast = 0;
 	m_lastCapPix = -1;
 	m_bSeekBlackLine = FALSE;
-	m_fNavigationPID[0] = NAVIGATION_P; // if changed in _DEBUG these are not serialized, and defaulted each time
-	m_fNavigationPID[1] = NAVIGATION_I;
-	m_fNavigationPID[2] = NAVIGATION_D;
 
 	m_szLaserEdge = _T("---");
 	m_szLaserJoint = _T("---");
@@ -174,9 +171,6 @@ void CDialogGirthWeld::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_STATIC_TEMP_LASER, m_szTempLaser);
 	DDX_Text(pDX, IDC_STATIC_TEMP_SENSOR, m_szTempSensor);
 	DDX_Text(pDX, IDC_STATIC_RUN_TIME, m_szRunTime);
-	DDX_Text(pDX, IDC_EDIT_NAV_P, m_fNavigationPID[0]);
-	DDX_Text(pDX, IDC_EDIT_NAV_I, m_fNavigationPID[1]);
-	DDX_Text(pDX, IDC_EDIT_NAV_D, m_fNavigationPID[2]);
 
 	// the min,max definitions are in define.h
 	DDX_Text(pDX, IDC_EDIT_LR_OFFSET, m_szLROffset);
@@ -2588,13 +2582,6 @@ void CDialogGirthWeld::OnSize(UINT nFlag, int cx, int cy)
 
 	for (int i = 0; nIDC2[i] != 0; ++i)
 		GetDlgItem(nIDC2[i])->ShowWindow(m_nCalibratingRGB == CALIBRATE_RGB_NOT ? SW_HIDE : SW_SHOW);
-
-	// always hide these if not in debug mode
-#ifndef _DEBUG_TIMING_
-	const UINT nIDC3[] = { IDC_EDIT_NAV_P, IDC_EDIT_NAV_I, IDC_EDIT_NAV_D, IDC_STATICPID, IDC_STATICPID_P, IDC_STATICPID_I, IDC_STATICPID_D, 0 };
-	for (int i = 0; nIDC3[i]; ++i)
-		GetDlgItem(nIDC3[i])->ShowWindow(SW_HIDE);
-#endif
 
 	m_wndLaser.ShowWindow(m_nCalibratingRGB != CALIBRATE_RGB_NOT ? SW_HIDE : SW_SHOW);
 	m_wndMag.ShowWindow(m_nCalibratingRGB == CALIBRATE_RGB_NOT ? SW_HIDE : SW_SHOW);

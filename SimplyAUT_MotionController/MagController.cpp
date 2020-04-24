@@ -202,7 +202,7 @@ double CMagControl::GetUserRGBCalibration()
 BOOL CMagControl::SetMagRGBCalibrationValue(double fCal)
 {
     CString str;
-    if (!IsConnected())
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
         return FALSE;
 
     m_fRGBCalibration = fCal;
@@ -291,7 +291,7 @@ int CMagControl::Send(const CString& str)
 BOOL CMagControl::EnableMagSwitchControl(BOOL bEnabled)
 {
     CString str;
-    if (!IsConnected())
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
         return INT_MAX;
 
     str.Format("RW %d %d\n", MAG_REG_LOCK_OUT, !bEnabled);
@@ -316,6 +316,9 @@ int CMagControl::ReadSocket(char* buffer, int nSize)
 size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 {
     clock_t t1 = clock();
+    if (m_hTheadReadSocket != NULL)
+        return 0;
+
     // spin a thread to read the MAG buffer
     // the thread will read until find the terminating character
     m_eventSocket.ResetEvent();
@@ -330,7 +333,8 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
     // timeout if can't read the entire message
     // by using a thread and a finite timeout
     // avoid locking up code if don't find the tertminating character
-    int ret = ::WaitForSingleObject(m_eventSocket, SOCKET_RECV_TIMEOUT);
+    DWORD ret = ::WaitForSingleObject(m_eventSocket, SOCKET_RECV_TIMEOUT);
+ // DWORD ret = ::MyWaitForSingleObject(m_eventSocket, SOCKET_RECV_TIMEOUT, WM_TIMER);
 
     int len = 0;
     if (ret != WAIT_OBJECT_0)
@@ -350,6 +354,8 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
         strcpy_s(buff, SOCKET_BUFF_LENGTH, m_strBuffer);
         len = (int)strlen(m_strBuffer);
     }
+    // will prevent an OnTimer function getting back into here bgy check ing that the handle is NULL
+    m_hTheadReadSocket = NULL;
 
     // send the timing to the debug status dialog
     // but not more oftern than every second
@@ -447,7 +453,7 @@ BOOL CMagControl::IsMagSwitchEnabled()
 int CMagControl::GetMagRegister(int reg)
 {
     CString str;
-    if (!IsConnected())
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
         return INT_MAX;
 
     str.Format("RR %d\n", reg);
@@ -509,7 +515,7 @@ int CMagControl::GetEncoderCount()
 int CMagControl::GetRGBSum()
 {
     CString str;
-    if (!IsConnected())
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
         return INT_MAX;
 
     int colour = GetMagRegister(MAG_REG_RGB_ALL);
@@ -521,7 +527,7 @@ int CMagControl::GetRGBSum()
 int CMagControl::GetRGBValues(int& red, int& green, int& blue)
 {
     CString str;
-    if (!IsConnected())
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
         return INT_MAX;
 
     red = GetMagRegister(MAG_REG_RGB_RED);
@@ -536,7 +542,7 @@ int CMagControl::GetRGBValues(int& red, int& green, int& blue)
 BOOL CMagControl::ResetEncoderCount()
 {
     CString str;
-    if (!IsConnected())
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
         return INT_MAX;
 
     str.Format("RW %d 0\n", MAG_REG_ENC_CNT);
@@ -551,8 +557,8 @@ BOOL CMagControl::ResetEncoderCount()
 // only shown in the mag dialoig in _DEBUG mode
 BOOL CMagControl::GetMagVersion(int version[5])
 {
-    if (!IsConnected())
-        return FALSE;
+    if (!IsConnected() || m_hTheadReadSocket != NULL)
+       return FALSE;
 
     version[0] = GetMagRegister(MAG_REG_HW);
     version[1] = GetMagRegister(MAG_REG_FW_MAJ);

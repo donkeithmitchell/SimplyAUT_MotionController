@@ -10,12 +10,13 @@
 class CMotionControl;
 class CLaserControl;
 class CMagControl;
+struct NAVIGATION_PID;
 class CDialogGirthWeld : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, GALIL_STATE& nState, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, GALIL_STATE& nState, const NAVIGATION_PID& pid, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();
@@ -170,7 +171,6 @@ public:
 	double m_fMotorScanAccel;
 	double m_fSeekAndStartAtLine;
 	double m_fPredriveDistance;
-	double m_fNavigationPID[3];
 
 	CButton m_buttonPause;
 	CButton m_buttonManual;

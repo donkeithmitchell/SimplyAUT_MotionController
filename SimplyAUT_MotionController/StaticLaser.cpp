@@ -761,11 +761,18 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 	MENUITEMINFO mii;
 	mii.cbSize = sizeof(MENUITEMINFO);
 	mii.fMask = MIIM_STATE;
-	pPopup->GetMenuItemInfoA(1, &mii, TRUE);
+
+
+	mii.fState = MFS_DEFAULT;
+	if (m_motionControl.AreMotorsRunning())
+		mii.fState |= MFS_DISABLED;
+	pPopup->GetMenuItemInfoA(ID_POPUP_SETLOCATION, &mii, FALSE);
 
 	mii.fState = MFS_DEFAULT;	
 	mii.fType |= MFT_RADIOCHECK;
 	mii.fState = m_laserControl.IsLaserOn() ? MFS_CHECKED : MFS_UNCHECKED;
+	if (m_motionControl.AreMotorsRunning())
+		mii.fState |= MFS_DISABLED;
 	pPopup->SetMenuItemInfoA(ID_POPUP_TOGGLELASER, &mii, FALSE);
 
 	mii.fState = m_bCentreWeld ? MFS_CHECKED : MFS_UNCHECKED;
@@ -798,11 +805,14 @@ void CStaticLaser::OnMenu(UINT nID)
 		break;
 	case ID_POPUP_TOGGLELASER:
 	{
-		BOOL bOn = !m_laserControl.IsLaserOn();
-		ToggleLaserOn();
-		if (!bOn)
-			m_bPlayOffsetSound = FALSE;
-
+		BOOL bRunning = m_motionControl.AreMotorsRunning();
+		if (!bRunning)
+		{
+			BOOL bOn = !m_laserControl.IsLaserOn();
+			ToggleLaserOn();
+			if (!bOn)
+				m_bPlayOffsetSound = FALSE;
+		}
 		break;
 	}
 	case ID_POPUP_CENTREWELD:

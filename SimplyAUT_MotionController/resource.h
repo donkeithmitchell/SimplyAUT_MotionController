@@ -23,6 +23,7 @@
 #define IDD_DIALOG_FILES                135
 #define IDB_BITMAP_GO_VERT              136
 #define IDB_BITMAP_GO_DOWN              136
+#define IDD_DIALOG_NAVIGATION           136
 #define IDB_BITMAP_STOP                 137
 #define IDB_BITMAP_LASER_OK             138
 #define IDB_BITMAP_LASER_LOADING        139
@@ -200,6 +201,9 @@
 #define IDC_EDIT_NAV_P                  1119
 #define IDC_EDIT_NAV_I                  1120
 #define IDC_EDIT_NAV_D                  1121
+#define IDC_EDIT_NAV_PIVOT              1122
+#define IDC_EDIT_NAV_DELAY              1123
+#define IDC_BUTTON1                     1124
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773
@@ -211,7 +215,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32775
-#define _APS_NEXT_CONTROL_VALUE         1123
+#define _APS_NEXT_CONTROL_VALUE         1125
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

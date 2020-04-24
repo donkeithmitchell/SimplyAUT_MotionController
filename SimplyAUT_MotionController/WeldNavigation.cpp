@@ -37,10 +37,10 @@ static UINT ThreadNoteLaser(LPVOID param)
 	return this2->ThreadNoteLaser();
 }
 
-CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, const double* pid)
+CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, const NAVIGATION_PID& pid)
 	: m_motionControl(motion)
 	, m_laserControl(laser)
-	, m_PID(pid)
+	, m_pid(pid)
 {
 	m_bScanning = FALSE;
 	m_bSteerMotors = FALSE;
@@ -987,7 +987,7 @@ void CWeldNavigation::StopSteeringMotors()
 // try to get a new position every 1 mm
 UINT CWeldNavigation::ThreadNoteLaser()
 {
-	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL); // 911
 	while (m_bSteerMotors)
 	{
 		Sleep(1); // avoid tight loop
@@ -1084,16 +1084,16 @@ double CWeldNavigation::CalculateTurnRate(double steering)const
 double CWeldNavigation::GetPIDSteering()
 {
 	// at 2 mm offset, want hardest steering of 0.8
-	const double Kp = m_PID[0];			//  (0.2) 
+	const double Kp = m_pid.P;			//  (0.2) 
 
 
 	// this is the accummulated error, keep turning harding if no correction seen
 	// settiong this large, causes the correction to run longer
-	const double Ki = m_PID[1];       // (0.00003)		
+	const double Ki = m_pid.I;       // (0.00003)		
 
 	// slope mm/mm over the last 10 mm, the larger this is, the sooner start ending the correction
 	// i.e. is response lags, this needs to be large
-	const double Kd = m_PID[2];		//  1.6;			
+	const double Kd = m_pid.D;		//  1.6;			
 
 	const int I_ERR_LEN = 25;
 
@@ -1360,19 +1360,41 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 
 		// until deceleration, must use the default speed, else it will drift
 		// during decelerqation, use the average as the defrault
-		double fMotorSpeed = (bStop || bStart) ? GetAvgMotorSpeed() : m_fMotorSpeed;
-
+//		double fMotorSpeed = (bStop || bStart) ? GetAvgMotorSpeed() : m_fMotorSpeed;
+		double fMotorSpeed = (bStop ) ? GetAvgMotorSpeed() : m_fMotorSpeed;
 		last_pos = this_pos;
-		double rate = pos0.manoeuvre1.x;
-		int dir = (rate > 0) ? 1 : -1;
-		double diff = fMotorSpeed * (1 - fabs(rate)) / 2.0;
+		double turn_rate = pos0.manoeuvre1.x;
+		int dir = (turn_rate > 0) ? 1 : -1;
+
+		double r = CRAWLER_WIDTH / 2.0; // front wheel to laser
+		double l1 = m_pid.pivot * CRAWLER_LENGTH; // length from rear
+		double l2 = (1 - m_pid.pivot) * CRAWLER_LENGTH; // length from front
+		double h1 = sqrt(pow(l1, 2.0) + pow(r, 2.0)); // rear wheel to laser
+		double h2 = sqrt(pow(l2, 2.0) + pow(r, 2.0)); // rear wheel to laser
+
+		double Vrear = fMotorSpeed * h1 / h2; //  turn_rate1.x; // rear wheels at 10% of the fwd velocity
+		double Vfwd = fMotorSpeed * h2 / h1;  // veocity of fwd wheels for fwd to travel faster
+
+		// the closer to the weld, the slower the required turn rate
+		double diff1 = Vfwd * (1 - fabs(turn_rate)) / 2.0;
+		double speedLeftFwd1 = fMotorSpeed - dir * diff1; // if was to the left (-1), make left wheels faster
+		double speedRightFwd1 = fMotorSpeed + dir * diff1;
+
+		double diff2 = Vrear * (1 - fabs(turn_rate)) / 2.0;
+		double speedRightBack1 = fMotorSpeed + dir * diff2;
+		double speedLeftBack1 = fMotorSpeed - dir * diff2;
+		double speed1[] = { speedLeftFwd1, speedRightFwd1, speedRightBack1, speedLeftBack1 }; // LF, RF, RR, LR
+
+
+		double diff = fMotorSpeed * (1 - fabs(turn_rate)) / 2.0;
 
 		// the closer to the weld, the slower the required turn rate
 		double speedLeft = fMotorSpeed - dir*diff; // if was to the left (-1), make left wheels faster
 		double speedRight = fMotorSpeed + dir*diff;
-		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft }; // LF, RF, RR, LR
+//		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft }; // LF, RF, RR, LR
+
 		SetMotorSpeed(speed1);
-		Sleep(50);
+		Sleep(m_pid.turn_time);
 	}
 	return 0;
 }

@@ -118,9 +118,11 @@ BOOL CMotionControl::Connect(const BYTE address[4], double dScanSpeed)
     CString str = m_pGclib->GInfo(); //grab connection string
     SendDebugMessage(str);
 
+    // getting the version is VERY slow
+#ifdef _DEBUG_TIMING_
     str = m_pGclib->GVersion();
     SendDebugMessage(_T("Version: ") + str);
-
+#endif
 
     SendDebugMessage(_T("Initialization of the Galil..."));
     StopMotors(TRUE); //stop all motion and programs
