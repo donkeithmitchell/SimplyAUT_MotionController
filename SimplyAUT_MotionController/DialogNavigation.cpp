@@ -29,11 +29,15 @@ CDialogNavigation::~CDialogNavigation()
 
 BEGIN_MESSAGE_MAP(CDialogNavigation, CWnd)
 	ON_BN_CLICKED(IDC_BUTTON_RESET, &CDialogNavigation::OnButtonReset)
+	ON_BN_CLICKED(IDC_RADIO1, &CDialogNavigation::OnClickNavType)
+	ON_BN_CLICKED(IDC_RADIO2, &CDialogNavigation::OnClickNavType)
 END_MESSAGE_MAP()
 
 void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Radio(pDX, IDC_RADIO1, m_pid.nav_type);
+
 	DDX_Text(pDX, IDC_EDIT_NAV_P, m_pid.P);
 	if (m_bCheck)
 		DDV_MinMaxDouble(pDX, m_pid.P, 0.1, 10.0);
@@ -70,6 +74,11 @@ void CDialogNavigation::Create(CWnd* pParent)
 
 void CDialogNavigation::EnableControls()
 {
+	GetDlgItem(IDC_EDIT_NAV_P)->EnableWindow(m_pid.nav_type == 0);
+	GetDlgItem(IDC_EDIT_NAV_I)->EnableWindow(m_pid.nav_type == 0);
+	GetDlgItem(IDC_EDIT_NAV_D)->EnableWindow(m_pid.nav_type == 0);
+	GetDlgItem(IDC_EDIT_NAV_PIVOT)->EnableWindow(m_pid.nav_type == 0);
+	GetDlgItem(IDC_EDIT_NAV_DELAY)->EnableWindow(m_pid.nav_type == 0);
 }
 
 
@@ -91,6 +100,13 @@ void CDialogNavigation::OnButtonReset()
 	UpdateData(TRUE);
 	m_pid.Reset();
 	UpdateData(FALSE);
+	EnableControls();
+}
+
+void CDialogNavigation::OnClickNavType()
+{
+	UpdateData(TRUE);
+	EnableControls();
 }
 
 

@@ -28,6 +28,7 @@ protected:
 
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	afx_msg void OnButtonReset();
+	afx_msg void OnClickNavType();
 	DECLARE_MESSAGE_MAP()
 };
 

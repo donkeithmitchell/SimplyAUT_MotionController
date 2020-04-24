@@ -1665,7 +1665,12 @@ double CDialogGirthWeld::GetAvgMotorPosition()
 // may sit in this while loop for the entire drive
 BOOL CDialogGirthWeld::WaitForMotorsToStop()
 {
-	Sleep(100);
+	// add this time, to insure that the motorts are running
+	// it seems to fail if don't wait long enough
+	// even though have always passed wait for motors to start prior to this
+	// this is likely due to looking at the polled flag indicating if running or not
+	// the motors will never run for less than 500 ms regardless
+	Sleep(500);
 	while (m_motionControl.AreTheMotorsRunning() )
 		Sleep(10);
 

@@ -1053,7 +1053,7 @@ static CDoublePoint GetTurnRateAndPivotPoint(double gap, BOOL bInTolerance, int 
 UINT CWeldNavigation::ThreadSteerMotors()
 {
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	if(  direction == -1 )
+	if(  direction == -1 || m_pid.nav_type == 1 )
 		ThreadSteerMotors_try3();
 	else
 		ThreadSteerMotors_PID();

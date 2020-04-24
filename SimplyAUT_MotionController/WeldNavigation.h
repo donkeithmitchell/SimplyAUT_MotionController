@@ -7,11 +7,13 @@
 struct NAVIGATION_PID
 {
 	NAVIGATION_PID() { Reset(); }
-	void Reset() { P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; pivot = 0.5; turn_time = 50; }
+	void Reset() {
+		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; pivot = 0.5; turn_time = 50; nav_type = 0;}
 	double P;
 	double I;
 	double D;
 	double pivot;
+	int nav_type;
 	int turn_time;
 };
 

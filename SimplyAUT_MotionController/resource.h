@@ -203,7 +203,8 @@
 #define IDC_EDIT_NAV_D                  1121
 #define IDC_EDIT_NAV_PIVOT              1122
 #define IDC_EDIT_NAV_DELAY              1123
-#define IDC_BUTTON1                     1124
+#define IDC_RADIO1                      1125
+#define IDC_RADIO2                      1126
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773
@@ -215,7 +216,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32775
-#define _APS_NEXT_CONTROL_VALUE         1125
+#define _APS_NEXT_CONTROL_VALUE         1126
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
