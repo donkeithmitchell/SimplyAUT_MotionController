@@ -12,7 +12,7 @@
 
 static double PI = 4 * atan(1.0);
 static double g_X[GAP_BUFFER_LEN], g_Y[GAP_BUFFER_LEN];
-enum { SOURCE_RAW_GAP = 0, SOURCE_FILT_GAP, SOURCE_RAW_VEL };
+enum { SOURCE_RAW_GAP = 0x1, SOURCE_FILT_GAP=0x2, SOURCE_RAW_VEL=0x4, SOURCE_BY_TIME=0x8 };
 
 #ifdef _DEBUG_TIMING_
 static clock_t g_NoteNextLaserPositionTime = 0;
@@ -58,6 +58,7 @@ CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, c
 	m_p_error = 0;
 	m_d_error = 0;
 	m_i_error = 0;
+	m_i_time = 0;
 }
 
 CWeldNavigation::~CWeldNavigation()
@@ -223,18 +224,19 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 	// start with the last entered value
 	// add values to the sum until too far away
 	double pos2 = buff1[nSize - 1].measures.measure_pos_mm;
-//	double val2 = (source == SOURCE_RAW_GAP) ? buff1[nSize - 1].gap_raw : (source == SOURCE_RAW_VEL ? buff1[nSize - 1].vel_raw  : buff1[nSize - 1].gap_filt);
+//	double val2 = (source & SOURCE_RAW_GAP) ? buff1[nSize - 1].gap_raw : (source & SOURCE_RAW_VEL ? buff1[nSize - 1].vel_raw  : buff1[nSize - 1].gap_filt);
 
 	// start at the most recent and look back in time for a maximum of nMaxWidth mm
 	int count = 0;
 	for (int i = nSize-1; i >= 0 && count < GAP_BUFFER_LEN; --i)
 	{
-		double val1 = (source == SOURCE_RAW_GAP) ? buff1[i].gap_raw : (source == SOURCE_RAW_VEL ? buff1[i].vel_raw : buff1[i].gap_filt);
+		double val1 = (source & SOURCE_RAW_GAP) ? buff1[i].gap_raw : (source & SOURCE_RAW_VEL ? buff1[i].vel_raw : buff1[i].gap_filt);
 		if (val1 == FLT_MAX)
 			continue;
 
 		// where was thje crawler at this measure
 		double pos1 = buff1[i].measures.measure_pos_mm;
+		double tim1 = (double)buff1[i].time_noted / 1000.0;
 
 		// if first order get no values prior to the last manoeuvre
 		// note (direction) as may be travelling backwards
@@ -251,7 +253,7 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 		}
 
 		// add this value to a vector to be modelled
-		g_X[count] = pos1;
+		g_X[count] = (source & SOURCE_BY_TIME) ? tim1 : pos1;
 		g_Y[count] = val1;
 		count++;
 	//	val2 = val1;
@@ -292,7 +294,7 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 
 // this is intended to filter only the last added value
 // use the position offset for the qwindow, not the index
-static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction)
+FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction)
 {
 	clock_t t1 = clock();
 	double coeff[4];
@@ -355,7 +357,7 @@ static FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff
 	// now get the slope over the last 5 to 10 mm
 	// this is used for the (D) in the PID navigation
 	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
-	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_RAW_GAP/*source*/, GAP_FILTER_MIN__WIDTH, 2 * GAP_FILTER_MIN__WIDTH))
+	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_RAW_GAP|SOURCE_BY_TIME/*source*/, m_pid.D_LEN, m_pid.D_LEN))
 		ret.slope10 = coeff[1]; // mm per mm
 	else
 		ret.slope10 = FLT_MAX;
@@ -580,7 +582,7 @@ BOOL CWeldNavigation::NoteNextLaserPosition()
 	// alsdo get a predicted offset at 5 mm in the future
 	// 911 will want to see if sterring latency make s this better
 	// (i.e. drive to where you think you are going, not where you think you are)
-	FILTER_RESULTS ret = ::LowPassFilterGap(m_listLaserPositions, last_manoeuvre_pos, direction);
+	FILTER_RESULTS ret = LowPassFilterGap(m_listLaserPositions, last_manoeuvre_pos, direction);
 	m_listLaserPositions[nSize - 1].gap_filt	= ret.gap_filt;
 	m_listLaserPositions[nSize - 1].gap_predict = ret.gap_predict;
 	m_listLaserPositions[nSize - 1].pos_predict = ret.pos_predict;
@@ -915,6 +917,7 @@ void CWeldNavigation::StartNavigation(int nSteer, int start_mm, int end_mm, doub
 		m_p_error = 0;
 		m_d_error = 0;
 		m_i_error = 0;
+		m_i_time = 0;
 
 		m_bScanning = bScanning;
 		m_bSteerMotors = TRUE;
@@ -1053,7 +1056,7 @@ static CDoublePoint GetTurnRateAndPivotPoint(double gap, BOOL bInTolerance, int 
 UINT CWeldNavigation::ThreadSteerMotors()
 {
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	if(  direction == -1 || m_pid.nav_type == 1 )
+	if (direction == -1 || m_pid.nav_type == 1)
 		ThreadSteerMotors_try3();
 	else
 		ThreadSteerMotors_PID();
@@ -1113,18 +1116,42 @@ double CWeldNavigation::GetPIDSteering()
 
 	// update the error sums
 	m_d_error = (pos0.slope10 == FLT_MAX) ? 0 : pos0.slope10; //  (pos0.vel_raw == FLT_MAX) ? this_gap - m_p_error : pos0.vel_raw / 1000.0;
-	m_p_error = this_gap;
 
 	//if (Ki != 0 && pos25.gap_filt != FLT_MAX)
 	//	m_i_error += (this_gap - pos25.gap_filt);
 	//else
-		m_i_error += this_gap;
+	{
+		double dt = ((double)pos0.time_noted - (double)m_i_time) / 1000.0;
+		m_i_error += (this_gap * dt) + (this_gap - m_p_error) / 2 * dt;
+	}
+
+	m_p_error = this_gap;
+	m_i_time = pos0.time_noted;
 
 	// calculate the steering value
 	// the constants are fixed if not _DEBUG
 	double steer = -(Kp * m_p_error + Kd * m_d_error + Ki * m_i_error);
 	return steer;
 }
+/*
+method to tune the PID constyants
+// Ku: is the ultimate gain for Kp where it starts to ocsiilate contanstantly with Ki and Kd = 0
+// PID -------------------
+// Kp =  0.6 * Ku;
+// Ki = 1.2 Ku / Tu
+// Kd = 3 Ku * Tu / 40
+// where Tu = occillation period
+////////////////////////////////////////////////////////////////
+// This is preferabler to PID as the (D) is noisy by definition
+///////////////////////////////////////////////////////////////
+// PI ---------------------------
+// Kp = 0.45 Ku
+// Ki = 0.54 * Ku / Tu
+//////////////////////////////////////////
+// P ---------------------
+// Kp = 0.5 Ku
+/////////////////////////////////////////////
+*/
 
 // the original non PID steering technique
 // 1. note how fast need to steer towards the centre

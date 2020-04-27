@@ -411,7 +411,7 @@ BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 	case TAB_SCAN: return m_dlgConnect.CheckVisibleTab();
 	case TAB_FILES: return m_dlgFiles.CheckVisibleTab();
 #ifdef _DEBUG_TIMING_
-	case TAB_NAVIGATION: m_dlgNavigation.CheckVisibleTab();
+	case TAB_NAVIGATION: return m_dlgNavigation.CheckVisibleTab();
 	case TAB_LASER: return m_dlgLaser.CheckVisibleTab();
 	case TAB_MAG: return m_dlgMag.CheckVisibleTab();
 	case TAB_STATUS: return m_dlgStatus.CheckVisibleTab();

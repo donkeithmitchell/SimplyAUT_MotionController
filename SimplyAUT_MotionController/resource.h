@@ -193,9 +193,11 @@
 #define IDC_STATIC4                     1115
 #define IDC_STATICPID                   1115
 #define IDC_SLIDER_STEER                1116
+#define IDC_STATICPID_P2                1116
 #define IDC_EDIT_PREDRIVE               1117
 #define IDC_LIST1                       1117
 #define IDC_LIST_FILES                  1117
+#define IDC_STATICPID_P3                1117
 #define IDC_BUTTON_RESET                1118
 #define IDC_STATIC_MAG_STATUS           1118
 #define IDC_EDIT_NAV_P                  1119
@@ -203,8 +205,11 @@
 #define IDC_EDIT_NAV_D                  1121
 #define IDC_EDIT_NAV_PIVOT              1122
 #define IDC_EDIT_NAV_DELAY              1123
+#define IDC_EDIT_NAV_P2                 1124
+#define IDC_EDIT_NAV_MAX_TURN           1124
 #define IDC_RADIO1                      1125
 #define IDC_RADIO2                      1126
+#define IDC_EDIT_NAV_D_LEN              1127
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773

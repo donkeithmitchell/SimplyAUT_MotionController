@@ -37,11 +37,15 @@
 #define MAX_GAP_CHANGE_PER_MM		1.0 // assume that the laser weld cap gap cannot change faster than 0.5 mm/mm, can only failt max of twice before taking new value regardless
 #define MIN_GAP_TOLERANCE			0.1  // do nothing if offset below this
 #define MAX_GAP_TOLERANCE			0.5  // try to keep offset within this
+
 #define MIN_TURN_RATE               0.99 // the unit turns by varying L/R wheel speeds
 #define MAX_TURN_RATE               0.70// the greater the variance, the greater the slip, the slower, the long it takes to navigate
-#define NAVIGATION_P				2.0	// default constants for PID navigation
-#define NAVIGATION_I				0.01 // ideally these would be modified during the cvalibration run
-#define NAVIGATION_D				800
+#define NAVIGATION_P				0.9	// default constants for PID navigation
+#define NAVIGATION_I				0.000602 // ideally these would be modified during the cvalibration run
+#define NAVIGATION_D				0
+#define NAVIGATION_D_LEN            10
+#define NAVIGATION_PIVOT			0.5
+#define NAVIGATION_TURN_TIME		50
 
 #define CRAWLER_WIDTH				26.0 // mm // the wheels are measured to be this distance apart outer 'O' ring gasker to gasket
 #define CRAWLER_LENGTH				23.2 // mm // dsistance wheel centre to centre if fully articulated

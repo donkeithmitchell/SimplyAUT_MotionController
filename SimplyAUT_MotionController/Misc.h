@@ -20,6 +20,15 @@ public:
 	double x, y;
 };
 
+struct complex8
+{
+	complex8() { real = imag = 0.0; }
+	complex8& operator + (const complex8& x) { complex8 ret; ret.real = real + x.real; ret.imag = imag + x.imag; return ret; }
+	complex8& operator - (const complex8& x) { complex8 ret; ret.real = real - x.real; ret.imag = imag - x.imag; return ret; }
+	double real;
+	double imag;
+};
+
 
 
 int MinMaxI4(const void* i1, const void* i2);

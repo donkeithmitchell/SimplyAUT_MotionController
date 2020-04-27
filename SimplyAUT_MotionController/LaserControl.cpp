@@ -846,7 +846,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	}
 
 	// now convert the laser units to mm
-	m_measure2.measure_pos_mm = pos_avg; 
+	m_measure2.measure_pos_mm = pos_avg;
 	if (velocity4)
 	{
 		memcpy(m_measure2.wheel_velocity4, velocity4, 4 * sizeof(double));

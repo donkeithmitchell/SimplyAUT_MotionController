@@ -2,6 +2,7 @@
 #include "SimplyAUT_MotionController.h"
 #include "Button.h"
 #include "Misc.h"
+#include "math.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -13,6 +14,7 @@
 #define BSWAP16(x) ( ((x & 0xff00) >> 8) | ((x & 0x00ff) << 8) )
 
 
+static double PI = 4 * atan(1.0);
 
 
 // 0 order: just the average
@@ -298,7 +300,42 @@ DWORD MyWaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds, DWORD msgMask)
 
     return ret;
 }
+/*
+static complex8 conj(const complex8& x)
+{
+    complex8 ret;
+    ret.real = x.real;
+    ret.imag = -x.imag;
+    return ret;
+}
 
+static void _fft(complex8 buf[], complex8 out[], int n, int step)
+{
+    if (step < n) 
+    {
+        _fft(out, buf, n, step * 2);
+        _fft(out + step, buf + step, n, step * 2);
+
+        for (int i = 0; i < n; i += 2 * step) 
+        {
+            complex8 t = cexp(-I * PI * i / n) * out[i + step];
+            buf[i / 2] = out[i] + t;
+            buf[(i + n) / 2] = out[i] - t;
+        }
+    }
+}
+
+void fft(complex8 buf[], int n)
+{
+    CArray<complex8, complex8> out;
+    out.SetSize(n);
+
+    for (int i = 0; i < n; i++) out[i] = buf[i];
+
+    _fft(buf, out.GetData(), n, 1);
+}
+
+*/
 
 
 

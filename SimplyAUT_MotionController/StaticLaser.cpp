@@ -645,10 +645,8 @@ void CStaticLaser::PlayOffsetSound()
 
 	BOOL bMag = m_magControl.GetMagStatus(MAG_IND_MAG_ON) == 1;
 	BOOL bOn = m_laserControl.IsLaserOn();
-	if (bMag || !bOn)
-		m_bPlayOffsetSound = FALSE;
 
-	if (m_bPlayOffsetSound && m_hPlaySoundThread == NULL)
+	if (!bMag && bOn && m_hPlaySoundThread == NULL)
 		m_hPlaySoundThread = AfxBeginThread(::PlaySoundThread, this);
 }
 
@@ -669,6 +667,10 @@ UINT CStaticLaser::PlaySoundThread()
 	HINSTANCE hInstance = GetModuleHandle(0);
 	while (m_bPlayOffsetSound)
 	{
+		BOOL bMag = m_magControl.GetMagStatus(MAG_IND_MAG_ON) == 1;
+		if (bMag)
+			break;
+
 		// if tyh gap is less than 0.25 mm, then play a continuous tone
 		if (m_gap > 0.5)
 		{
@@ -780,9 +782,6 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 
 	// onl;y use the sound if magnetds noit on and the laser is onb
 	mii.fState = m_bPlayOffsetSound ? MFS_CHECKED : MFS_UNCHECKED;
-	if (!m_laserControl.IsLaserOn() || m_magControl.GetMagStatus(MAG_IND_MAG_ON))
-		mii.fState |= MFS_DISABLED;
-
 	pPopup->SetMenuItemInfoA(ID_POPUP_PLAYOFFSETSOUND, &mii, FALSE);
 
 	m_ptMouse = pt;

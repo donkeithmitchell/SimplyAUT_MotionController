@@ -8,13 +8,15 @@ struct NAVIGATION_PID
 {
 	NAVIGATION_PID() { Reset(); }
 	void Reset() {
-		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; pivot = 0.5; turn_time = 50; nav_type = 0;}
+		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; D_LEN = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT; turn_time = NAVIGATION_TURN_TIME; nav_type = 0; max_turn = MAX_TURN_RATE;	}
 	double P;
 	double I;
 	double D;
+	int D_LEN;
 	double pivot;
 	int nav_type;
 	int turn_time;
+	double max_turn;
 };
 
 struct FILTER_RESULTS
@@ -99,6 +101,7 @@ private:
 	BOOL	WriteTestFile();
 	FILE*	OpenNextFile(const char* szFile);
 	double	CalculateTurnRate(double steering)const;
+	FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
@@ -121,5 +124,6 @@ private:
 	double m_i_error;
 	double m_p_error;
 	double m_d_error;
+	int    m_i_time;
 };
 

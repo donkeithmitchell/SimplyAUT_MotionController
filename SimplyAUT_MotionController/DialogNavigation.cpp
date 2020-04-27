@@ -40,19 +40,27 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 
 	DDX_Text(pDX, IDC_EDIT_NAV_P, m_pid.P);
 	if (m_bCheck)
-		DDV_MinMaxDouble(pDX, m_pid.P, 0.1, 10.0);
+		DDV_MinMaxDouble(pDX, m_pid.P, 0.1, 100.0);
 	DDX_Text(pDX, IDC_EDIT_NAV_I, m_pid.I);
 	if (m_bCheck)
 		DDV_MinMaxDouble(pDX, m_pid.I, 0, 1.0);
 	DDX_Text(pDX, IDC_EDIT_NAV_D, m_pid.D);
 	if (m_bCheck)
-		DDV_MinMaxDouble(pDX, m_pid.D, 100, 2000);
+		DDV_MinMaxDouble(pDX, m_pid.D, 0, 2000);
+	DDX_Text(pDX, IDC_EDIT_NAV_D_LEN, m_pid.D_LEN);
+	if (m_bCheck)
+		DDV_MinMaxInt(pDX, m_pid.D_LEN, 5, 20);
 	DDX_Text(pDX, IDC_EDIT_NAV_PIVOT, m_pid.pivot);
 	if (m_bCheck)
 		DDV_MinMaxDouble(pDX, m_pid.pivot, 0.1, 0.9);
 	DDX_Text(pDX, IDC_EDIT_NAV_DELAY, m_pid.turn_time);
 	if (m_bCheck)
 		DDV_MinMaxInt(pDX, m_pid.turn_time, 5, 1000);
+	DDX_Text(pDX, IDC_EDIT_NAV_MAX_TURN, m_pid.max_turn);
+	if (m_bCheck)
+		DDV_MinMaxDouble(pDX, m_pid.max_turn, 0.5, MIN_TURN_RATE);
+
+	
 }
 
 // do not want to check control values on every call to UpdateData(TRUE)
