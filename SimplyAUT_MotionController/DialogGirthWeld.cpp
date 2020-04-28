@@ -73,7 +73,7 @@ static UINT ThreadRunScan(LPVOID param)
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, const NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
@@ -1505,10 +1505,7 @@ UINT CDialogGirthWeld::ThreadGoToHome()
 		// due to acceleration and deceleration time as well as travel time
 		// this wilol take much longert than 1 sec.
 		if (WaitForMotorsToStart())
-		{
-			Sleep(1000);
 			WaitForMotorsToStop();
-		}
 	}
 
 	// tell tyhe main thread that now stoppeds, so can reset controls
@@ -1670,8 +1667,8 @@ BOOL CDialogGirthWeld::WaitForMotorsToStop()
 	// even though have always passed wait for motors to start prior to this
 	// this is likely due to looking at the polled flag indicating if running or not
 	// the motors will never run for less than 500 ms regardless
-	Sleep(500);
-	while (m_motionControl.AreTheMotorsRunning() )
+	Sleep(1000);
+	while (AreMotorsRunning())
 		Sleep(10);
 
 	return TRUE;
@@ -2477,6 +2474,9 @@ LRESULT CDialogGirthWeld::OnUserStopMotorFinished(WPARAM, LPARAM)
 	// if was in paused state of a scan, then just return the state to scan
 	else
 		m_nGalilState = m_nGaililStateBackup;
+
+	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
+		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
 
 	SetButtonBitmaps();
 	return 0L;

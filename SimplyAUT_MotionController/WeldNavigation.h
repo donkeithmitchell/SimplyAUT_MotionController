@@ -8,15 +8,17 @@ struct NAVIGATION_PID
 {
 	NAVIGATION_PID() { Reset(); }
 	void Reset() {
-		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; D_LEN = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT; turn_time = NAVIGATION_TURN_TIME; nav_type = 0; max_turn = MAX_TURN_RATE;	}
+		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; D_LEN = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT; turn_time = NAVIGATION_TURN_TIME; nav_type = 0; max_turn = MAX_TURN_RATE; Tu = 0;}
+
 	double P;
 	double I;
 	double D;
-	int D_LEN;
 	double pivot;
+	double Tu;
+	double max_turn;
 	int nav_type;
 	int turn_time;
-	double max_turn;
+	int D_LEN;
 };
 
 struct FILTER_RESULTS
@@ -72,7 +74,7 @@ class CDoublePoint;
 class CWeldNavigation
 {
 public:
-	CWeldNavigation(CMotionControl&, CLaserControl&, const NAVIGATION_PID& pid);
+	CWeldNavigation(CMotionControl&, CLaserControl&, NAVIGATION_PID& pid);
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
@@ -102,10 +104,11 @@ private:
 	FILE*	OpenNextFile(const char* szFile);
 	double	CalculateTurnRate(double steering)const;
 	FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
+	void   CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out);
 
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
-	const NAVIGATION_PID&	m_pid;
+	NAVIGATION_PID&	m_pid;
 
 	CArray<LASER_POS, LASER_POS> m_listLaserPositions;
 	CCriticalSection m_crit1;

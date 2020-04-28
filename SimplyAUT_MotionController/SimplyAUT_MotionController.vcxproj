@@ -197,6 +197,7 @@
     <ClInclude Include="DialogMotors.h" />
     <ClInclude Include="DialogNavigation.h" />
     <ClInclude Include="DialogStatus.h" />
+    <ClInclude Include="fft.h" />
     <ClInclude Include="Filter.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Gclib2.h" />
@@ -231,6 +232,7 @@
     <ClCompile Include="DialogMotors.cpp" />
     <ClCompile Include="DialogNavigation.cpp" />
     <ClCompile Include="DialogStatus.cpp" />
+    <ClCompile Include="fft.cpp" />
     <ClCompile Include="Filter.cpp" />
     <ClCompile Include="Gclib2.cpp" />
     <ClCompile Include="LaserControl.cpp" />

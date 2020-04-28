@@ -16,7 +16,7 @@ class CDialogGirthWeld : public CDialogEx
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, GALIL_STATE& nState, const NAVIGATION_PID& pid, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, GALIL_STATE& nState, NAVIGATION_PID& pid, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();

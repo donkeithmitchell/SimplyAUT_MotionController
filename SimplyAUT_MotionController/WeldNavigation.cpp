@@ -6,6 +6,7 @@
 #include "DialogGirthWeld.h"
 #include "Define.h"
 #include "Misc.h"
+#include "fft.h"
 
 // this is an object to bath maintain a list of laser measurments by positioon
 // as well as navigate to the weld cap offset
@@ -37,7 +38,7 @@ static UINT ThreadNoteLaser(LPVOID param)
 	return this2->ThreadNoteLaser();
 }
 
-CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, const NAVIGATION_PID& pid)
+CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, NAVIGATION_PID& pid)
 	: m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_pid(pid)
@@ -357,7 +358,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 	// now get the slope over the last 5 to 10 mm
 	// this is used for the (D) in the PID navigation
 	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
-	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_RAW_GAP|SOURCE_BY_TIME/*source*/, m_pid.D_LEN, m_pid.D_LEN))
+	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_FILT_GAP|SOURCE_BY_TIME/*source*/, m_pid.D_LEN, m_pid.D_LEN))
 		ret.slope10 = coeff[1]; // mm per mm
 	else
 		ret.slope10 = FLT_MAX;
@@ -879,19 +880,75 @@ BOOL CWeldNavigation::WriteScanFile()
 	for (int j = 0; j < 21; ++j)
 		InterpolateVector(X, Y5[j][0], Y5[j][1], m_nStartPos, m_nEndPos);
 
+#ifdef _DEBUG_TIMING_
+	CArray<double, double> power;
+	CalculatePID_Navigation(Y4[1], power);
+#endif
+
 	// write to the file
-	for(int i=0; i < Y1[1].GetSize(); ++i)
+	int nSize2 = (int)Y1[1].GetSize();
+	for(int i=0; i < nSize2; ++i)
 	{
 		fprintf(fp, "%d\t%7.3f\t%7.3f\t%7.3f\t%7.3f",
 			i, Y1[1][i], Y2[1][i], Y3[1][i], Y4[1][i]);
 		for (int j = 0; j < 21; ++j)
 			fprintf(fp, "\t%7.3f", Y5[j][1][i]);
+#ifdef _DEBUG_TIMING_
+		if( i < power.GetSize())
+			fprintf(fp, "\t%.3f", power[i]);
+#endif
 		fprintf(fp, "\n");
 	}
 
+		
 	fclose(fp);
 	return TRUE;
 }
+
+#ifdef _DEBUG_TIMING_
+void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out)
+{
+	int nSize = (int)Y.GetSize();
+	if (m_pid.P != NAVIGATION_P_OSCILLATE || m_pid.I != 0 || m_pid.D != 0)
+		return;
+
+	int nN2 = 2;
+	for (nN2 = 2; nN2 < nSize; nN2 *= 2);
+	nN2 *= 2;
+
+	CArray<double, double> real, imag;
+	real.Copy(Y);
+	real.SetSize(nN2);
+	imag.SetSize(nN2);
+
+	double sum = 0;
+	for (int i = 0; i < nSize; ++i)
+		sum += real[i];
+	double avg = sum / nSize;
+	for (int i = 0; i < nSize; ++i)
+		real[i] -= avg;
+
+	::Fft_transform(real.GetData(), imag.GetData(), nN2);
+
+	// get the maximum value (1st half only)
+	double maxVal = 0;
+	int iMax = 1;
+	out.SetSize(nSize);
+	for (int i = 1; i < min(nN2 / 2, nSize); ++i)
+	{
+		out[i] = sqrt(pow(real[i], 2.0) + pow(imag[i], 2.0));
+		if (out[i] > maxVal)
+		{
+			maxVal = out[i];
+			iMax = i;
+		}
+	}
+
+	// calculate in mm, convert to ms
+	double T1 = 1000.0 * (double)nN2 / (double)iMax / m_fMotorSpeed;
+	m_pid.Tu = T1;
+}
+#endif
 
 // start the navigation
 // nSteer = 0 (stop navigation)
