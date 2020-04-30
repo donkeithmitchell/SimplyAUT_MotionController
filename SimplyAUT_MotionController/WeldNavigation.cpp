@@ -358,7 +358,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 	// now get the slope over the last 5 to 10 mm
 	// this is used for the (D) in the PID navigation
 	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
-	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_FILT_GAP|SOURCE_BY_TIME/*source*/, m_pid.D_LEN, m_pid.D_LEN))
+	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_RAW_GAP |SOURCE_BY_TIME/*source*/, m_pid.D_LEN, m_pid.D_LEN))
 		ret.slope10 = coeff[1]; // mm per mm
 	else
 		ret.slope10 = FLT_MAX;
@@ -928,6 +928,7 @@ void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, C
 	for (int i = 0; i < nSize; ++i)
 		real[i] -= avg;
 
+	m_pid.data.Copy(Y);
 	::Fft_transform(real.GetData(), imag.GetData(), nN2);
 
 	// get the maximum value (1st half only)
@@ -946,7 +947,9 @@ void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, C
 
 	// calculate in mm, convert to ms
 	double T1 = 1000.0 * (double)nN2 / (double)iMax / m_fMotorSpeed;
-	m_pid.Tu = T1;
+	m_pid.Tu = (int)(T1 + 0.5);
+	m_pid.Tu_Phase = atan2(imag[iMax], real[iMax]);
+	m_pid.Tu_srate = m_fMotorSpeed;
 }
 #endif
 
@@ -1178,7 +1181,7 @@ double CWeldNavigation::GetPIDSteering()
 	//	m_i_error += (this_gap - pos25.gap_filt);
 	//else
 	{
-		double dt = ((double)pos0.time_noted - (double)m_i_time) / 1000.0;
+		double dt = (m_i_time > 0) ? ((double)pos0.time_noted - (double)m_i_time) / 1000.0 : 0;
 		m_i_error += (this_gap * dt) + (this_gap - m_p_error) / 2 * dt;
 	}
 

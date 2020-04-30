@@ -40,3 +40,8 @@ void MySleep(DWORD dwMilliseconds, DWORD msgMask);
 DWORD MyWaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds, DWORD msgMask);
 
 int ConvertToWavFormat(const CArray<float, float>& trace, int samp_rate, int volume, CArray<char, char>& wav_vector);
+
+
+CWinThread* AfxMyBeginThread(AFX_THREADPROC pfnThreadProc, LPVOID pParam,
+	int nPriority = THREAD_PRIORITY_NORMAL, UINT nStackSize = 0,
+	DWORD dwCreateFlags = 0, LPSECURITY_ATTRIBUTES lpSecurityAttrs = NULL);

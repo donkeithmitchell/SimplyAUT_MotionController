@@ -215,6 +215,10 @@
 #define IDC_BUTTON_CALC_PID2            1131
 #define IDC_BUTTON_CALC_PI2             1132
 #define IDC_BUTTON_CALC_ENABLE          1132
+#define IDC_STATICPID_P5                1133
+#define IDC_EDIT_NAV_TU                 1134
+#define IDC_STATIC_NAV                  1135
+#define IDC_SPIN_TU                     1136
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773
@@ -226,7 +230,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32775
-#define _APS_NEXT_CONTROL_VALUE         1130
+#define _APS_NEXT_CONTROL_VALUE         1137
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

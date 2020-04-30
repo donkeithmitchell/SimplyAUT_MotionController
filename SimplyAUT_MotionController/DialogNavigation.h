@@ -5,6 +5,29 @@
 
 struct NAVIGATION_PID;
 
+class CStaticNavigation : public CWnd
+{
+	DECLARE_DYNAMIC(CStaticNavigation)
+
+public:
+	CStaticNavigation(const NAVIGATION_PID& pid);
+
+	virtual ~CStaticNavigation();
+
+	void Create(CWnd* pParent);
+	void DrawNavigationProfile(CDC*);
+
+protected:
+	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	afx_msg void OnPaint();
+	afx_msg void OnSize(UINT nFlag, int cx, int cy);
+
+	const NAVIGATION_PID& m_pid;
+
+	DECLARE_MESSAGE_MAP()
+};
+
+
 class CDialogNavigation : public CDialogEx
 {
 	DECLARE_DYNAMIC(CDialogNavigation)
@@ -21,19 +44,23 @@ public:
 
 protected:
 	NAVIGATION_PID& m_pid;
+	CStaticNavigation m_staticNavigation;
 	UINT  m_nMsg;
 	CWnd* m_pParent;
 	BOOL m_bInit;
 	BOOL m_bCheck;
-	CString	m_szPID_Tu;
+	CSpinButtonCtrl m_spinTu;
 
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	virtual	BOOL OnInitDialog();
 	afx_msg void OnButtonReset();
 	afx_msg void OnButtonCalcPI();
 	afx_msg void OnButtonCalcPID();
 	afx_msg void OnClickNavType();
 	afx_msg void OnEditChangePID();
 	afx_msg void OnButtonCalcEnable();
+	afx_msg void OnSize(UINT nFlag, int cx, int cy);
+	afx_msg void OnDeltaposSpinTu(NMHDR* pNMHDR, LRESULT* pResult);
 	DECLARE_MESSAGE_MAP()
 };
 

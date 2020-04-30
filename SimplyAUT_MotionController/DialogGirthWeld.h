@@ -34,6 +34,7 @@ public:
 	UINT    ThreadStopMotors(void);
 	UINT	ThreadGoToHome(void);
 	UINT	ThreadRunScan();
+	UINT	ThreadAbortScan();
 	void	SendDebugMessage(const CString&);
 	void	SendErrorMessage(const char*);
 	void    ShowLaserTemperature();
@@ -80,8 +81,9 @@ public:
 	void    Serialize(CArchive& ar);
 	void    ResetParameters();
 	void	EnableMagSwitchControl(BOOL bEnableMAG);
+	LRESULT OnUserFinished(CWinThread**);
 
-	enum { WM_STOPMOTOR_FINISHED= WM_USER+1, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK, WM_ARE_MOTORS_RUNNING
+	enum { WM_USER_SCAN_FINISHED= WM_USER+1, WM_USER_ABORT_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK, WM_ARE_MOTORS_RUNNING
 	};
 	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_DEFINE_POSITION, 
 		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GET_ENC_DIST, MC_GOTO_POSITION2, MC_MOTOR_JOGGING};
@@ -106,7 +108,8 @@ public:
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
 	CMagControl&	m_magControl;
-	HANDLE			m_hThreadRunMotors;
+	CWinThread*		m_pThreadScan;
+	CWinThread*		m_pThreadAbort;
 	GALIL_STATE		m_nGaililStateBackup;
 	CWeldNavigation m_weldNavigation;
 
@@ -204,7 +207,8 @@ public:
 //	CBrush	m_brMagenta;
 
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
-	afx_msg LRESULT OnUserStopMotorFinished(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserScanFinished(WPARAM, LPARAM);
+	afx_msg LRESULT OnUserAbortFinished(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserStaticParameter(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserWeldNavigation(WPARAM, LPARAM);
 	afx_msg LRESULT OnUserMotionControl(WPARAM, LPARAM);

@@ -71,6 +71,13 @@ static UINT ThreadRunScan(LPVOID param)
 	return this2->ThreadRunScan();
 }
 
+
+static UINT ThreadAbortScan(LPVOID param)
+{
+	CDialogGirthWeld* this2 = (CDialogGirthWeld*)param;
+	return this2->ThreadAbortScan();
+}
+
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
 CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
@@ -103,7 +110,8 @@ CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser,
 	m_nTimerCount = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
-	m_hThreadRunMotors = NULL;
+	m_pThreadScan = NULL;
+	m_pThreadAbort = NULL;
 	m_fDestinationPosition = 0;
 	m_nGaililStateBackup = GALIL_IDLE;
 	m_fScanStartPos = FLT_MAX;
@@ -244,7 +252,8 @@ BEGIN_MESSAGE_MAP(CDialogGirthWeld, CDialogEx)
 	ON_COMMAND(IDC_RADIO_CIRC,				&CDialogGirthWeld::OnRadioScanType)
 	ON_COMMAND(IDC_RADIO_DIST,				&CDialogGirthWeld::OnRadioScanType)
 
-	ON_MESSAGE(WM_STOPMOTOR_FINISHED,		&CDialogGirthWeld::OnUserStopMotorFinished)
+	ON_MESSAGE(WM_USER_SCAN_FINISHED,		&CDialogGirthWeld::OnUserScanFinished)
+	ON_MESSAGE(WM_USER_ABORT_FINISHED,		&CDialogGirthWeld::OnUserAbortFinished)
 	ON_MESSAGE(WM_USER_STATIC,				&CDialogGirthWeld::OnUserStaticParameter)
 	ON_MESSAGE(WM_WELD_NAVIGATION,			&CDialogGirthWeld::OnUserWeldNavigation)
 	ON_MESSAGE(WM_MOTION_CONTROL,			&CDialogGirthWeld::OnUserMotionControl)
@@ -1191,7 +1200,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 
 		// all scanning is done in this thread
 		// m_bPause, m_bResume, etc. indicate what it is to do
-		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunScan, (LPVOID)this)->m_hThread;
+		m_pThreadScan = ::AfxMyBeginThread(::ThreadRunScan, (LPVOID)this);
 		SetButtonBitmaps();
 	}
 }
@@ -1261,6 +1270,7 @@ void CDialogGirthWeld::OnClickedButtonScan()
 
 			// srtart measuring the various laser measures to be used by navigation
 			StartMeasuringLaser(TRUE);
+			m_pThreadScan = ::AfxMyBeginThread(::ThreadRunScan, (LPVOID)this);
 		}
 
 		// changed to idel so wish to abort a current scan
@@ -1270,11 +1280,11 @@ void CDialogGirthWeld::OnClickedButtonScan()
 			m_bAborted = TRUE;
 			m_bScanning = FALSE;
 			m_buttonManual.EnableWindow(FALSE);
+			m_pThreadAbort = ::AfxMyBeginThread(::ThreadAbortScan, (LPVOID)this);
 		}
 
 		// this thread will enact what required
 		// do in a scan so don't pause the main thread
-		m_hThreadRunMotors = ::AfxBeginThread(::ThreadRunScan, (LPVOID)this)->m_hThread;
 	}
 }
 
@@ -1489,7 +1499,7 @@ void CDialogGirthWeld::OnClickedButtonGoHome()
 			StartNavigation(0x0, 0, 0, 0);
 
 		// driving and stopping take time, so sue a thread
-		m_hThreadRunMotors = ::AfxBeginThread(::ThreadGoToHome, (LPVOID)this)->m_hThread;
+		m_pThreadScan = ::AfxMyBeginThread(::ThreadGoToHome, (LPVOID)this);
 	}
 }
 
@@ -1509,7 +1519,7 @@ UINT CDialogGirthWeld::ThreadGoToHome()
 	}
 
 	// tell tyhe main thread that now stoppeds, so can reset controls
-	PostMessage(WM_STOPMOTOR_FINISHED);
+	PostMessage(WM_USER_SCAN_FINISHED);
 	return 0;
 }
 
@@ -1684,11 +1694,15 @@ BOOL CDialogGirthWeld::WaitForMotorsToStop()
 BOOL CDialogGirthWeld::WaitForMotorsToStart()
 {
 	Sleep(100);
-	for (int i = 0; i < 100 && !AreMotorsRunning(); ++i)
+	for (int i = 0; i < 500 && !AreMotorsRunning(); ++i)
 		Sleep(10);
 
 	// return if the motors acutally started, or if timed out
-	return m_motionControl.AreTheMotorsRunning();
+	if (m_motionControl.AreTheMotorsRunning())
+		return TRUE;
+
+	SendErrorMessage("Motors did not Start");
+	return FALSE;
 }
 // this uses a noted parameter in the motion controller
 // it is set in an OnTimer()
@@ -2037,6 +2051,32 @@ double CDialogGirthWeld::GetDistanceToBuffer()const
 
 
 // with eh exception of seek start line, this is all the functions for a scan
+UINT CDialogGirthWeld::ThreadAbortScan()
+{
+	CString str;
+	// have requested to stop
+
+	int from_mm = 0;
+	int to_mm = (int)(m_fDestinationPosition + 0.5);
+
+	// 1. even called to abort a scan
+	// this takes timne, so best done in a thread
+	// if want to abort later in this function, just set m_bAbort and recurse
+	m_bScanning = FALSE;
+	m_bResumeScan = FALSE;
+	m_nCalibratingRGB = CALIBRATE_RGB_NOT;
+	StopMotors(TRUE);
+	KillTimer(TIMER_NOTE_CALIBRATION);
+	WaitForMotorsToStop();
+	StartNavigation(0x0, 0, 0, 0);
+	InformRecordingSW(-1); // indicate that aborted
+	SendMessage(WM_SIZE); // replace the laser window with the calibration window
+	PostMessage(WM_USER_ABORT_FINISHED);
+	return 0L;
+}
+
+
+// with eh exception of seek start line, this is all the functions for a scan
 UINT CDialogGirthWeld::ThreadRunScan()
 {
 	CString str;
@@ -2059,7 +2099,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		StartNavigation(0x0, 0,0, 0);
 		InformRecordingSW(-1); // indicate that aborted
 		SendMessage(WM_SIZE); // replace the laser window with the calibration window
-		PostMessage(WM_STOPMOTOR_FINISHED);
+		PostMessage(WM_USER_SCAN_FINISHED);
 		return 0L;
 	}
 
@@ -2069,7 +2109,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		BOOL bCalibrate = CalibrateCircumference();
 		m_nCalibratingRGB = CALIBRATE_RGB_NOT;
 		SendMessage(WM_SIZE); // replace the laser window with the calibration window
-		PostMessage(WM_STOPMOTOR_FINISHED);
+		PostMessage(WM_USER_SCAN_FINISHED);
 		return 0L;
 	}
 
@@ -2083,7 +2123,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		if (WaitForMotorsToStart())
 			WaitForMotorsToStop();
 		if (!m_bPaused)
-			PostMessage(WM_STOPMOTOR_FINISHED);
+			PostMessage(WM_USER_SCAN_FINISHED);
 		return 0L;
 	}
 
@@ -2218,7 +2258,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
-			PostMessage(WM_STOPMOTOR_FINISHED);
+			PostMessage(WM_USER_SCAN_FINISHED);
 		}
 	}
 
@@ -2282,7 +2322,7 @@ void CDialogGirthWeld::RunMotors()
 		// because of deceleration it takes a while for the motors to stop
 		// will not return from this fuinction until they have stopped
 		// thus, call this from a thread, and block starts until the motors are stopped
-		m_hThreadRunMotors = AfxBeginThread(::ThreadStopMotors, (LPVOID)this)->m_hThread;
+		m_pThreadAbort = AfxMyBeginThread(::ThreadStopMotors, (LPVOID)this);
 	}
 
 	// request to drive forward
@@ -2359,7 +2399,7 @@ UINT CDialogGirthWeld::ThreadStopMotors()
 	StopMotors(TRUE); // TRUE, wait for the motors to stop
 //	m_laserControl.TurnLaserOn(FALSE);				// do not call thesae from a thread
 //	m_magControl.EnableMagSwitchControl(TRUE);		// call, them in the finish up call-back
-	PostMessage(WM_STOPMOTOR_FINISHED);
+	PostMessage(WM_USER_ABORT_FINISHED);
 	return 0;
 }
 
@@ -2443,25 +2483,33 @@ LRESULT CDialogGirthWeld::OnUserStaticParameter(WPARAM wParam, LPARAM lParam)
 
 // this is called at the end of the tread which was qwaiting for the 
 // manual run of the motors to stop
-LRESULT CDialogGirthWeld::OnUserStopMotorFinished(WPARAM, LPARAM)
+LRESULT CDialogGirthWeld::OnUserScanFinished(WPARAM, LPARAM)
+{
+	return OnUserFinished(&m_pThreadScan);
+}
+
+LRESULT CDialogGirthWeld::OnUserAbortFinished(WPARAM, LPARAM)
+{
+	return OnUserFinished(&m_pThreadAbort);
+}
+
+LRESULT CDialogGirthWeld::OnUserFinished(CWinThread** ppThread)
 {
 	// this should not happen
 	// not sure if TerminteThread() will actually do so
 	// this ability must be included when the thread was created
 	// regardless, a dangerous move 
-	int ret = ::WaitForSingleObject(m_hThreadRunMotors, 1000);
-	if (ret != WAIT_OBJECT_0 && m_hThreadRunMotors != NULL)
+	int ret = ::WaitForSingleObject((*ppThread)->m_hThread, 1000);
+	if (ret != WAIT_OBJECT_0 )
 	{
-		DWORD exit_code = 0;
-		GetExitCodeThread(m_hThreadRunMotors, &exit_code);
-
-		SendErrorMessage("Stop Motor Thread timed out");
-		::TerminateThread(m_hThreadRunMotors, 0);
+		SendErrorMessage("Thread Timed Out");
 	}
 
 	// if paused and going to resume a scan
 	// then do not want to cal the following
-	m_hThreadRunMotors = NULL;
+	delete *ppThread;
+	*ppThread = NULL;
+
 	if (!m_bPaused)
 	{
 		// if paused, then will still want the laser on and the MAG switch disabled

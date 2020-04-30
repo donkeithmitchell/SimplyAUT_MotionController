@@ -300,6 +300,30 @@ DWORD MyWaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds, DWORD msgMask)
 
     return ret;
 }
+
+CWinThread* AfxMyBeginThread(AFX_THREADPROC pfnThreadProc, LPVOID pParam,
+    int nPriority/* = THREAD_PRIORITY_NORMAL*/, UINT nStackSize/* = 0*/,
+    DWORD dwCreateFlags/* = 0*/, LPSECURITY_ATTRIBUTES lpSecurityAttrs/* = NULL*/)
+{
+    CWinThread* pThread = new CWinThread(pfnThreadProc, pParam);
+    ASSERT_VALID(pThread);
+
+    pThread->m_bAutoDelete = FALSE;
+
+    if (!pThread->CreateThread(dwCreateFlags | CREATE_SUSPENDED, nStackSize,
+        lpSecurityAttrs))
+    {
+        pThread->Delete();
+        return NULL;
+    }
+
+    VERIFY(pThread->SetThreadPriority(nPriority));
+    if (!(dwCreateFlags & CREATE_SUSPENDED))
+        VERIFY(pThread->ResumeThread() != (DWORD)-1);
+
+    return pThread;
+}
+
 /*
 static complex8 conj(const complex8& x)
 {

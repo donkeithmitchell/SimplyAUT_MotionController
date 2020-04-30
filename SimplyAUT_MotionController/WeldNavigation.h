@@ -8,18 +8,22 @@ struct NAVIGATION_PID
 {
 	NAVIGATION_PID() { Reset(); }
 	void Reset() {
-		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; D_LEN = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT; turn_dist = NAVIGATION_TURN_DIST; nav_type = 0; max_turn = MAX_TURN_RATE; Tu = 0;}
+		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; D_LEN = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT;
+		turn_dist = NAVIGATION_TURN_DIST; nav_type = 0; max_turn = MAX_TURN_RATE; Tu = 0; Tu_Phase = 0;	Tu_srate = 0;}
 
+	CArray<double, double> data;
 	double P;
 	double I;
 	double D;
 	double pivot;
-	double Tu;
 	double max_turn;
 	double turn_dist;
-	double dummy8[1];
+	double Tu_Phase;
+	double Tu_srate;
+	int Tu;
 	int nav_type;
 	int D_LEN;
+	int dummy4;
 };
 
 struct FILTER_RESULTS
