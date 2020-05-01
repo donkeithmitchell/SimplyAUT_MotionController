@@ -15,7 +15,7 @@ CMotionControl::CMotionControl()
     m_nGotoPosition = 0;
 	m_pGclib = NULL;
     m_manoeuvre_pos = FLT_MAX;
-    m_bMotorsRunning = FALSE;
+//    m_bMotorsRunning = FALSE;
 }
 
 // make sure the motors are off before closing
@@ -55,7 +55,7 @@ void CMotionControl::SendErrorMessage(const char* msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)msg);
+        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG1, (WPARAM)msg);
     }
 }
 
@@ -280,15 +280,15 @@ BOOL CMotionControl::SetMotorJogging(double speed, double accel)
 
 // the main thread polls the motors to see if running
 // thus all other threads can just look here
-BOOL CMotionControl::AreTheMotorsRunning()
-{
-    m_critMotorsRunning.Lock();
-    BOOL ret = m_bMotorsRunning;
-    m_critMotorsRunning.Unlock();
-
-    return ret;
-}
-
+//BOOL CMotionControl::AreTheMotorsRunning()
+//{
+ //   m_critMotorsRunning.Lock();
+//    BOOL ret = m_bMotorsRunning;
+//    m_critMotorsRunning.Unlock();
+//
+//    return ret;
+//}
+/*
 void CMotionControl::NoteIfMotorsRunning()
 {
     int accel;
@@ -301,7 +301,7 @@ void CMotionControl::NoteIfMotorsRunning()
     m_bMotorsRunning = (speedA != 0 || speedB != 0 || speedC != 0 || speedD != 0);
     m_critMotorsRunning.Unlock();
 }
-
+*/
 // noite that the L/R motors actuall go in opposite directions, thus AxisDirection()
 double CMotionControl::GetMotorSpeed(GCStringIn axis, double& rAccel)
 {

@@ -89,13 +89,13 @@ public:
 	UINT    ThreadNoteLaser();
 	void    GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);
 	BOOL	IsNavigating()const;
+	void	StopSteeringMotors();
 
 private:
 	UINT    ThreadSteerMotors_try3();
 	UINT    ThreadSteerMotors_PID();	
 	UINT    ThreadSteerMotors_Test();
 	BOOL	DriveTest(double rate, double pivot, int delay);
-	void	StopSteeringMotors();
 	void	SendDebugMessage(const CString& msg);
 	BOOL    SetMotorSpeed(const double speed[]);
 	double  GetAvgMotorSpeed();

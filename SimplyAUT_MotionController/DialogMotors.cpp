@@ -15,7 +15,7 @@
 
 IMPLEMENT_DYNAMIC(CDialogMotors, CDialogEx)
 
-CDialogMotors::CDialogMotors(CMotionControl& motion, CMagControl& mag, const GALIL_STATE& nState, CWnd* pParent /*=nullptr*/)
+CDialogMotors::CDialogMotors(CMotionControl& motion, CMagControl& mag, const int& nState, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_MOTORS, pParent)
 	, m_motionControl(motion)
 	, m_magControl(mag)

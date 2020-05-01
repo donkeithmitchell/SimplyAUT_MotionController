@@ -28,7 +28,7 @@ public:
 	enum { IDD = IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG };
 #endif
 	enum{TAB_CONNECT=0, TAB_MOTORS, TAB_SCAN, TAB_FILES, TAB_NAVIGATION, TAB_LASER, TAB_MAG, TAB_STATUS};
-	enum {MSG_SEND_DEBUGMSG = 0, MSG_ERROR_MSG, MSG_SETBITMAPS, MSG_GETSCANSPEED, MSG_GETACCEL, 
+	enum {MSG_SEND_DEBUGMSG = 0, MSG_ERROR_MSG1, MSG_ERROR_MSG2, MSG_SETBITMAPS, MSG_GETSCANSPEED, MSG_GETACCEL,
 		MSG_MAG_STATUS_ON, MSG_UPDATE_FILE_LIST	};
 
 
@@ -38,7 +38,7 @@ public:
 	void OnCancel();
 	void OnSelchangeTab2();
 	BOOL CheckVisibleTab();
-	void AppendErrorMessage(const char* szMsg);
+	void AppendErrorMessage(const char* szMsg, int=0);
 	void StartReadMagStatus(BOOL);
 	void Serialize(BOOL bSave);
 	void Serialize(CArchive& ar);
@@ -49,7 +49,7 @@ public:
 // Implementation
 protected:
 	HICON				m_hIcon;
-	GALIL_STATE			m_galil_state;
+	int			m_galil_state;
 	CMotionControl		m_motionControl;
 	CLaserControl       m_laserControl;
 	CMagControl			m_magControl;
@@ -78,6 +78,7 @@ protected:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg LRESULT OnUserDebugMessage(WPARAM, LPARAM);
 	afx_msg void OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnDestroy();
 	DECLARE_MESSAGE_MAP()
 public:
 	CTabCtrl m_tabControl;

@@ -14,7 +14,7 @@ public:
 	BOOL SetMotorJogging(double speed, double accel);
 	BOOL AreMotorsRunning();
 	double GetMotorSpeed(GCStringIn axis, double& rAccel);
-	void   NoteIfMotorsRunning();
+//	void   NoteIfMotorsRunning();
 	double GetMotorPosition(GCStringIn axis);
 	BOOL SetMotorJogging(double speedA, double speedB, double speedC, double speedD, double accel);
 	void SendDebugMessage(const CString&);
@@ -39,13 +39,13 @@ public:
 	void   ResetLastManoeuvrePosition();
 	void   SetLastManoeuvrePosition();
 	int    GetDestinationPosition()const {return m_nGotoPosition;	}
-	BOOL   AreTheMotorsRunning();
+//	BOOL   AreTheMotorsRunning();
 
 private:
 	int		m_nGotoPosition;
-	BOOL	m_bMotorsRunning;
+//	BOOL	m_bMotorsRunning;
 	CCriticalSection m_critLastManoeuvre;
-	CCriticalSection m_critMotorsRunning;
+//	CCriticalSection m_critMotorsRunning;
 	double m_manoeuvre_pos;
 	Gclib* m_pGclib;
 	CWnd* m_pParent;

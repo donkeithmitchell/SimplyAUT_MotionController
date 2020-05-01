@@ -11,7 +11,7 @@ class CDialogMotors : public CDialogEx
 	DECLARE_DYNAMIC(CDialogMotors)
 
 public:
-	CDialogMotors(CMotionControl&, CMagControl& mag, const GALIL_STATE&, CWnd* pParent = nullptr);   // standard constructor
+	CDialogMotors(CMotionControl&, CMagControl& mag, const int&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogMotors();
 
 	virtual BOOL OnInitDialog();
@@ -35,7 +35,7 @@ public:
 
 	void	Init(CWnd* pParent, UINT nMsg);
 
-	const GALIL_STATE&	m_nGalilState;
+	const int&	m_nGalilState;
 	CMotionControl&		m_motionControl;
 	CMagControl&		m_magControl;
 

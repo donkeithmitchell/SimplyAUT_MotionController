@@ -55,11 +55,14 @@ void CLaserControl::SendDebugMessage(const CString& msg)
 }
 
 // these are sent to the ewrror static
-void CLaserControl::SendErrorMessage(const char* msg)
+void CLaserControl::SendErrorMessage(const char* msg, int action)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 	{
-		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)msg);
+		if( action == -1 )
+			m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG2, (WPARAM)msg);
+		else
+			m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG1, (WPARAM)msg);
 	}
 }
 
@@ -478,6 +481,7 @@ BOOL CLaserControl::GetProfile()
 			memcpy(&m_profile, &profile, sizeof(profile));
 			g_critMeasures.Unlock();
 
+			SendErrorMessage(_T("Laser ERROR: Cant get Profile"), -1);
 			return TRUE;
 		}
 		// this Sleep() makes this re-entrant through an OnTimer() or message function
@@ -834,7 +838,7 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	double weld_cap_height = avg_side_height - m_measure2.weld_cap_mm.y;
 	for (int i = 0; i < 21; ++i)
 	{
-		int j = (int)(centre + scale * (i - 10));
+		int j = (int)(centre + scale * ((double)i - 10.0));
 		if (j >= 0 && j < SENSOR_WIDTH)
 		{
 			double x,y;

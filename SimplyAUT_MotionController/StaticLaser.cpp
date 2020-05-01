@@ -41,7 +41,8 @@ CStaticLaser::CStaticLaser(CMotionControl& motion, CLaserControl& laser, CMagCon
 	, m_bCentreWeld(TRUE)
 	, m_bPlayOffsetSound(FALSE)
 {
-	m_fHomeAng = 0;
+	m_fHomeAng = -PI / 2.0;
+	m_fHomeAngDiff = 0;
 	m_disp_width_factor = 1;
 	m_disp_height_factor = 1;
 	m_disp_height_min = 0;
@@ -71,10 +72,11 @@ BEGIN_MESSAGE_MAP(CStaticLaser, CWnd)
 	ON_WM_SIZE()
 	ON_WM_PAINT()
 	ON_WM_TIMER()
+	ON_WM_MOUSEMOVE()
+	ON_WM_LBUTTONDOWN()
 	ON_WM_RBUTTONDOWN()
 	ON_WM_LBUTTONDBLCLK()
 	ON_MESSAGE(WM_USER_PLAY_FINISHEFD, OnUserMessagePlayFinished)
-	ON_COMMAND_RANGE(ID_POPUP_SETLOCATION, ID_POPUP_SETLOCATION, OnMenu)
 	ON_COMMAND_RANGE(ID_POPUP_TOGGLELASER, ID_POPUP_TOGGLELASER, OnMenu)
 	ON_COMMAND_RANGE(ID_POPUP_CENTREWELD, ID_POPUP_CENTREWELD, OnMenu)
 	ON_COMMAND_RANGE(ID_POPUP_PLAYOFFSETSOUND, ID_POPUP_PLAYOFFSETSOUND, OnMenu)
@@ -157,30 +159,51 @@ void CStaticLaser::DrawCrawlerLocation(CDC* pDC)
 
 	CRect rect2;
 	int radius1 = GetPipeRect(&rect2);
+	double radius2 = m_fScanLength / (2 * PI);
+	double scale = (double)radius1 / radius2;
 	pDC->Ellipse(&rect2);
+
+	// get this location
+	int x0 = (rect2.right + rect2.left) / 2;
+	int y0 = (rect2.top + rect2.bottom) / 2;
 
 	// now note the location of the crawler
 	int circum1 = (int)(2 * PI * radius1 + 0.5);
+	int nMagOn = m_magControl.GetMagStatus(MAG_IND_MAG_ON);
 
+	// note where home is
+#ifdef _DEBUG_TIMING_
+	int x3 = (int)(x0 + (radius1) * sin(PI / 2 - m_fHomeAng) + 0.5);
+	int y3 = (int)(y0 + (radius1) * cos(PI / 2 - m_fHomeAng) + 0.5);
+
+	pDC->SetTextColor(RGB(0, 0, 0));
+	pDC->SetBkMode(TRANSPARENT);
+	CSize sz = pDC->GetTextExtent("H");
+	pDC->TextOutA(x3 - sz.cx / 2, y3 - sz.cy / 2, "H");
+#else
+	CPen pen3(PS_SOLID, 2, RGB(0, 0, 0));
+	pDC->SelectObject(&pen3);
+	pDC->MoveTo(x0, rect2.top - 5);
+	pDC->LineTo(x0, rect2.top + 5);
+	pDC->MoveTo(x0, rect2.bottom - 5);
+	pDC->LineTo(x0, rect2.bottom + 5);
+	pDC->MoveTo(rect2.left-5, y0);
+	pDC->LineTo(rect2.left+5, y0);
+	pDC->MoveTo(rect2.right-5, y0);
+	pDC->LineTo(rect2.right+5, y0);
+#endif
 
 	// now draw the crawler at an angle determine by the start angle and the progression
-	double location2 = m_motionControl.GetMotorPosition("A");
+	double location2 = m_motionControl.GetAvgMotorPosition();
 	if (location2 != FLT_MAX)
 	{
-		// the frac tion of the way around the pipe
-		// less the homne angle
-		double ang = m_fHomeAng - (2 * PI * location2 / m_fScanLength) - PI / 2;
-
-		// get this location
-		int x0 = (rect2.right + rect2.left) / 2;
-		int y0 = (rect2.top + rect2.bottom) / 2;
+		double ang = (m_fScanLength  <= 1.0 ) ? -PI/2.0 : -(2 * PI * location2 / m_fScanLength) - PI / 2 + m_fHomeAngDiff;
 
 		int x1 = (int)(x0 + radius1 * cos(ang) + 0.5);
 		int y1 = (int)(y0 + radius1 * sin(ang) + 0.5);
 
 		// draw a filled dot at this location
 		// red if magnets not engaged, else greenm
-		int nMagOn = m_magControl.GetMagStatus(MAG_IND_MAG_ON);
 		CBrush brush2(nMagOn == 1 ? RGB(0, 255, 0) : RGB(255, 0, 0));
 		CPen pen2(PS_SOLID, 0, (nMagOn == 1 ? RGB(0, 255, 0) : RGB(255, 0, 0)));
 		CPen* pPen2 = pDC->SelectObject(&pen2);
@@ -208,8 +231,16 @@ void CStaticLaser::SetCrawlerLocation(CPoint pt)
 	double x0 = ((double)rect.left + (double)rect.right) / 2.0;
 	double y0 = ((double)rect.top + (double)rect.bottom) / 2.0;
 
-	// will draw thew crawler from this position on
-	m_fHomeAng = atan2((double)(pt.y) - y0, (double)(pt.x) - x0) + PI / 2;
+
+	// this is the angle that the dot is now at
+	double location2 = m_motionControl.GetAvgMotorPosition();
+	double fCurrAng = -(2 * PI * location2 / m_fScanLength) - PI / 2;
+
+	// this is the angle that wish to draw at
+	m_fHomeAng = atan2((double)(pt.y) - y0, (double)(pt.x) - x0); //  +PI / 2;
+
+	// note the difference in the two
+	m_fHomeAngDiff = m_fHomeAng - fCurrAng;
 
 	InvalidateRgn(NULL);
 }
@@ -485,10 +516,11 @@ void CStaticLaser::DrawLaserOffset(CDC* pDC)
 // draw the profile returned by the laser within the above circle
 void CStaticLaser::DrawLaserProfile(CDC* pDC)
 {
-	if (!m_laserControl.IsLaserOn())
-		return;
+	// if the laswr if OFF, then just use the saved profile
+	BOOL bOn = m_laserControl.IsLaserOn();
+	if( bOn )
+		GetLaserProfile();
 
-	GetLaserProfile();
 	MT_Hits_Pos hits[SENSOR_WIDTH];
 	double hitBuffer[SENSOR_WIDTH];
 	LASER_MEASURES measure2 = m_laserControl.GetLaserMeasures2();
@@ -503,8 +535,14 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	pDC->MoveTo(m_disp_rect.left, m_disp_rect.bottom);
 	pDC->LineTo(m_disp_rect.right, m_disp_rect.bottom);
 
-	CPen penHits(PS_SOLID, 0, RGB(250, 50, 50));
-	pDC->SelectObject(&penHits);
+	if (!bOn)
+	{
+		pDC->SetTextColor(RGB(255, 0, 0));
+		pDC->SetBkMode(TRANSPARENT);
+		CString text("Laser Off");
+		CSize sz = pDC->GetTextExtent(text);
+		pDC->TextOutA((m_disp_rect.left + m_disp_rect.right) / 2 - sz.cx / 2, m_disp_rect.bottom + sz.cy/2, text);
+	}
 
 	// fit the lasewr display to the screen
 	m_disp_height_max = 0;
@@ -530,9 +568,6 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	int cx = m_disp_rect.Width() / 2;
 	int smooth = (SENSOR_WIDTH + cx - 1) / cx;
 
-	CPen penProfile(PS_SOLID, 0, RGB(250, 10, 10));
-	pDC->SelectObject(&penProfile);
-
 	int init = 1;
 	for (int i = 0; i < SENSOR_WIDTH; i += smooth)
 	{
@@ -544,7 +579,7 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 			MT_Hits_Pos val = hits[i + j];
 			if (val >= 1 && val < SENSOR_HEIGHT)
 			{
-				sum1 += (double)(i + j);
+				sum1 += (double)i + (double)j;
 				sum2 += (double)val;
 				cnt2++;
 			}
@@ -576,18 +611,20 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	// now annotate the gap to the opposite side equal height of the craw3erl dot
 	CString text;
 	double h1_mm, v1_mm;
-	m_laserControl.ConvPixelToMm((int)measure2.weld_cap_pix2.x, (int)measure2.weld_cap_pix2.y, h1_mm, v1_mm);
-	text.Format("%.1f", fabs(h1_mm));
-	pDC->SetTextColor(RGB(10, 10, 10));
-	pDC->SetBkMode(TRANSPARENT);
+	if (m_laserControl.ConvPixelToMm((int)measure2.weld_cap_pix2.x, (int)measure2.weld_cap_pix2.y, h1_mm, v1_mm))
+	{
+		text.Format("%.1f", fabs(h1_mm));
+		pDC->SetTextColor(RGB(10, 10, 10));
+		pDC->SetBkMode(TRANSPARENT);
 
-	CSize sz = pDC->GetTextExtent(text);
+		CSize sz = pDC->GetTextExtent(text);
 
-	int x0 = (m_disp_rect.left + m_disp_rect.right) / 2;
-	if (pt1.x > x0/2)
-		pDC->TextOutA((m_disp_rect.left + x0) / 2 - sz.cx, (m_disp_rect.bottom + m_disp_rect.top) / 2, text);
-	else
-		pDC->TextOutA((x0 + m_disp_rect.right) / 2, (m_disp_rect.bottom + m_disp_rect.top) / 2, text); 
+		int x0 = (m_disp_rect.left + m_disp_rect.right) / 2;
+		if (pt1.x > x0 / 2)
+			pDC->TextOutA((m_disp_rect.left + x0) / 2 - sz.cx, (m_disp_rect.bottom + m_disp_rect.top) / 2, text);
+		else
+			pDC->TextOutA((x0 + m_disp_rect.right) / 2, (m_disp_rect.bottom + m_disp_rect.top) / 2, text);
+	}
 
 	// draw a vertical line at the weld centre
 	// the values are in (mm) not laser pixels
@@ -597,15 +634,15 @@ void CStaticLaser::DrawLaserProfile(CDC* pDC)
 	pDC->MoveTo(pt.x, m_disp_rect.bottom);
 	pDC->LineTo(pt.x, m_disp_rect.top);
 
-	CPoint pt11 = GetScreenPixel((double)(measure2.weld_left_pix+shift) / 2, measure2.GetDnSideStartHeight());
-	CPoint pt12 = GetScreenPixel((double)(measure2.weld_left_pix+shift), measure2.GetDnSideWeldHeight());
+	CPoint pt11 = GetScreenPixel((double)((double)measure2.weld_left_pix+ (double)shift) / 2.0, measure2.GetDnSideStartHeight());
+	CPoint pt12 = GetScreenPixel((double)((double)measure2.weld_left_pix+ (double)shift), measure2.GetDnSideWeldHeight());
 	CPen PenPrimaryEdge(PS_SOLID, 1, RGB(10, 10, 250));
 	pDC->SelectObject(&PenPrimaryEdge);
 	pDC->MoveTo(pt11.x, pt11.y);
 	pDC->LineTo(pt12.x, pt12.y);
 
-	CPoint pt21 = GetScreenPixel((double)(measure2.weld_right_pix+shift), measure2.GetUpSideWeldHeight());
-	CPoint pt22 = GetScreenPixel((double)(measure2.weld_right_pix+shift + SENSOR_WIDTH) / 2, measure2.GetUpSideEndHeight());
+	CPoint pt21 = GetScreenPixel((double)((double)measure2.weld_right_pix+ (double)shift), measure2.GetUpSideWeldHeight());
+	CPoint pt22 = GetScreenPixel((double)((double)measure2.weld_right_pix+ (double)shift + SENSOR_WIDTH) / 2.0, measure2.GetUpSideEndHeight());
 	pDC->MoveTo(pt21.x, pt21.y);
 	pDC->LineTo(pt22.x, pt22.y);
 }
@@ -750,6 +787,20 @@ void CStaticLaser::GetLaserProfile()
 	}
 }
 
+void CStaticLaser::OnMouseMove(UINT nFlags, CPoint pt)
+{
+	CWnd::OnMouseMove(nFlags, pt);
+#ifdef _DEBUG_TIMING_
+	if (nFlags & MK_LBUTTON)
+		SetCrawlerLocation(pt);
+#endif
+}
+void CStaticLaser::OnLButtonDown(UINT nFlags, CPoint pt)
+{
+	CWnd::OnLButtonDown(nFlags, pt);
+}
+
+
 // show a popup menu
 void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 {
@@ -763,12 +814,6 @@ void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 	MENUITEMINFO mii;
 	mii.cbSize = sizeof(MENUITEMINFO);
 	mii.fMask = MIIM_STATE;
-
-
-	mii.fState = MFS_DEFAULT;
-	if (m_motionControl.AreMotorsRunning())
-		mii.fState |= MFS_DISABLED;
-	pPopup->GetMenuItemInfoA(ID_POPUP_SETLOCATION, &mii, FALSE);
 
 	mii.fState = MFS_DEFAULT;	
 	mii.fType |= MFT_RADIOCHECK;
@@ -799,9 +844,6 @@ void CStaticLaser::OnMenu(UINT nID)
 {
 	switch (nID)
 	{
-	case ID_POPUP_SETLOCATION:
-		SetCrawlerLocation(m_ptMouse);
-		break;
 	case ID_POPUP_TOGGLELASER:
 	{
 		BOOL bRunning = m_motionControl.AreMotorsRunning();

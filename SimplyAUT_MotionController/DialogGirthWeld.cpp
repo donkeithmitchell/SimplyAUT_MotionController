@@ -35,7 +35,7 @@ static clock_t g_NoteRGBTime = 0;
 static int g_NoteRGBCount = 0;
 static clock_t g_GetSlewSpeedTime = 0;
 static int g_GetSlewSpeedCount = 0;
-static clock_t g_NoteIfMotorsRunningTime = 0;
+//static clock_t g_NoteIfMotorsRunningTime = 0;
 static int g_NoteIfMotorsRunningCount =0;
 
 static FILE* g_fp1 = NULL;
@@ -80,7 +80,7 @@ static UINT ThreadAbortScan(LPVOID param)
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, GALIL_STATE& nState, NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, int& nState, NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
@@ -338,7 +338,7 @@ BOOL CDialogGirthWeld::OnInitDialog()
 	SetTimer(TIMER_LASER_TEMPERATURE, TIMER_LASER_TEMPERATURE_INTERVAL, NULL); // note the laser temperature every 500 ms if the laser is on
 	SetTimer(TIMER_RGB_STATUS, TIMER_RGB_STATUS_INTERVAL, NULL); // this only uses the saved status in the MAG controller
 	SetTimer(TIMER_NOTE_RGB, TIMER_NOTE_RGB_INTERVAL, NULL); // if not navigating, this notes the RGB value, each read of the register takes about 200 ms. If seeking a line, this must be as fast as poossible
-	SetTimer(TIMER_ARE_MOTORS_RUNNING, TIMER_ARE_MOTORS_RUNNING_INTERVAL, NULL); // threads can not talk to the motor controller directly, so get main thread to note
+//	SetTimer(TIMER_ARE_MOTORS_RUNNING, TIMER_ARE_MOTORS_RUNNING_INTERVAL, NULL); // threads can not talk to the motor controller directly, so get main thread to note
 
 	// try to get the laser profile every 1 mm
 	int delay = max((int)(TIMER_GET_LASER_PROFILE_INTERVAL/*mm*/ * 1000.0 / m_fMotorScanSpeed + 0.5), 1);
@@ -346,6 +346,8 @@ BOOL CDialogGirthWeld::OnInitDialog()
 
 	PostMessage(WM_SIZE);
 
+	UpdateData(FALSE);
+	UpdateData(TRUE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -488,9 +490,9 @@ void CDialogGirthWeld::OnTimer(UINT_PTR nIDEvent)
 		GetLaserProfile();
 		break;
 
-	case TIMER_ARE_MOTORS_RUNNING:
-		NoteIfMotorsRunning();
-		break;
+//	case TIMER_ARE_MOTORS_RUNNING:
+//		NoteIfMotorsRunning();
+//		break;
 
 	case TIMER_RUN_TIME:
 		NoteRunTime();
@@ -575,7 +577,7 @@ void CDialogGirthWeld::NoteRunTime()
 }
 
 // let the main thread check every 1200 ms if the motorts are running and sdave to a BOOL that all threads can look at
-void CDialogGirthWeld::NoteIfMotorsRunning()
+/*void CDialogGirthWeld::NoteIfMotorsRunning()
 {
 	clock_t t1 = clock();
 	m_motionControl.NoteIfMotorsRunning();
@@ -583,7 +585,7 @@ void CDialogGirthWeld::NoteIfMotorsRunning()
 	g_NoteIfMotorsRunningTime += clock() - t1;
 	g_NoteIfMotorsRunningCount++;
 #endif
-}
+}*/
 
 // get the current laser profile and sdave to a membger variable of the laser control;
 void CDialogGirthWeld::GetLaserProfile()
@@ -699,9 +701,13 @@ void CDialogGirthWeld::ShowLaserStatus()
 	clock_t t1 = clock();
 	HBITMAP hBitmap = NULL;
 
+	if (!IsWindowVisible())
+		return;
+
 	static unsigned short LaserStatus1 = -1;
 	SensorStatus SensorStatus;
-	BOOL ret = m_laserControl.GetLaserStatus(SensorStatus);
+	BOOL bConnected = m_laserControl.IsConnected();
+	BOOL ret = bConnected ? m_laserControl.GetLaserStatus(SensorStatus) : FALSE;
 
 	if (!ret || SensorStatus.LaserStatus != LaserStatus1 )
 	{
@@ -723,7 +729,7 @@ void CDialogGirthWeld::ShowLaserStatus()
 		if (hBitmap)
 			m_buttonLaserStatus.SetBitmap(hBitmap);
 
-		LaserStatus1 = SensorStatus.LaserStatus;
+		LaserStatus1 = bConnected ? SensorStatus.LaserStatus : -1;
 	}
 
 	// note the 'X' location of the weld
@@ -837,8 +843,17 @@ void CDialogGirthWeld::NoteRGBSum()
 // the status is in a status buffer, and does not require a read at this point
 void CDialogGirthWeld::ShowRGBStatus()
 {
-	// the status here does not require a read
 	clock_t t1 = clock();
+
+	static int nMagOn1 = -1;
+	int nMagOn2 = m_magControl.GetMagStatus(MAG_IND_MAG_ON);
+	if (nMagOn2 != nMagOn1)
+	{
+		nMagOn1 = nMagOn2;
+		m_staticLaser.InvalidateRgn(NULL);
+	}
+
+	// the status here does not require a read
 	int bPresent = m_magControl.GetMagStatus(MAG_IND_RGB_LINE) == 1;
 	m_szRGBLinePresent.Format(bPresent ? _T("Present") : _T(""));
 
@@ -1090,7 +1105,7 @@ void CDialogGirthWeld::SendDebugMessage(const CString& msg)
 void CDialogGirthWeld::SendErrorMessage(const char* msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG, (WPARAM)msg);
+		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG1, (WPARAM)msg);
 }
 
 // enable/disable and set bitmap
@@ -1184,7 +1199,7 @@ void CDialogGirthWeld::OnClickedButtonPause()
 		// asking motors to stop will cause existing thread to end
 		m_bResumeScan = FALSE; // set before stopping, so noted in the thread
 		m_motionControl.StopMotors(TRUE); // this is main thread so call directly
-		m_laserControl.TurnLaserOn(FALSE); // if stopped turn off laser, can always turn on manually
+//		m_laserControl.TurnLaserOn(FALSE); // if stopped turn off laser, can always turn on manually
 		SetButtonBitmaps(); // enable/disable controls as well as setr bitmaps
 	}
 	// resume the motors
@@ -1295,6 +1310,11 @@ void CDialogGirthWeld::StartReadMagStatus(BOOL bSet)
 		m_pParent->SendMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_MAG_STATUS_ON, bSet);
 }
 
+void CDialogGirthWeld::WaitForNavigationToStop()
+{
+	m_weldNavigation.StopSteeringMotors();
+}
+
 // this starts the navigation 
 // nSteer: (0x1) start therasd to note the laser measures by unit position (0x2) start thread to navigate 
 // start_pos: will request to go to a position pas the thend point, 
@@ -1334,7 +1354,7 @@ void CDialogGirthWeld::StartNavigation(int nSteer, int start_pos, int end_pos, d
 		g_NoteRGBCount = 0;
 		g_GetSlewSpeedTime = 0;
 		g_GetSlewSpeedCount = 0;
-		g_NoteIfMotorsRunningTime = 0;
+//		g_NoteIfMotorsRunningTime = 0;
 		g_NoteIfMotorsRunningCount = 0;
 		g_ThreadReadSocketTime = 0;
 		g_ThreadReadSocketCount = 0;
@@ -1389,8 +1409,8 @@ void CDialogGirthWeld::StartNavigation(int nSteer, int start_pos, int end_pos, d
 		SendDebugMessage(text);
 		text.Format("GetSlewSpeed: %.1f (%d)", g_GetSlewSpeedCount ? (double)g_GetSlewSpeedTime / g_GetSlewSpeedCount : 0, g_GetSlewSpeedTime);
 		SendDebugMessage(text);
-		text.Format("NoteIfMotorsRunning: %.1f (%d)", g_NoteIfMotorsRunningCount ? (double)g_NoteIfMotorsRunningTime / g_NoteIfMotorsRunningCount : 0, g_NoteIfMotorsRunningTime);
-		SendDebugMessage(text);
+//		text.Format("NoteIfMotorsRunning: %.1f (%d)", g_NoteIfMotorsRunningCount ? (double)g_NoteIfMotorsRunningTime / g_NoteIfMotorsRunningCount : 0, g_NoteIfMotorsRunningTime);
+//		SendDebugMessage(text);
 		text.Format("ThreadReadSocket: %.1f ms (%d)", g_ThreadReadSocketCount ? (double)g_ThreadReadSocketTime / g_ThreadReadSocketCount : 0, g_ThreadReadSocketTime);
 		SendDebugMessage(text);
 
@@ -1694,14 +1714,15 @@ BOOL CDialogGirthWeld::WaitForMotorsToStop()
 BOOL CDialogGirthWeld::WaitForMotorsToStart()
 {
 	Sleep(100);
-	for (int i = 0; i < 500 && !AreMotorsRunning(); ++i)
+	for (int i = 0; i < 500 && !m_bAborted && !AreMotorsRunning(); ++i)
 		Sleep(10);
 
 	// return if the motors acutally started, or if timed out
-	if (m_motionControl.AreTheMotorsRunning())
+	if (AreMotorsRunning())
 		return TRUE;
 
 	SendErrorMessage("Motors did not Start");
+	m_bAborted = TRUE;
 	return FALSE;
 }
 // this uses a noted parameter in the motion controller
@@ -1870,7 +1891,7 @@ BOOL CDialogGirthWeld::CalibrateCircumference()
 		return FALSE;
 
 	// while the motors are running, check if nearing the staret line again
-	for (int i = 0; m_motionControl.AreTheMotorsRunning() && !m_bAborted; ++i)
+	for (int i = 0; AreMotorsRunning() && !m_bAborted; ++i)
 	{
 		Sleep(1); // avoid tight loop
 		// close to the stop line
@@ -1977,8 +1998,10 @@ BOOL CDialogGirthWeld::SeekStartLine()
 	// as navigating to the weld, give a buffer to the end position
 	Sleep(100);
 	GoToPosition(end_pos + GetAccelDistance());
-	if (WaitForMotorsToStart())
-		WaitForMotorsToStop();
+	if (!WaitForMotorsToStart())
+		return FALSE;
+
+	WaitForMotorsToStop();
 
 	// check if aborted the run, or unable to find a start line
 	if (m_bAborted || !m_magControl.CalculateRGBCalibration(m_bSeekWithLaser, m_bSeekBlackLine))
@@ -2010,8 +2033,10 @@ BOOL CDialogGirthWeld::SeekStartLine()
 	// show the position on the graph
 	// don't navigate during this move as nbackwards navigation is not yet working 911
 	GoToPosition(pos2);
-	if (WaitForMotorsToStart())
-		WaitForMotorsToStop();
+	if (!WaitForMotorsToStart())
+		return FALSE;
+
+	WaitForMotorsToStop();
 	if (m_bAborted)
 		return FALSE;
 
@@ -2029,8 +2054,10 @@ BOOL CDialogGirthWeld::SeekStartLine()
 	if (!m_bCalibrate && m_bPredrive && m_fPredriveDistance > 0)
 	{
 		GoToPosition(-m_fPredriveDistance);
-		if (WaitForMotorsToStart())
-			WaitForMotorsToStop();
+		if (!WaitForMotorsToStart())
+			return FALSE;
+
+		WaitForMotorsToStop();
 	}
 
 	// the display is shown or hid in OnSize()
@@ -2120,10 +2147,13 @@ UINT CDialogGirthWeld::ThreadRunScan()
 	else if (m_bResumeScan)
 	{
 		GoToPosition(m_fDestinationPosition + GetDistanceToBuffer());
-		if (WaitForMotorsToStart())
-			WaitForMotorsToStop();
-		if (!m_bPaused)
+		if (!WaitForMotorsToStart() )
+		{
 			PostMessage(WM_USER_SCAN_FINISHED);
+			return 0L;
+		}
+		WaitForMotorsToStop();
+		PostMessage(WM_USER_SCAN_FINISHED);
 		return 0L;
 	}
 
@@ -2138,8 +2168,10 @@ UINT CDialogGirthWeld::ThreadRunScan()
 
 			// go to the home position and resewt the encoder
 			GoToPosition(0);
-			if (WaitForMotorsToStart())
-				WaitForMotorsToStop();
+			if (!WaitForMotorsToStart())
+				return ThreadRunScan();
+			
+			WaitForMotorsToStop();
 			if (m_bAborted)
 				return ThreadRunScan();
 
@@ -2155,8 +2187,10 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			if (m_bPredrive && m_fPredriveDistance)
 			{
 				GoToPosition(-m_fPredriveDistance);
-				if (WaitForMotorsToStart())
-					WaitForMotorsToStop();
+				if (!WaitForMotorsToStart())
+					return ThreadRunScan();
+
+				WaitForMotorsToStop();
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
@@ -2198,8 +2232,10 @@ UINT CDialogGirthWeld::ThreadRunScan()
 			if (m_bPredrive && m_fPredriveDistance > 0 && GetAvgMotorPosition() > -m_fPredriveDistance )
 			{
 				GoToPosition(pos - m_fPredriveDistance);
-				if (WaitForMotorsToStart())
-					WaitForMotorsToStop();
+				if (!WaitForMotorsToStart())
+					return ThreadRunScan();
+
+				WaitForMotorsToStop();
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
@@ -2224,8 +2260,10 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		GoToPosition(m_fDestinationPosition + GetDistanceToBuffer());
 		StartNavigation(0x3, from_mm, to_mm, m_fMotorScanSpeed);
 
-		if (WaitForMotorsToStart())
-			WaitForMotorsToStop();
+		if (!WaitForMotorsToStart())
+			return ThreadRunScan();
+		
+		WaitForMotorsToStop();
 		if (m_bAborted)
 			return ThreadRunScan();
 
@@ -2253,13 +2291,15 @@ UINT CDialogGirthWeld::ThreadRunScan()
 				SetSlewSpeed(m_fMotorScanSpeed / 2, m_fMotorScanAccel);
 				StartNavigation(0x3, start_pos, end_pos, m_fMotorScanSpeed / 2);
 				GoToPosition(m_fScanStartPos);
-				if (WaitForMotorsToStart())
-					WaitForMotorsToStop();
+				if (!WaitForMotorsToStart())
+					return ThreadRunScan();
+				
+				WaitForMotorsToStop();
 				if (m_bAborted)
 					return ThreadRunScan();
 			}
-			PostMessage(WM_USER_SCAN_FINISHED);
 		}
+		PostMessage(WM_USER_SCAN_FINISHED);
 	}
 
 	return 0L;
@@ -2560,6 +2600,7 @@ void CDialogGirthWeld::OnClickedButtonZeroHome()
 	m_magControl.ResetEncoderCount();
 	ShowMotorPosition();
 	SetButtonBitmaps();
+	m_staticLaser.InvalidateRgn(NULL);
 
 	UpdateData(FALSE);
 }
@@ -2581,7 +2622,7 @@ BOOL CDialogGirthWeld::CheckParameters()
 
 // when scanning or aborting a scan, double check
 // likewise on the return to home
-BOOL CDialogGirthWeld::CheckIfToRunOrStop(GALIL_STATE nState)
+BOOL CDialogGirthWeld::CheckIfToRunOrStop(int nState)
 {
 	int ret = IDOK;
 	switch (m_nGalilState)
@@ -2592,10 +2633,16 @@ BOOL CDialogGirthWeld::CheckIfToRunOrStop(GALIL_STATE nState)
 		switch (nState)
 		{
 		case GALIL_SCAN:
-			ret = AfxMessageBox(_T("Begin Scan"), MB_OKCANCEL);
+		{
+			double pos = m_motionControl.GetAvgMotorPosition();
+			if ((int)pos != 0 && !m_bSeekAndStartAtLine && !m_bStartScanAtHomePos && !m_bCalibrate)
+				ret = AfxMessageBox(_T("Begin Scan\nWarning: Currently not at Home Position"), MB_OKCANCEL);
+			else
+				ret = IDOK; //  AfxMessageBox(_T("Begin Scan"), MB_OKCANCEL);
 			break;
+		}
 		case GALIL_GOHOME:
-			ret = AfxMessageBox(_T("Return to Home"), MB_OKCANCEL);
+			ret = IDOK; //  AfxMessageBox(_T("Return to Home"), MB_OKCANCEL);
 			break;
 		}
 		break;

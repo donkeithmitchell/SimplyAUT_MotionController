@@ -64,7 +64,7 @@ CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nu
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
 	m_bCheck = FALSE;
-	m_nSel = 0;
+	m_nSel = TAB_CONNECT;
 	m_galil_state = GALIL_IDLE;
 
 	m_motionControl.Init(this, WM_DEGUG_MSG);
@@ -91,6 +91,7 @@ void CSimplyAUTMotionControllerDlg::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CSimplyAUTMotionControllerDlg, CDialogEx)
+	ON_WM_DESTROY()
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
@@ -172,6 +173,11 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
+void CSimplyAUTMotionControllerDlg::OnDestroy()
+{
+	CDialogEx::OnDestroy();
+}
+
 // will turn this off while navigating
 void CSimplyAUTMotionControllerDlg::StartReadMagStatus(BOOL bOn)
 {
@@ -210,21 +216,30 @@ void CSimplyAUTMotionControllerDlg::Serialize(BOOL bSave)
 
 	if (file1.Open(path, bSave ? CFile::modeCreate | CFile::modeWrite : CFile::modeRead))
 	{
-		CArchive ar(&file1, bSave ? CArchive::store : CArchive::load, 512, szBuff);
+		CArchive ar(&file1, (bSave ? CArchive::store : CArchive::load), 512, szBuff);
 		Serialize(ar);
 	}
 }
 
 void CSimplyAUTMotionControllerDlg::OnOK()
 {
-	Serialize(TRUE);
-	EndDialog(IDOK);
 }
 
 void CSimplyAUTMotionControllerDlg::OnCancel()
 {
-	Serialize(TRUE);
-	EndDialog(IDCANCEL);
+	// check if the motors are running
+	if (m_motionControl.IsConnected() && m_motionControl.AreMotorsRunning())
+		AppendErrorMessage("Can't Close While Motors Running", 0);
+	else if (m_galil_state != GALIL_IDLE)
+		AppendErrorMessage("Can't Close While Paused", 0);
+	else
+	{
+		// check that the steering thread is still not active
+		m_dlgGirthWeld.WaitForNavigationToStop();
+
+		Serialize(TRUE);
+		EndDialog(IDCANCEL);
+	}
 }
 
 void CSimplyAUTMotionControllerDlg::Serialize(CArchive& ar)
@@ -251,10 +266,12 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 			m_dlgStatus.AppendDebugMessage(*pMsg);
 			break;
 		}
-		case MSG_ERROR_MSG: // receivbing address to a CString
+		case MSG_ERROR_MSG1: // receivbing address to a CString
+		case MSG_ERROR_MSG2: // receivbing address to a CString
 		{
 			const char* str = (char*)lParam;
-			AppendErrorMessage(str);
+			int action = (int)lParam;
+			AppendErrorMessage(str, (wParam == 0) ? 0 : -1);
 			break;
 		}
 		case MSG_SETBITMAPS: // enable the various controlds
@@ -404,6 +421,9 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pRes
 
 BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 {
+	int sel = m_tabControl.GetCurSel();
+	if (sel != TAB_CONNECT && !m_motionControl.IsConnected() && AfxMessageBox("Not Connected", MB_OKCANCEL) != IDOK)
+		return FALSE;
 	switch (m_nSel)
 	{
 	case TAB_CONNECT: return m_dlgConnect.CheckVisibleTab();
@@ -461,12 +481,19 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab2()
 // if this error message is the same as the previous one, do not add again
 // if pass NULL, then remove any noted errors
 // add the latest error message to the start, so on tiop
-void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const char* szMsg)
+void CSimplyAUTMotionControllerDlg::AppendErrorMessage(const char* szMsg, int action)
 {
 	UpdateData(TRUE);
 	if (szMsg == NULL)
 	{
 		m_szErrorMsg = _T("");
+		UpdateData(FALSE);
+	}
+	// check if the message already exiasts, and remove it
+	else if (action == -1)
+	{
+		CString temp = m_szErrorMsg + _T("\r\n");
+		m_szErrorMsg.Replace(temp, "");
 		UpdateData(FALSE);
 	}
 	else

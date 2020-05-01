@@ -16,13 +16,13 @@ class CDialogGirthWeld : public CDialogEx
 	DECLARE_DYNAMIC(CDialogGirthWeld)
 
 public:
-	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, GALIL_STATE& nState, NAVIGATION_PID& pid, CWnd* pParent = nullptr);   // standard constructor
+	CDialogGirthWeld(CMotionControl&, CLaserControl&, CMagControl&, int& nState, NAVIGATION_PID& pid, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogGirthWeld();
 
 	virtual BOOL OnInitDialog();
 	void	Create(CWnd* pParent);
 	void	SetButtonBitmaps();
-	BOOL	CheckIfToRunOrStop(GALIL_STATE);
+	BOOL	CheckIfToRunOrStop(int);
 	BOOL	CheckParameters();
 //	void    SetLaserStatus(LASER_STATUS nStatus);
 	void	EnableControls();
@@ -46,7 +46,7 @@ public:
 	void    StartReadMagStatus(BOOL);
 	void    StartMeasuringLaser(BOOL);
 	void    GetLaserProfile();
-	void	NoteIfMotorsRunning();
+//	void	NoteIfMotorsRunning();
 	BOOL	SetSlewSpeed(double fSpeed, double fAccel);
 	BOOL	SetSlewSpeed(const double fSpeed[4]);
 	double  GetSlewSpeed(const char* axis);
@@ -82,13 +82,14 @@ public:
 	void    ResetParameters();
 	void	EnableMagSwitchControl(BOOL bEnableMAG);
 	LRESULT OnUserFinished(CWinThread**);
+	void    WaitForNavigationToStop();
 
 	enum { WM_USER_SCAN_FINISHED= WM_USER+1, WM_USER_ABORT_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK, WM_ARE_MOTORS_RUNNING
 	};
 	enum { MC_SET_SLEW_SPEED_ACCEL = 0, MC_SET_SLEW_SPEED4, MC_GOTO_POSITION, MC_RESET_ENCODER, MC_DEFINE_POSITION, 
 		MC_GET_SLEW_SPEED, MC_GET_RGB_SUM, MC_STOP_MOTORS, MC_GET_AVG_POS, MC_GET_ENC_DIST, MC_GOTO_POSITION2, MC_MOTOR_JOGGING};
 	enum TIMER_GW { TIMER_SHOW_MOTOR_SPEEDS = 0, TIMER_LASER_TEMPERATURE, TIMER_LASER_STATUS1, TIMER_RGB_STATUS, TIMER_RUN_TIME, 
-		TIMER_NOTE_RGB, TIMER_GET_LASER_PROFILE, TIMER_ARE_MOTORS_RUNNING, TIMER_NOTE_CALIBRATION	};
+		TIMER_NOTE_RGB, TIMER_GET_LASER_PROFILE, /*TIMER_ARE_MOTORS_RUNNING, */TIMER_NOTE_CALIBRATION	};
 	enum { STATUS_GETLOCATION=0, STATUS_SHOWLASERSTATUS};
 	enum{ NAVIGATE_SEND_DEBUG_MSG=0, NAVIGATE_SET_MOTOR_SPEED, NAVIGATE_SET_MOTOR_DECEL, NAVIGATE_STOP_MOTORS, NAVIGATE_LR_DIFFEENCE, NAVIGATE_GET_AVG_SPEED
 	};
@@ -104,13 +105,13 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 public:
-	GALIL_STATE&	m_nGalilState;
+	int&	m_nGalilState;
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
 	CMagControl&	m_magControl;
 	CWinThread*		m_pThreadScan;
 	CWinThread*		m_pThreadAbort;
-	GALIL_STATE		m_nGaililStateBackup;
+	int		m_nGaililStateBackup;
 	CWeldNavigation m_weldNavigation;
 
 	UINT	m_nMsg;

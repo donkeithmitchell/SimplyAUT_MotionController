@@ -85,7 +85,7 @@
 #define TIMER_LASER_TEMPERATURE_INTERVAL	500
 #define TIMER_RGB_STATUS_INTERVAL			250
 #define TIMER_NOTE_RGB_INTERVAL				500 // ms takes about 200 ms, so can not call too often (911)
-#define TIMER_ARE_MOTORS_RUNNING_INTERVAL	100	// the main thread checks if the motors are running to a variable that all threads can look at
+//#define TIMER_ARE_MOTORS_RUNNING_INTERVAL	100	// the main thread checks if the motors are running to a variable that all threads can look at
 
 #define LASER_SERIAL_NUMBER					10357 // as noted on the body of the laser, not used so does not matter if correct
 

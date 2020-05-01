@@ -54,7 +54,8 @@ public:
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE, TIMER_PLAYSOUND};
 	enum{ WM_USER_PLAY_FINISHEFD  = WM_USER+1};
 
-	double	m_fHomeAng;
+	double			m_fHomeAng;
+	double			m_fHomeAngDiff;
 	const double&	m_fScanLength;
 
 	CDoublePoint    m_joint_pos;
@@ -91,6 +92,8 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	afx_msg void OnPaint();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint pt);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint pt);
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint pt);
 	afx_msg void OnMenu(UINT nID);

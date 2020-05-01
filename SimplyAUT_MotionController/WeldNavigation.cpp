@@ -280,7 +280,7 @@ static BOOL GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, doubl
 
 
 	// check if have minimum length of data (10 mm) to get a filtered value
-	if (fabs(g_X[0] - g_X[count - 1]) < (double)nMinWidth)
+	if (count > 0 && fabs(g_X[0] - g_X[count - 1]) < (double)nMinWidth)
 		return FALSE;
 
 	// outliers can corrupt the model
@@ -427,7 +427,7 @@ LASER_POS CWeldNavigation::GetLastNotedPosition(int ago_mm)
 			double pos2 = m_listLaserPositions[nSize - 1].measures.measure_pos_mm; // want the one that is at least ago_mm prior to this
 			for (int i = nSize - 1; i >= 0; --i)
 			{
-				if (direction *(pos2 - m_listLaserPositions[i].measures.measure_pos_mm) > direction*ago_mm)
+				if (direction *(pos2 - m_listLaserPositions[i].measures.measure_pos_mm) > (double)direction* (double)ago_mm)
 				{
 					ret = m_listLaserPositions[i];
 					break;
@@ -645,7 +645,7 @@ static void InterpolateVector(const CArray<double,double>& X, const CArray<doubl
 	{
 		// get the 1st and last value within 10 mm of (pos), these may be before start or afgter end
 		int i1, i2;
-		for (i1 = 0; i1 < nSize && X[i1] < pos-10L; ++i1);
+		for (i1 = 0; i1 < nSize && X[i1] < (double)pos-10.0; ++i1);
 		for (i2 = nSize - 1; i2 >= 0 && i2 > pos+10L; --i2); 
 
 		// want at least 3 values so can use 2nd order model
@@ -1251,7 +1251,7 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 		// have programmed the motors to travel further than desired
 		// thus issue a stop in this case
 		// that way nall the mnotors will stop at the sazme exact time
-		if (direction*pos0.measures.measure_pos_mm >= direction*m_nEndPos)
+		if ((double)direction*pos0.measures.measure_pos_mm >= (double)direction* (double)m_nEndPos)
 		{
 			SetMotorDeceleration(2 * m_fMotorAccel);
 			StopMotors(TRUE);
