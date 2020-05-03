@@ -113,6 +113,7 @@ private:
 	FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 	double LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 	void   CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out);
+	double AccumulateError(int distance);
 
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;

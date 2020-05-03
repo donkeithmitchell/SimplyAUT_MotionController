@@ -1165,6 +1165,44 @@ double CWeldNavigation::CalculateTurnRate(double steering)const
 	return dir*rate;
 }
 
+// nominally use either the entire length or 1/2 the crawler length (115 mm)
+double CWeldNavigation::AccumulateError(int accum_dist)
+{
+	m_crit1.Lock();
+	int nSize = m_listLaserPositions.GetSize();
+
+	double sum = 0;
+	LASER_POS ret1;
+	double pos2 = FLT_MAX;
+	for (int i = nSize - 1; i >= 0; --i)
+	{
+		const LASER_POS& ret2 = m_listLaserPositions[i];
+		if (ret2.measures.measure_pos_mm == FLT_MAX || ret2.gap_filt == FLT_MAX )
+			continue;
+
+		if (pos2 == FLT_MAX )
+			pos2 = ret2.measures.measure_pos_mm;
+
+		if (ret1.gap_filt != FLT_MAX)
+		{
+			double dt = ((double)ret2.time_noted - (double)ret1.time_noted) / 1000.0; // seconds
+			sum += (ret2.gap_filt * dt) + (ret2.gap_filt - ret1.gap_filt) / 2 * dt;
+		}
+
+		// break on the first time pass the desired distance
+		// include the 1st measure past the desired asccumlate distance
+		if (ret2.measures.measure_pos_mm - ret1.measures.measure_pos_mm > accum_dist)
+			break;
+
+		ret1 = ret2;
+	}
+	m_crit1.Unlock();
+	return sum;
+
+}
+
+
+
 // P: note the current weld cap offset
 // I: sum of the weld cap offset values
 //    (could also be a sum of the difference of (now - 25 mm ago) )
@@ -1190,12 +1228,7 @@ double CWeldNavigation::GetPIDSteering()
 
 	// I_err_delay if set, w0uld nominally be asomething linke 25 mm
 	if (m_pid.Ki != 0 && m_pid.I_accumulate > 0)
-	{
-		LASER_POS pos25 = GetLastNotedPosition(m_pid.I_accumulate);
-		double dt25 = ((double)pos0.time_noted - (double)pos25.time_noted) / 1000.0;
-		if (pos25.gap_filt != FLT_MAX)
-			m_i_error += (this_gap - pos25.gap_filt);
-	}
+		m_i_error = AccumulateError(m_pid.I_accumulate);
 	else
 	{
 		// as with m_d_error, calculate the integral based on time travelled (sec)
