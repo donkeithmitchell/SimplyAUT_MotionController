@@ -249,6 +249,9 @@ BOOL CMotionControl::WaitForMotorsToStop()
     double fSC = FLT_MAX;
     double fSD = FLT_MAX;
 
+    if (!IsConnected())
+        return TRUE;
+
     // must bet motor stopped for at least 10 ms
     int count = 0;
     while (count < 4)
