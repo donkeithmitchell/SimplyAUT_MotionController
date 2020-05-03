@@ -214,11 +214,15 @@ void CSimplyAUTMotionControllerDlg::Serialize(BOOL bSave)
 	CString path;
 	path.Format("%s\\SimplyAUTFiles\\Serialize.txt", my_documents);
 
+	if (bSave && PathFileExists(path) )
+		SetFileAttributesA(path, FILE_ATTRIBUTE_NORMAL);
+
 	if (file1.Open(path, bSave ? CFile::modeCreate | CFile::modeWrite : CFile::modeRead))
 	{
 		CArchive ar(&file1, (bSave ? CArchive::store : CArchive::load), 512, szBuff);
 		Serialize(ar);
 	}
+	SetFileAttributesA(path, FILE_ATTRIBUTE_HIDDEN| FILE_ATTRIBUTE_READONLY);
 }
 
 void CSimplyAUTMotionControllerDlg::OnOK()
@@ -270,8 +274,8 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 		case MSG_ERROR_MSG2: // receivbing address to a CString
 		{
 			const char* str = (char*)lParam;
-			int action = (int)lParam;
-			AppendErrorMessage(str, (wParam == 0) ? 0 : -1);
+			int action = (int)(wParam == MSG_ERROR_MSG1) ? 0 : -1;
+			AppendErrorMessage(str, action);
 			break;
 		}
 		case MSG_SETBITMAPS: // enable the various controlds
@@ -422,7 +426,7 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pRes
 BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 {
 	int sel = m_tabControl.GetCurSel();
-	if (sel != TAB_CONNECT && !m_motionControl.IsConnected() && AfxMessageBox("Not Connected", MB_OKCANCEL) != IDOK)
+	if (m_nSel == TAB_CONNECT && sel != TAB_CONNECT && !m_motionControl.IsConnected() && AfxMessageBox("Not Connected", MB_OKCANCEL) != IDOK)
 		return FALSE;
 	switch (m_nSel)
 	{

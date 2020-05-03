@@ -8,22 +8,25 @@ struct NAVIGATION_PID
 {
 	NAVIGATION_PID() { Reset(); }
 	void Reset() {
-		P = NAVIGATION_P; I = NAVIGATION_I; D = NAVIGATION_D; D_LEN = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT;
-		turn_dist = NAVIGATION_TURN_DIST; nav_type = 0; max_turn = MAX_TURN_RATE; Tu = 0; Tu_Phase = 0;	Tu_srate = 0;}
+		memset(this, 0x0, sizeof(NAVIGATION_PID));
+		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT;
+		turn_dist = NAVIGATION_TURN_DIST; max_turn = MAX_TURN_RATE; I_accumulate = NAVIGATION_I_ACCUMULATE;	}
 
 	CArray<double, double> data;
-	double P;
-	double I;
-	double D;
+	double Kp;
+	double Ki;
+	double Kd;
 	double pivot;
 	double max_turn;
 	double turn_dist;
 	double Tu_Phase;
 	double Tu_srate;
+	double PID_rms;
+	double dummy8[16 - 9];
 	int Tu;
 	int nav_type;
-	int D_LEN;
-	int dummy4;
+	int D_length; 
+	int I_accumulate;
 };
 
 struct FILTER_RESULTS
@@ -32,10 +35,9 @@ struct FILTER_RESULTS
 
 	double gap_filt;
 	double vel_raw;
-	double slope10;
 	double gap_predict;
 	double pos_predict;
-	double dummy8[8 - 5];
+	double dummy8[8 - 4];
 };
 
 struct LASER_POS
@@ -55,8 +57,8 @@ struct LASER_POS
 	double  last_manoeuvre_pos;
 	double  gap_predict;
 	double  pos_predict;
-	double  slope10;
-	double dummy81[16 - 12];
+	double  diff_slope;
+	double dummy8[16 - 12];
 	clock_t time_noted;	// time that measure taken (ms)
 	clock_t dummy82[2 - 1];
 };
@@ -109,6 +111,7 @@ private:
 	FILE*	OpenNextFile(const char* szFile);
 	double	CalculateTurnRate(double steering)const;
 	FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
+	double LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 	void   CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out);
 
 	CMotionControl& m_motionControl;

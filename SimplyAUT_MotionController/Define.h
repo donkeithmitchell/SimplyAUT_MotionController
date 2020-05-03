@@ -41,10 +41,11 @@
 #define MIN_TURN_RATE               0.99 // the unit turns by varying L/R wheel speeds
 #define MAX_TURN_RATE               0.70// the greater the variance, the greater the slip, the slower, the long it takes to navigate
 #define NAVIGATION_P_OSCILLATE		2.0
-#define NAVIGATION_P				0.9	// default constants for PID navigation
-#define NAVIGATION_I				0.000602 // ideally these would be modified during the cvalibration run
-#define NAVIGATION_D				0
+#define NAVIGATION_P				1.2	// default constants for PID navigation
+#define NAVIGATION_I				1.6 // ideally these would be modified during the cvalibration run
+#define NAVIGATION_D				0.225
 #define NAVIGATION_D_LEN            20
+#define NAVIGATION_I_ACCUMULATE		0
 #define NAVIGATION_PIVOT			0.5
 #define NAVIGATION_TURN_DIST		2.5 // mm
 

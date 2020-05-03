@@ -178,19 +178,23 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Radio(pDX, IDC_RADIO1, m_pid.nav_type);
 	DDX_Control(pDX, IDC_SPIN_TU, m_spinTu);
+	DDX_Text(pDX, IDC_STATIC_PID_RMS, m_pid.PID_rms);
 
-	DDX_Text(pDX, IDC_EDIT_NAV_P, m_pid.P);
+	DDX_Text(pDX, IDC_EDIT_NAV_P, m_pid.Kp);
 	if (m_bCheck)
-		DDV_MinMaxDouble(pDX, m_pid.P, 0.1, 100.0);
-	DDX_Text(pDX, IDC_EDIT_NAV_I, m_pid.I);
+		DDV_MinMaxDouble(pDX, m_pid.Kp, 0.1, 100.0);
+	DDX_Text(pDX, IDC_EDIT_NAV_I, m_pid.Ki);
 	if (m_bCheck)
-		DDV_MinMaxDouble(pDX, m_pid.I, 0, 100.0);
-	DDX_Text(pDX, IDC_EDIT_NAV_D, m_pid.D);
+		DDV_MinMaxDouble(pDX, m_pid.Ki, 0, 100.0);
+	DDX_Text(pDX, IDC_EDIT_NAV_I_ACCUM, m_pid.I_accumulate);
 	if (m_bCheck)
-		DDV_MinMaxDouble(pDX, m_pid.D, 0, 2000);
-	DDX_Text(pDX, IDC_EDIT_NAV_D_LEN, m_pid.D_LEN);
+		DDV_MinMaxDouble(pDX, m_pid.I_accumulate, 0, 1000.0);
+	DDX_Text(pDX, IDC_EDIT_NAV_D, m_pid.Kd);
 	if (m_bCheck)
-		DDV_MinMaxInt(pDX, m_pid.D_LEN, 5, 20);
+		DDV_MinMaxDouble(pDX, m_pid.Kd, 0, 2000);
+	DDX_Text(pDX, IDC_EDIT_NAV_D_LEN, m_pid.D_length);
+	if (m_bCheck)
+		DDV_MinMaxInt(pDX, m_pid.D_length, 5, 20);
 	DDX_Text(pDX, IDC_EDIT_NAV_PIVOT, m_pid.pivot);
 	if (m_bCheck)
 		DDV_MinMaxDouble(pDX, m_pid.pivot, 0.1, 0.9);
@@ -292,12 +296,13 @@ void	CDialogNavigation::Serialize(CArchive& ar)
 	{
 		UpdateData(TRUE);
 		ar << m_pid.nav_type;
-		ar << m_pid.P;
-		ar << m_pid.I;
-		ar << m_pid.D;
+		ar << m_pid.Kp;
+		ar << m_pid.Ki;
+		ar << m_pid.Kd;
 		ar << m_pid.max_turn;
 		ar << m_pid.pivot;
-		ar << m_pid.D_LEN;
+		ar << m_pid.D_length;
+		ar << m_pid.I_accumulate;
 		ar << m_pid.Tu;
 		ar << mask;
 	}
@@ -307,12 +312,13 @@ void	CDialogNavigation::Serialize(CArchive& ar)
 		try
 		{
 			ar >> m_pid.nav_type;
-			ar >> m_pid.P;
-			ar >> m_pid.I;
-			ar >> m_pid.D;
+			ar >> m_pid.Kp;
+			ar >> m_pid.Ki;
+			ar >> m_pid.Kd;
 			ar >> m_pid.max_turn;
 			ar >> m_pid.pivot;
-			ar >> m_pid.D_LEN;
+			ar >> m_pid.D_length;
+			ar >> m_pid.I_accumulate;
 			ar >> m_pid.Tu;
 			ar >> mask;
 		}
@@ -340,10 +346,10 @@ void CDialogNavigation::OnButtonCalcEnable()
 {
 	UpdateData(TRUE);
 
-	m_pid.Reset();
-	m_pid.P = NAVIGATION_P_OSCILLATE;
-	m_pid.I = 0.0;
-	m_pid.D = 0.0;
+//	m_pid.Reset();
+	m_pid.Kp = NAVIGATION_P_OSCILLATE;
+	m_pid.Ki = 0.0;
+	m_pid.Kd = 0.0;
 	UpdateData(FALSE);
 	EnableControls();
 }
@@ -360,9 +366,9 @@ void CDialogNavigation::OnButtonCalcPI()
 		double Ki = 0.54 * Ku / (m_pid.Tu / 1000.0);
 		double Kd = 0.0;
 
-		m_pid.P = Kp;
-		m_pid.I = Ki;
-		m_pid.D = Kd;
+		m_pid.Kp = Kp;
+		m_pid.Ki = Ki;
+		m_pid.Kd = Kd;
 	}
 	UpdateData(FALSE);
 }
@@ -378,9 +384,9 @@ void CDialogNavigation::OnButtonCalcPID()
 		double Ki = 1.20 * Ku / (m_pid.Tu / 1000.0);
 		double Kd = 3.0 * Ku * (m_pid.Tu / 1000.0) / 40.0;
 
-		m_pid.P = Kp;
-		m_pid.I = Ki;
-		m_pid.D = Kd;
+		m_pid.Kp = Kp;
+		m_pid.Ki = Ki;
+		m_pid.Kd = Kd;
 	}
 	UpdateData(FALSE);
 }

@@ -354,21 +354,25 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 		ret.vel_raw = FLT_MAX;
 	}
 
-
-	// now get the slope over the last 5 to 10 mm
-	// this is used for the (D) in the PID navigation
-	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
-	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_RAW_GAP |SOURCE_BY_TIME/*source*/, m_pid.D_LEN, m_pid.D_LEN))
-		ret.slope10 = coeff[1]; // mm per mm
-	else
-		ret.slope10 = FLT_MAX;
-
 #ifdef _DEBUG_TIMING_
 	g_LowPassFilterGapTime += clock() - t1;
 	g_LowPassFilterGapCount++;
 #endif
 
 	return ret;
+}
+
+double CWeldNavigation::LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction)
+{
+	double coeff[4];
+
+	// now get the slope over the last 5 to 10 mm
+	// this is used for the (D) in the PID navigation
+	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
+	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_FILT_GAP | SOURCE_BY_TIME/*source*/, m_pid.D_length, m_pid.D_length))
+		return coeff[1]; // mm per mm
+	else
+		return FLT_MAX;
 }
 
 // this is only used in _DEBUG
@@ -593,7 +597,13 @@ BOOL CWeldNavigation::NoteNextLaserPosition()
 	if (m_listLaserPositions[nSize - 1].gap_filt == FLT_MAX)
 		m_listLaserPositions[nSize - 1].gap_filt = m_listLaserPositions[nSize - 1].gap_raw;
 
-	m_listLaserPositions[nSize - 1].slope10		= ret.slope10; // the slope (mm/mm) of ther last 10 mm, used for (D) in PID navigation
+
+	// now get the slope over the last 5 to 10 mm
+	// this is used for the (D) in the PID navigation
+	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
+	// calculate the slope based on time (sec) not distance (mm)
+	m_listLaserPositions[nSize - 1].diff_slope = LowPassFilterDiff(m_listLaserPositions, last_manoeuvre_pos, direction);
+
 	m_listLaserPositions[nSize - 1].time_noted	= clock(); // niote wshen this position was, used to calculate velocities
 	m_listLaserPositions[nSize - 1].measures.measure_pos_mm	= motor_pos;
 	m_listLaserPositions[nSize - 1].last_manoeuvre_pos		= last_manoeuvre_pos;
@@ -756,7 +766,8 @@ BOOL CWeldNavigation::WriteTestFile()
 		return FALSE;
 
 #define NUM_VECTORS 9
-	fprintf(fp1, "Pos0\tTime\tLF\tRF\tRR\tLR\tGap 1\tGap 2\tPos+5\tGap+5\tVel 1\tVel 2\tMan1\tMan2\tPID\tP\tI\tD\n");
+	fprintf(fp1, "Pos0\tTime\tLF\tRF\tRR\tLR\tGap 1\tGap 2\tPos+5\tGap+5\tVel 1\tVel 2\tMan1\tMan2\tP(%.3f)\tI(%.3f)\tD(%.0f)\tPID\n",
+		m_pid.Kp, m_pid.Ki, m_pid.Kd);
 
 	clock_t time1 = m_listLaserPositions[0].time_noted;
 
@@ -807,16 +818,11 @@ BOOL CWeldNavigation::WriteTestFile()
 			(m_listLaserPositions[i].vel_filt == FLT_MAX) ? 0 : m_listLaserPositions[i].vel_filt, // vel2
 			m_listLaserPositions[i].manoeuvre1.x,
 			m_listLaserPositions[i].manoeuvre2.x,
-			m_listLaserPositions[i].pid_steering,
 			m_listLaserPositions[i].pid_error[0],
 			m_listLaserPositions[i].pid_error[1],
-			m_listLaserPositions[i].pid_error[2]
+			m_listLaserPositions[i].pid_error[2],
+			m_listLaserPositions[i].pid_steering
 			);
-
-//			m_listLaserPositions[pos].measures.rgb_sum,
-//			(m_listLaserPositions[pos].vel_raw == FLT_MAX) ? 0 : m_listLaserPositions[pos].vel_raw,
-//			(m_listLaserPositions[pos].vel_filt == FLT_MAX) ? 0 : m_listLaserPositions[pos].vel_filt,
-//			(m_listLaserPositions[pos].last_manoeuvre_pos == FLT_MAX) ? 0 : m_listLaserPositions[pos].last_manoeuvre_pos);
 	}
 	fclose(fp1);
 
@@ -909,7 +915,7 @@ BOOL CWeldNavigation::WriteScanFile()
 void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out)
 {
 	int nSize = (int)Y.GetSize();
-	if (m_pid.P != NAVIGATION_P_OSCILLATE || m_pid.I != 0 || m_pid.D != 0)
+	if (m_pid.Kp != NAVIGATION_P_OSCILLATE || m_pid.Ki != 0 || m_pid.Kd != 0)
 		return;
 
 	int nN2 = 2;
@@ -950,6 +956,25 @@ void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, C
 	m_pid.Tu = (int)(T1 + 0.5);
 	m_pid.Tu_Phase = atan2(imag[iMax], real[iMax]);
 	m_pid.Tu_srate = m_fMotorSpeed;
+
+	// get the RMS of the PID steering value
+	// ideally it should be about 0.5
+	// values outside +/- 1 are clipped, and if the norm will result in only hard turns
+	if (m_listLaserPositions.GetSize() > 0)
+	{
+		sum = 0;
+		for (int i = 0; i < m_listLaserPositions.GetSize(); ++i)
+			sum += m_listLaserPositions[i].pid_steering;
+		avg = sum / m_listLaserPositions.GetSize();
+
+		for (int i = 0; i < m_listLaserPositions.GetSize(); ++i)
+			sum += pow(m_listLaserPositions[i].pid_steering - avg, 2.0);
+
+		m_pid.PID_rms = sqrt(sum / m_listLaserPositions.GetSize());
+	}
+	else
+		m_pid.PID_rms = 0.0;
+
 }
 #endif
 
@@ -1129,14 +1154,14 @@ UINT CWeldNavigation::ThreadSteerMotors()
 // +1 mhard turn left, -1 hard turn right
 double CWeldNavigation::CalculateTurnRate(double steering)const
 {
-	steering = max(steering, -1);	// 1=turn hard (L/R MAX_TURN_RATE)
-	steering = min(steering, 1);	// 0 = no turn (L/R 100%)
+	steering = max(steering, -1.0);	// 1=turn hard (L/R MAX_TURN_RATE)
+	steering = min(steering, 1.0);	// 0 = no turn (L/R 100%)
 	int dir = (steering > 0) ? 1 : -1;
 
 	// limit the turn rate to 0.7
 	// too much as the slippage required will be extreme
 	// too little and will not rturn fast enough
-	double rate = MAX_TURN_RATE + (1 - fabs(steering)) * (1 - MAX_TURN_RATE);
+	double rate = MAX_TURN_RATE + (1.0 - fabs(steering)) * (1.0 - MAX_TURN_RATE);
 	return dir*rate;
 }
 
@@ -1146,23 +1171,8 @@ double CWeldNavigation::CalculateTurnRate(double steering)const
 // D: weld cap tendancy to/from weld cap centre in mm per mm
 double CWeldNavigation::GetPIDSteering()
 {
-	// at 2 mm offset, want hardest steering of 0.8
-	const double Kp = m_pid.P;			//  (0.2) 
-
-
-	// this is the accummulated error, keep turning harding if no correction seen
-	// settiong this large, causes the correction to run longer
-	const double Ki = m_pid.I;       // (0.00003)		
-
-	// slope mm/mm over the last 10 mm, the larger this is, the sooner start ending the correction
-	// i.e. is response lags, this needs to be large
-	const double Kd = m_pid.D;		//  1.6;			
-
-	const int I_ERR_LEN = 25;
-
 	// check if near the end, if so end the navigation
 	LASER_POS pos0 = GetLastNotedPosition(0);
-	LASER_POS pos25 = GetLastNotedPosition(I_ERR_LEN);
 	
 	// still need to determine if better using a predicted value about 5 mm in the furture
 	// this would potentially correct some of the latency in the steering
@@ -1175,22 +1185,31 @@ double CWeldNavigation::GetPIDSteering()
 		return 0;
 
 	// update the error sums
-	m_d_error = (pos0.slope10 == FLT_MAX) ? 0 : pos0.slope10; //  (pos0.vel_raw == FLT_MAX) ? this_gap - m_p_error : pos0.vel_raw / 1000.0;
+	// this was calculated as rate to median per second not mm travelled
+	m_d_error = (pos0.diff_slope == FLT_MAX) ? 0 : pos0.diff_slope; //  (pos0.vel_raw == FLT_MAX) ? this_gap - m_p_error : pos0.vel_raw / 1000.0;
 
-	//if (Ki != 0 && pos25.gap_filt != FLT_MAX)
-	//	m_i_error += (this_gap - pos25.gap_filt);
-	//else
+	// I_err_delay if set, w0uld nominally be asomething linke 25 mm
+	if (m_pid.Ki != 0 && m_pid.I_accumulate > 0)
 	{
+		LASER_POS pos25 = GetLastNotedPosition(m_pid.I_accumulate);
+		double dt25 = ((double)pos0.time_noted - (double)pos25.time_noted) / 1000.0;
+		if (pos25.gap_filt != FLT_MAX)
+			m_i_error += (this_gap - pos25.gap_filt);
+	}
+	else
+	{
+		// as with m_d_error, calculate the integral based on time travelled (sec)
 		double dt = (m_i_time > 0) ? ((double)pos0.time_noted - (double)m_i_time) / 1000.0 : 0;
 		m_i_error += (this_gap * dt) + (this_gap - m_p_error) / 2 * dt;
 	}
 
+	// note the now previous time, so can get time travelled since last
 	m_p_error = this_gap;
 	m_i_time = pos0.time_noted;
 
 	// calculate the steering value
 	// the constants are fixed if not _DEBUG
-	double steer = -(Kp * m_p_error + Kd * m_d_error + Ki * m_i_error);
+	double steer = -(m_pid.Kp * m_p_error + m_pid.Ki * m_i_error + m_pid.Kd * m_d_error);
 	return steer;
 }
 /*
