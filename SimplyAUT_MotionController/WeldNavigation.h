@@ -10,23 +10,27 @@ struct NAVIGATION_PID
 	void Reset() {
 		memset(this, 0x0, sizeof(NAVIGATION_PID));
 		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length_ms = NAVIGATION_D_LEN;  pivot_percent = NAVIGATION_PIVOT;
-		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = MAX_TURN_RATE1; I_accumulate_ms = NAVIGATION_I_ACCUMULATE;	}
+		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = DFLT_TURN_RATE1; max_turn_rate_pre = MAX_TURN_RATE1;
+		I_accumulate_ms = NAVIGATION_I_ACCUMULATE; max_turn_rate_len = DFLT_MAX_TURN_RATE_LEN;
+	}
 
 	char simulation_file[_MAX_FNAME];
 	double Kp;
 	double Ki;
 	double Kd;
 	double turn_dist;
-	double Tu_Phase;
 	double Tu_srate;
-	double PID_rms;
-	double dummy8[8 - 7];
+	double PID_rms[4];
+	double dummy8[16 - 9];
 	int Tu;
+	int Phz;
 	int nav_type;
 	int D_length_ms; 
 	int I_accumulate_ms;
 	int pivot_percent;
 	int max_turn_rate;
+	int max_turn_rate_len;
+	int max_turn_rate_pre;
 	BOOL simulation;
 	int dummy4[8 - 7];
 };
@@ -109,7 +113,7 @@ private:
 	BOOL	WriteScanFile();
 	BOOL	WriteTestFile();
 	FILE*	OpenNextFile(const char* szFile);
-	double	CalculateTurnRate(double steering)const;
+	double	CalculateTurnRate(double steering, double pos)const;
 	FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 	double LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 	void	CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out);

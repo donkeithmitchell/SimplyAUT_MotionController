@@ -42,6 +42,7 @@ public:
 	void	EnableControls();
 	void	Init(CWnd* pParent, UINT nMsg);
 	void	Serialize(CArchive& ar);
+	void	OnButtonCalcPID(int);
 
 protected:
 	NAVIGATION_PID& m_pid;
@@ -51,18 +52,25 @@ protected:
 	BOOL m_bInit;
 	BOOL m_bCheck;
 	CSpinButtonCtrl m_spinTu;
+	CSpinButtonCtrl m_spinPhz;
+	enum{PID_P=1, PID_PI, PID_PD, PID_PID, PID_CRIT, PID_CALIB};
 
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	virtual	BOOL OnInitDialog();
 	afx_msg void OnButtonReset();
-	afx_msg void OnButtonCalcPI();
-	afx_msg void OnButtonCalcPID();
+	afx_msg void OnButtonCalcPI() { OnButtonCalcPID(PID_PI); }
+	afx_msg void OnButtonCalcPD() { OnButtonCalcPID(PID_PD); }
+	afx_msg void OnButtonCalcPID() { OnButtonCalcPID(PID_PID); }
+	afx_msg void OnButtonCalcCrit() { OnButtonCalcPID(PID_CRIT); }
+	afx_msg void OnButtonCalcEnable() { OnButtonCalcPID(PID_CALIB); }
+	
 	afx_msg void OnClickNavType();
+	afx_msg void OnClickSimulate();
 	afx_msg void OnEditChangePID();
-	afx_msg void OnButtonCalcEnable();
 	afx_msg void OnButtonSimulation();
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	afx_msg void OnDeltaposSpinTu(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnDeltaposSpinPhz(NMHDR* pNMHDR, LRESULT* pResult);
 	DECLARE_MESSAGE_MAP()
 };
 

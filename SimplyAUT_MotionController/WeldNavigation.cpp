@@ -763,8 +763,8 @@ BOOL CWeldNavigation::NoteNextLaserPosition()
 	m_listLaserPositions[nSize - 1].diff_slope = LowPassFilterDiff(m_listLaserPositions, last_manoeuvre_pos, direction);
 
 	// calculate the desired steering at this point from the PID values
-	m_listLaserPositions[nSize - 1].pid_steering			= GetPIDSteering();
-	m_listLaserPositions[nSize - 1].manoeuvre1.x			= CalculateTurnRate(m_listLaserPositions[nSize - 1].pid_steering);
+	m_listLaserPositions[nSize - 1].pid_steering = GetPIDSteering();
+	m_listLaserPositions[nSize - 1].manoeuvre1.x = CalculateTurnRate(m_listLaserPositions[nSize - 1].pid_steering, motor_pos);
 
 	// 911 these are included to go into the test_xx.txt file
 	// this is useful to deterfmine optimal PID constants
@@ -1106,7 +1106,7 @@ void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, C
 		// calculate in mm, convert to ms
 		double T1 = 1000.0 * (double)nN2 / (double)iMax / m_fMotorSpeed;
 		m_pid.Tu = (int)(T1 + 0.5);
-		m_pid.Tu_Phase = atan2(imag[iMax], real[iMax]);
+		m_pid.Phz = (int)(atan2(imag[iMax], real[iMax]) * 180.0 / PI + 0.5);
 		m_pid.Tu_srate = m_fMotorSpeed;
 	}
 
@@ -1115,18 +1115,36 @@ void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, C
 	// values outside +/- 1 are clipped, and if the norm will result in only hard turns
 	if (m_listLaserPositions.GetSize() > 0)
 	{
-		sum = 0;
+		double sum[] = { 0,0,0,0 };
 		for (int i = 0; i < m_listLaserPositions.GetSize(); ++i)
-			sum += m_listLaserPositions[i].pid_steering;
-		avg = sum / m_listLaserPositions.GetSize();
+		{
+			sum[0] += m_listLaserPositions[i].pid_steering;
+			sum[1] += m_listLaserPositions[i].pid_error[0];
+			sum[2] += m_listLaserPositions[i].pid_error[1];
+			sum[3] += m_listLaserPositions[i].pid_error[2];
+		}
+		double avg[] = { 0,0,0,0 };
+		for (int i = 0; i < 4; ++i)
+		{
+			avg[i] = sum[i] / m_listLaserPositions.GetSize();
+			sum[i] = 0;
+		}
 
 		for (int i = 0; i < m_listLaserPositions.GetSize(); ++i)
-			sum += pow(m_listLaserPositions[i].pid_steering - avg, 2.0);
-
-		m_pid.PID_rms = sqrt(sum / m_listLaserPositions.GetSize());
+		{
+			sum[0] += pow(m_listLaserPositions[i].pid_steering - avg[0], 2.0);
+			sum[1] += pow(m_listLaserPositions[i].pid_error[0] - avg[1], 2.0);
+			sum[2] += pow(m_listLaserPositions[i].pid_error[1] - avg[2], 2.0);
+			sum[3] += pow(m_listLaserPositions[i].pid_error[2] - avg[3], 2.0);
+		}
+		for (int i = 0; i < 4; ++i)
+			m_pid.PID_rms[i] = sqrt(sum[i] / m_listLaserPositions.GetSize());
 	}
 	else
-		m_pid.PID_rms = 0.0;
+	{
+		for (int i = 0; i < 4; ++i)
+			m_pid.PID_rms[i] = 0.0;
+	}
 
 }
 #endif
@@ -1310,16 +1328,20 @@ UINT CWeldNavigation::ThreadSteerMotors()
 // this is used by the PID navigtation
 // steering: limit to +/- 1
 // +1 mhard turn left, -1 hard turn right
-double CWeldNavigation::CalculateTurnRate(double steering)const
+double CWeldNavigation::CalculateTurnRate(double steering, double pos)const
 {
 	steering = max(steering, -1.0);	// 1=turn hard (L/R MAX_TURN_RATE)
 	steering = min(steering, 1.0);	// 0 = no turn (L/R 100%)
 	int dir = (steering > 0) ? 1 : -1;
 
+	// for the 1st 100 mm use the maximum, then use user selected maximum
+	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
+	double max_rate = (fabs(pos - m_nStartPos) < m_pid.max_turn_rate_len) ? m_pid.max_turn_rate_pre /100.0 : m_pid.max_turn_rate / 100.0;
+
 	// limit the turn rate to 0.7
 	// too much as the slippage required will be extreme
 	// too little and will not rturn fast enough
-	double rate = (MAX_TURN_RATE1/100.0) + (1.0 - fabs(steering)) * (1.0 - MAX_TURN_RATE1/100.0);
+	double rate = max_rate + (1.0 - fabs(steering)) * (1.0 - max_rate);
 	return dir*rate;
 }
 

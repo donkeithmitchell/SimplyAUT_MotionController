@@ -39,7 +39,9 @@
 #define MAX_GAP_TOLERANCE			0.5  // try to keep offset within this
 
 #define MIN_TURN_RATE1               99 // the unit turns by varying L/R wheel speeds
-#define MAX_TURN_RATE1               70// the greater the variance, the greater the slip, the slower, the long it takes to navigate
+#define MAX_TURN_RATE1               70 // the greater the variance, the greater the slip, the slower, the long it takes to navigate
+#define DFLT_TURN_RATE1				 85 // will use 70 for 1st 100 mm, then what user selects (this 
+#define DFLT_MAX_TURN_RATE_LEN		200
 #define NAVIGATION_P_OSCILLATE		2.0
 #define NAVIGATION_P				0.9	// default constants for PID navigation
 #define NAVIGATION_I				0.72 // ideally these would be modified during the cvalibration run
