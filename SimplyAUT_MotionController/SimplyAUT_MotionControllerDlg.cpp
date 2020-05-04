@@ -53,13 +53,16 @@ END_MESSAGE_MAP()
 // with _DEBUG there are exstra dialog shown
 CSimplyAUTMotionControllerDlg::CSimplyAUTMotionControllerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_SIMPLYAUT_MOTIONCONTROLLER_DIALOG, pParent)
-	, m_dlgConnect(m_motionControl, m_laserControl, m_magControl)
+	, m_dlgConnect(m_motionControl, m_laserControl, m_magControl, m_szProject)
 	, m_dlgMotors(m_motionControl, m_magControl, m_galil_state)
-	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_magControl, m_galil_state, m_pid)
+	, m_dlgGirthWeld(m_motionControl, m_laserControl, m_magControl, m_galil_state, m_pid, m_fft_data, m_szProject)
 	, m_dlgLaser(m_motionControl, m_laserControl)
-	, m_dlgNavigation(m_pid)
+	, m_dlgNavigation(m_pid, m_fft_data)
+	, m_dlgFiles(m_szProject)
 	, m_dlgMag(m_motionControl, m_laserControl, m_magControl)
 	, m_szErrorMsg(_T(""))
+	, m_szProject( _T("Not Set") )
+
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_bInit = FALSE;
@@ -246,9 +249,44 @@ void CSimplyAUTMotionControllerDlg::OnCancel()
 	}
 }
 
+void CSimplyAUTMotionControllerDlg::SetTitle()
+{
+	CString text;
+	GetWindowTextA(text);
+	int ind = text.Find(" - ");
+	if (ind != -1)
+		text = text.Left(ind);
+
+	text += _T(" - ") + m_szProject;
+	SetWindowTextA(text);
+}
+
 void CSimplyAUTMotionControllerDlg::Serialize(CArchive& ar)
 {
 	UpdateData(TRUE);
+	if (ar.IsStoring())
+	{
+		try
+		{
+			ar << m_szProject;
+		}
+		catch (CArchiveException* e1)
+		{
+			e1->Delete();
+		}
+	}
+	else
+	{
+		try
+		{
+			ar >> m_szProject;
+		}
+		catch (CArchiveException* e1)
+		{
+			e1->Delete();
+			m_szProject = _T("Not Set");
+		}
+	}
 	m_dlgConnect.Serialize(ar);
 	m_dlgGirthWeld.Serialize(ar);
 #ifdef _DEBUG_TIMING_
@@ -280,6 +318,7 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 		}
 		case MSG_SETBITMAPS: // enable the various controlds
 		{
+			SetTitle();
 			m_dlgConnect.EnableControls();
 			m_dlgMotors.EnableControls();
 			m_dlgGirthWeld.EnableControls();
@@ -426,9 +465,11 @@ void CSimplyAUTMotionControllerDlg::OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pRes
 BOOL CSimplyAUTMotionControllerDlg::CheckVisibleTab()
 {
 	int sel = m_tabControl.GetCurSel();
-	if (m_nSel == TAB_CONNECT && sel != TAB_CONNECT && !m_motionControl.IsConnected() && AfxMessageBox("Not Connected", MB_OKCANCEL) != IDOK)
+	if (m_motionControl.AreMotorsRunning())
 		return FALSE;
-	switch (m_nSel)
+	else if (m_nSel == TAB_CONNECT && sel != TAB_CONNECT && !m_motionControl.IsConnected() && AfxMessageBox("Not Connected", MB_OKCANCEL) != IDOK)
+		return FALSE;
+	else switch (m_nSel)
 	{
 	case TAB_CONNECT: return m_dlgConnect.CheckVisibleTab();
 	case TAB_MOTORS: return m_dlgMotors.CheckVisibleTab();

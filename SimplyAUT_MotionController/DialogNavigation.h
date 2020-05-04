@@ -10,7 +10,7 @@ class CStaticNavigation : public CWnd
 	DECLARE_DYNAMIC(CStaticNavigation)
 
 public:
-	CStaticNavigation(const NAVIGATION_PID& pid);
+	CStaticNavigation(const NAVIGATION_PID& pid, const CArray<double,double>&);
 
 	virtual ~CStaticNavigation();
 
@@ -23,6 +23,7 @@ protected:
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 
 	const NAVIGATION_PID& m_pid;
+	const CArray<double, double>& m_fft_data;
 
 	DECLARE_MESSAGE_MAP()
 };
@@ -33,7 +34,7 @@ class CDialogNavigation : public CDialogEx
 	DECLARE_DYNAMIC(CDialogNavigation)
 
 public:
-	CDialogNavigation(NAVIGATION_PID& pid, CWnd* pParent=NULL);
+	CDialogNavigation(NAVIGATION_PID& pid, CArray<double,double>& fft_data, CWnd* pParent=NULL);
 	virtual ~CDialogNavigation();
 
 	void	Create(CWnd* pParent);
@@ -59,6 +60,7 @@ protected:
 	afx_msg void OnClickNavType();
 	afx_msg void OnEditChangePID();
 	afx_msg void OnButtonCalcEnable();
+	afx_msg void OnButtonSimulation();
 	afx_msg void OnSize(UINT nFlag, int cx, int cy);
 	afx_msg void OnDeltaposSpinTu(NMHDR* pNMHDR, LRESULT* pResult);
 	DECLARE_MESSAGE_MAP()

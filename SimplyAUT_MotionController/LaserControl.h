@@ -43,7 +43,8 @@ struct LASER_MEASURES
 	int weld_right_end_pix;
 	int status;
 	int rgb_sum;
-	int dummy4[8 - 6];
+	clock_t measure_tim_ms;
+	int dummy4[8 - 7];
 };
 
 class CLaserControl

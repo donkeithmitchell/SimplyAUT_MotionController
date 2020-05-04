@@ -17,11 +17,12 @@
 
 IMPLEMENT_DYNAMIC(CDialogConnect, CDialogEx)
 
-CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, CWnd* pParent /*=nullptr*/)
+CDialogConnect::CDialogConnect(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, CString& szProject, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_CONNECT, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
+	, m_szProject(szProject)
 	, m_nMsg(0)
 	, m_pParent(NULL)
 {
@@ -44,6 +45,39 @@ void CDialogConnect::Init(CWnd* pParent, UINT nMsg)
 	m_nMsg = nMsg;
 }
 
+void CDialogConnect::ValidateProjectName(CDataExchange* pDX, CString szProject)
+{
+	if (pDX->m_bSaveAndValidate)
+	{
+		szProject.TrimLeft();
+		szProject.TrimRight();
+		if (szProject.GetLength() == 0 || szProject.CompareNoCase("Not Set") == 0)
+		{
+			AfxMessageBox("No Project Set");
+			pDX->Fail();
+		}
+		char my_documents[MAX_PATH];
+		HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+		if (result == S_OK)
+		{
+			CString path;
+			// insure that the sub follder exists
+			path.Format("%s\\SimplyAUTFiles\\%s", my_documents, szProject);
+			DWORD attrib = GetFileAttributes(path);
+			if (attrib == INVALID_FILE_ATTRIBUTES)
+			{
+				if (!::CreateDirectory(path, NULL))
+				{
+					CString text;
+					text.Format("Unable to create Folder (%s)", szProject);
+					AfxMessageBox(text);
+					pDX->Fail();
+				}
+			}
+		}
+	}
+}
+
 
 void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 {
@@ -55,6 +89,8 @@ void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON_MAG, m_buttonMAG);
 	DDX_Control(pDX, IDC_BUTTON_GALIL, m_buttonGalil);
 	DDX_Text(pDX, IDC_EDIT_MAG_PORT, m_szPort);
+	DDX_Text(pDX, IDC_EDIT_PROJECT, m_szProject);
+	ValidateProjectName(pDX, m_szProject);
 
 	if (pDX->m_bSaveAndValidate)
 	{
@@ -224,6 +260,15 @@ void CDialogConnect::EnableControls()
 {
 	SetButtonBitmaps();
 }
+
+BOOL CDialogConnect::CheckVisibleTab()
+{
+	m_bCheck = TRUE;
+	BOOL ret = UpdateData(TRUE);
+	m_bCheck = FALSE;
+	return ret;
+}
+
 
 // if use user specified IP and /or Port addresses
 // serialize those

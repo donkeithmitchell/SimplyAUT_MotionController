@@ -80,15 +80,17 @@ static UINT ThreadAbortScan(LPVOID param)
 
 IMPLEMENT_DYNAMIC(CDialogGirthWeld, CDialogEx)
 
-CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, int& nState, NAVIGATION_PID& pid, CWnd* pParent /*=nullptr*/)
+CDialogGirthWeld::CDialogGirthWeld(CMotionControl& motion, CLaserControl& laser, CMagControl& mag, int& nState, NAVIGATION_PID& pid, 
+	CArray<double,double>& fft_data, const CString& szProject, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_GIRTHWELD, pParent)
 	, m_motionControl(motion)
 	, m_laserControl(laser)
 	, m_magControl(mag)
-	, m_weldNavigation(motion,laser, pid)
+	, m_weldNavigation(motion,laser, pid, fft_data, szProject)
 	, m_wndLaser(motion, laser, mag, m_weldNavigation, m_fScanLength)
 	, m_wndMag(mag, m_bSeekWithLaser, m_bSeekBlackLine, m_fSeekAndStartAtLine)
 	, m_nGalilState(nState)
+	, m_szProject(szProject)
 	, m_szScannedDist(_T("0.0 mm"))
 	, m_szHomeDist(_T("0.0 mm"))
 	, m_szTempBoard(_T(""))
@@ -1364,7 +1366,7 @@ void CDialogGirthWeld::StartNavigation(int nSteer, int start_pos, int end_pos, d
 		if (result == S_OK)
 		{
 			CString szFile;
-			szFile.Format("%s\\GetLaserProfile.txt", my_documents);
+			szFile.Format("%s\\%s\\GetLaserProfile.txt", my_documents, m_szProject);
 			fopen_s(&g_fp1, szFile, "w");
 		}
 #endif

@@ -50,6 +50,7 @@
 #define IDC_EDIT_MA                     1016
 #define IDC_STATIC_LASER_IP3            1016
 #define IDC_EDIT_MB                     1017
+#define IDC_STATIC_GALIL2               1017
 #define IDC_EDIT_MC                     1018
 #define IDC_EDIT_MD                     1019
 #define IDC_STATIC_MA                   1020
@@ -181,6 +182,7 @@
 #define IDC_CHECK_RETURN_TO_START       1109
 #define IDC_EDIT1                       1109
 #define IDC_EDIT_SEEK_START_LINE        1109
+#define IDC_EDIT_PROJECT                1109
 #define IDC_STATIC_FWD                  1110
 #define IDC_CHECK_USE_BLACK_LINE        1110
 #define IDC_STATIC_BACK                 1111
@@ -211,7 +213,6 @@
 #define IDC_EDIT_NAV_D_LEN              1127
 #define IDC_STATICPID_P4                1128
 #define IDC_STATIC_NAV_TU               1129
-#define IDC_EDIT_NAV_D_LEN2             1129
 #define IDC_EDIT_NAV_I_ACCUM            1129
 #define IDC_BUTTON_CALC_PI              1130
 #define IDC_BUTTON_CALC_PID2            1131
@@ -223,6 +224,10 @@
 #define IDC_SPIN_TU                     1136
 #define IDC_STATIC_PID_RMS              1137
 #define IDC_STATICPID_P6                1138
+#define IDC_STATICPID_P7                1139
+#define IDC_CHECK_SIMULATION            1140
+#define IDC_EDIT_NAV_TU2                1141
+#define IDC_EDIT_SIMULATION             1141
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773
@@ -234,7 +239,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32775
-#define _APS_NEXT_CONTROL_VALUE         1138
+#define _APS_NEXT_CONTROL_VALUE         1141
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

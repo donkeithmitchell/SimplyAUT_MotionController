@@ -13,8 +13,9 @@ const char* g_szTitle[] = { "#", "File", "Max Offset", "Avg Offset", NULL };
 // this dialog is used to list the output files
 IMPLEMENT_DYNAMIC(CDialogFiles, CDialogEx)
 
-CDialogFiles::CDialogFiles(CWnd* pParent /*=nullptr*/)
+CDialogFiles::CDialogFiles(const CString& szProject, CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_FILES, pParent)
+	, m_szProject(szProject)
 {
 	m_pParent = NULL; // used to pass messagews to its parent
 	m_nMsg = 0;
@@ -141,7 +142,7 @@ int CDialogFiles::GetFileList(CArray<CString, CString>& fileList)
 		return 0;
 
 	CFileFind find;
-	path.Format("%s\\SimplyAUTFiles\\*.txt", buffer);
+	path.Format("%s\\SimplyAUTFiles\\%s\\*.txt", buffer, m_szProject);
 	if (!find.FindFile(path))
 		return 0;
 

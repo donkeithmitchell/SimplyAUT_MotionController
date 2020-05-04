@@ -8,7 +8,7 @@ class CDialogFiles : public CDialogEx
 	DECLARE_DYNAMIC(CDialogFiles)
 
 public:
-	CDialogFiles(CWnd* pParent = nullptr);   // standard constructor
+	CDialogFiles(const CString&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogFiles();
 
 	void	Create(CWnd*);
@@ -25,6 +25,7 @@ protected:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	CListCtrl	m_listFiles;
+	const CString& m_szProject;
 
 		// Dialog Data
 #ifdef AFX_DESIGN_TIME

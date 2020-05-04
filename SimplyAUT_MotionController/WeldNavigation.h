@@ -9,24 +9,26 @@ struct NAVIGATION_PID
 	NAVIGATION_PID() { Reset(); }
 	void Reset() {
 		memset(this, 0x0, sizeof(NAVIGATION_PID));
-		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length = NAVIGATION_D_LEN;  pivot = NAVIGATION_PIVOT;
-		turn_dist = NAVIGATION_TURN_DIST; max_turn = MAX_TURN_RATE; I_accumulate = NAVIGATION_I_ACCUMULATE;	}
+		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length_ms = NAVIGATION_D_LEN;  pivot_percent = NAVIGATION_PIVOT;
+		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = MAX_TURN_RATE1; I_accumulate_ms = NAVIGATION_I_ACCUMULATE;	}
 
-	CArray<double, double> data;
+	char simulation_file[_MAX_FNAME];
 	double Kp;
 	double Ki;
 	double Kd;
-	double pivot;
-	double max_turn;
 	double turn_dist;
 	double Tu_Phase;
 	double Tu_srate;
 	double PID_rms;
-	double dummy8[16 - 9];
+	double dummy8[8 - 7];
 	int Tu;
 	int nav_type;
-	int D_length; 
-	int I_accumulate;
+	int D_length_ms; 
+	int I_accumulate_ms;
+	int pivot_percent;
+	int max_turn_rate;
+	BOOL simulation;
+	int dummy4[8 - 7];
 };
 
 struct FILTER_RESULTS
@@ -59,8 +61,6 @@ struct LASER_POS
 	double  pos_predict;
 	double  diff_slope;
 	double dummy8[16 - 12];
-	clock_t time_noted;	// time that measure taken (ms)
-	clock_t dummy82[2 - 1];
 };
 
 struct DRIVE_POS
@@ -81,7 +81,7 @@ class CDoublePoint;
 class CWeldNavigation
 {
 public:
-	CWeldNavigation(CMotionControl&, CLaserControl&, NAVIGATION_PID& pid);
+	CWeldNavigation(CMotionControl&, CLaserControl&, NAVIGATION_PID& pid, CArray<double, double>& data, const CString& szProject);
 	~CWeldNavigation();
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
@@ -112,15 +112,19 @@ private:
 	double	CalculateTurnRate(double steering)const;
 	FILTER_RESULTS LowPassFilterGap(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
 	double LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
-	void   CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out);
-	double AccumulateError(int distance);
+	void	CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out);
+	double	AccumulateError(int distance);
+	int		RemoveOutliers(double X[], double Y[], int order, int count, int max_sd);
+	BOOL	GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction, double coeff[3], int order, int source, int nMinWidth, int nMaxWidth);
+	double  CalcGapVelocity(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction);
+	LASER_MEASURES GetLaserSimulation();
 
 	CMotionControl& m_motionControl;
 	CLaserControl&	m_laserControl;
 	NAVIGATION_PID&	m_pid;
 
 	CArray<LASER_POS, LASER_POS> m_listLaserPositions;
-	CCriticalSection m_crit1;
+	CMutex m_mutex1;
 	BOOL m_bSteerMotors;
 	HANDLE m_hThreadSteerMotors;
 	HANDLE m_hThreadNoteLaser;
@@ -132,6 +136,10 @@ private:
 	int m_nEndPos;
 	CWnd* m_pParent;
 	UINT m_nMsg;
+	const CString& m_szProject;
+	CArray<double, double>& m_fft_data;
+	FILE* m_fpSimulation;
+
 
 	double m_i_error;
 	double m_p_error;

@@ -42,6 +42,7 @@ public:
 	void StartReadMagStatus(BOOL);
 	void Serialize(BOOL bSave);
 	void Serialize(CArchive& ar);
+	void SetTitle();
 
 	enum { WM_DEGUG_MSG = WM_USER + 1 };
 	enum{ TIMER_GET_MAG_STATUS =1 };
@@ -49,11 +50,12 @@ public:
 // Implementation
 protected:
 	HICON				m_hIcon;
-	int			m_galil_state;
+	int					m_galil_state;
 	CMotionControl		m_motionControl;
 	CLaserControl       m_laserControl;
 	CMagControl			m_magControl;
 	NAVIGATION_PID		m_pid;
+	CArray<double, double> m_fft_data;
 
 	CDialogConnect		m_dlgConnect;
 	CDialogMotors		m_dlgMotors;
@@ -67,6 +69,7 @@ protected:
 	BOOL	m_bInit;
 	BOOL	m_bCheck;
 	int		m_nSel;
+	CString m_szProject;
 
 
 	// Generated message map functions

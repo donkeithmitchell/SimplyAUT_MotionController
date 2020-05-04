@@ -11,12 +11,12 @@ class CDialogConnect : public CDialogEx
 	DECLARE_DYNAMIC(CDialogConnect)
 
 public:
-	CDialogConnect(CMotionControl&, CLaserControl&, CMagControl&, CWnd* pParent = nullptr);   // standard constructor
+	CDialogConnect(CMotionControl&, CLaserControl&, CMagControl&, CString&, CWnd* pParent = nullptr);   // standard constructor
 	virtual ~CDialogConnect();
 	void Init(CWnd*, UINT);
 
 	void	Create(CWnd* pParent);
-	BOOL	CheckVisibleTab() { return TRUE; }
+	BOOL	CheckVisibleTab();
 	void	Serialize(CArchive& ar);
 	void	EnableControls();
 
@@ -24,6 +24,7 @@ protected:
 	void	SetButtonBitmaps();
 	void    ResetParameters();
 	void	SendErrorMessage(const char* msg);
+	void	ValidateProjectName(CDataExchange* pDX, CString szProject);
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -53,6 +54,7 @@ protected:
 	CLaserControl& m_laserControl;
 	CMagControl& m_magControl;
 
+	CString& m_szProject;
 	CString m_szPort;
 	BOOL	m_bInit;
 	BOOL	m_bCheck;

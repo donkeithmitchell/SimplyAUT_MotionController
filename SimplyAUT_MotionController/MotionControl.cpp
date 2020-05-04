@@ -343,8 +343,12 @@ BOOL CMotionControl::AreMotorsRunning()
     double fSB = GetMotorSpeed("B", accel);
     double fSC = GetMotorSpeed("C", accel);
     double fSD = GetMotorSpeed("D", accel);
+    if (fSA == FLT_MAX) fSA = 0;
+    if (fSB == FLT_MAX) fSB = 0;
+    if (fSC == FLT_MAX) fSC = 0;
+    if (fSD == FLT_MAX) fSD = 0;
 
-    return fabs(fSA) > 0 || fabs(fSB) > 0 || fabs(fSC) > 0 || fabs(fSD) > 0;
+    return (int)fabs(fSA) > 0 || (int)fabs(fSB) > 0 || (int)fabs(fSC) > 0 || (int)fabs(fSD) > 0;
 }
 
 // jogging unlike gotoposition() drives until stopped with no end position

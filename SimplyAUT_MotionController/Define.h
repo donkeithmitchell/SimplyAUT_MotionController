@@ -29,7 +29,7 @@
 #define GAP_PREDICT					5.0 // while not used ast this timne, using the 2mnd order filkter, prdict the laser position 5 mm in the future
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres, do not want to re-allocate the memory too often
 #define GAP_FILTER_MIN__WIDTH		10 // mm (filter over last 10-50 mm, 2nd order, so can handle variations)
-#define GAP_FILTER_MAX__WIDTH		50 
+#define GAP_FILTER_MAX__WIDTH		20 // 50 
 #define VEL_FILTER_MIN_WIDTH		10 // only used in _DEBUG as velocity not used at this time for navighation
 #define VEL_FILTER_MAX_WIDTH		50
 #define GAP_BUFFER_LEN              200 // samples used in the 2nd order polynomiazl to model the gap at less than 1 sample per mm and 50 mm max, this is lots
@@ -38,15 +38,15 @@
 #define MIN_GAP_TOLERANCE			0.1  // do nothing if offset below this
 #define MAX_GAP_TOLERANCE			0.5  // try to keep offset within this
 
-#define MIN_TURN_RATE               0.99 // the unit turns by varying L/R wheel speeds
-#define MAX_TURN_RATE               0.70// the greater the variance, the greater the slip, the slower, the long it takes to navigate
+#define MIN_TURN_RATE1               99 // the unit turns by varying L/R wheel speeds
+#define MAX_TURN_RATE1               70// the greater the variance, the greater the slip, the slower, the long it takes to navigate
 #define NAVIGATION_P_OSCILLATE		2.0
-#define NAVIGATION_P				1.2	// default constants for PID navigation
-#define NAVIGATION_I				1.6 // ideally these would be modified during the cvalibration run
-#define NAVIGATION_D				0.225
-#define NAVIGATION_D_LEN            20
-#define NAVIGATION_I_ACCUMULATE		0
-#define NAVIGATION_PIVOT			0.5
+#define NAVIGATION_P				0.9	// default constants for PID navigation
+#define NAVIGATION_I				0.72 // ideally these would be modified during the cvalibration run
+#define NAVIGATION_D				0.0
+#define NAVIGATION_D_LEN            375
+#define NAVIGATION_I_ACCUMULATE		750
+#define NAVIGATION_PIVOT			50
 #define NAVIGATION_TURN_DIST		2.5 // mm
 
 #define CRAWLER_WIDTH				26.0 // mm // the wheels are measured to be this distance apart outer 'O' ring gasker to gasket
