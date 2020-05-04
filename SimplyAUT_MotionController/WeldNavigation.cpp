@@ -437,6 +437,8 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 	return ret;
 }
 
+// must use 2nd order, 
+// the weld offset tends to oscillate, thus not linear
 double CWeldNavigation::LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& buff1, double last_manoeuvre_pos, int direction)
 {
 	double coeff[4];
@@ -444,8 +446,13 @@ double CWeldNavigation::LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& b
 	// now get the slope over the last 5 to 10 mm
 	// this is used for the (D) in the PID navigation
 	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
-	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 1/*order*/, SOURCE_GAP | SOURCE_BY_TIME/*source*/, m_pid.D_length_ms, m_pid.D_length_ms))
-		return coeff[1]; // mm per mm
+	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 2/*order*/, SOURCE_GAP | SOURCE_BY_TIME/*source*/, m_pid.D_length_ms, m_pid.D_length_ms))
+	{
+		int nSize = (int)buff1.GetSize();
+		double pos2 = buff1[nSize - 1].measures.measure_tim_ms / 1000.0;
+		double vel = 2 * coeff[2] * pos2 + coeff[1]; // differentiated
+		return vel;
+	}
 	else
 		return FLT_MAX;
 }
@@ -649,7 +656,7 @@ LASER_MEASURES CWeldNavigation::GetLaserSimulation()
 	ret.weld_cap_mm.x = gap_raw;
 	ret.measure_tim_ms = tim;
 
-	if (pos >= 405)
+	if (tim >= 3800)
 	{
 		int xx = 1;
 	}
