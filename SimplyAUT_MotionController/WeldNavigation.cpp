@@ -138,6 +138,7 @@ static int RemoveOutliers(double X[], double Y[], int count, int max_sd)
 // they must be removed before filtering the weld cap offset
 // fit to a polynomial and then check for outliers from that poilynomial
 // keep removing outliers until the SD is <= 0.1
+/*
 int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count, int max_sd )
 {
 	double coeff[3];
@@ -210,6 +211,63 @@ int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count
 
 		}
 	}
+
+	return count;
+}
+*/
+
+// all but the most recent value is a filktered value
+// thus, assume that only need to check the most recently added value to see if it isn outlier
+int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count, int max_sd)
+{
+	double coeff[3];
+
+	// if too few data data samples then not possible to say which are the outliers
+	// i.e. tyhe first value could be bogus,
+	// don't want to then to try to fit all subsequent values to it
+	if (count < 5)
+		return count;
+
+	// count-1 is the most recently added value
+	double diff = fabs(Y[0] - Y[1]) / fabs(X[0] - X[1]);
+
+	// if the difference is > 1.0 mm per mm
+	// remvoed the most recently added value [0]
+	// as all others are filtered values, assume they are OK
+	if (diff > MAX_GAP_CHANGE_PER_MM)
+	{
+		Y[0] = Y[1];
+		return count;
+	}
+
+	// check if the SD of [0] is within 0.25
+	polyfit(X, Y, count, order, coeff);
+
+	// get the RMS variation from the above model with the most recently added value (0)
+	double sum2 = 0;
+	for (int i = 0; i < count; ++i)
+	{
+		double y = ModelY(X[i], coeff, order);
+		double diff = y - Y[i];
+		sum2 += diff * diff;
+	}
+	double sd = sqrt(sum2 / count);
+	if (sd < 0.25)
+		return count;
+
+	// now get the SD without the most rdecently added value
+	sum2 = 0;
+	for (int i = 1; i < count; ++i)
+	{
+		double y = ModelY(X[i], coeff, order);
+		double diff = y - Y[i];
+		sum2 += diff * diff;
+	}
+	sd = sqrt(sum2 / (count-1) );
+
+	// removing the most recently added value must move the SD from > 0.25 to < 0.25
+	if (sd < 0.25)
+		Y[0] = Y[1];
 
 	return count;
 }
@@ -591,7 +649,7 @@ LASER_MEASURES CWeldNavigation::GetLaserSimulation()
 	ret.weld_cap_mm.x = gap_raw;
 	ret.measure_tim_ms = tim;
 
-	if (pos >= 979)
+	if (pos >= 405)
 	{
 		int xx = 1;
 	}
