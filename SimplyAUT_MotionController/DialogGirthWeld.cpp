@@ -1098,7 +1098,12 @@ void CDialogGirthWeld::SendDebugMessage(const CString& msg)
 {
 #ifdef _DEBUG_TIMING_
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
+	{
+		CString* szMsg = new CString;
+		*szMsg = msg;
+
+		m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG_1, (WPARAM)szMsg);
+	}
 #endif
 }
 
@@ -1107,7 +1112,15 @@ void CDialogGirthWeld::SendDebugMessage(const CString& msg)
 void CDialogGirthWeld::SendErrorMessage(const char* msg)
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG1, (WPARAM)msg);
+	{
+		CString* szMsg = NULL;
+		if (msg != NULL)
+		{
+			szMsg = new CString;
+			*szMsg = _T(msg);
+		}
+		m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG_1, (WPARAM)szMsg);
+	}
 }
 
 // enable/disable and set bitmap

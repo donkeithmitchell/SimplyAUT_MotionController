@@ -253,10 +253,12 @@ int  CMagControl::GetMagStatus()
     m_critMagStatus.Unlock();
 
 // ind _DEBUG note the slow time to read the stgatus
+    // this happens too oftern to report every time
+    // only report once every 10 seconds at most
 #ifdef _DEBUG_TIMING_
     static clock_t first_time = -1;
     clock_t t2 = clock();
-    if (first_time == -1 || t1 - first_time > 1000)
+    if (first_time == -1 || t1 - first_time > 10000)
     {
         if (t2 - t1 > 10)
         {
@@ -362,9 +364,9 @@ size_t CMagControl::ReadMagBuffer(char* buff, size_t nSize)
 #ifdef _DEBUG_TIMING_
     static clock_t first_time = -1;
     clock_t t2 = clock();
-    if (first_time == -1 || t1 - first_time > 1000)
+    if (first_time == -1 || t1 - first_time > 10000)
     {
-        if (t2 - t1 > 1000)
+        if (t2 - t1 > 10)
         {
             CString str;
             str.Format("ReadMagBuffer: %d ms", (int)(t2 - t1));
@@ -602,7 +604,10 @@ void CMagControl::SendDebugMessage(const CString& msg)
 #ifdef _DEBUG_TIMING_
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG, (WPARAM)&msg);
+        CString* szMsg = new CString;
+        *szMsg = msg;
+
+        m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG_1, (WPARAM)szMsg);
     }
 #endif
 }
@@ -612,7 +617,13 @@ void CMagControl::SendErrorMessage(const char* msg)
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG1, (WPARAM)msg);
+        CString* szMsg = NULL;
+        if (msg != NULL)
+        {
+            szMsg = new CString;
+            *szMsg = _T(msg);
+        }
+        m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_ERROR_MSG_1, (WPARAM)szMsg);
     }
 }
 

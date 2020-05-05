@@ -301,19 +301,29 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 	if (m_bInit)
 		switch (wParam)
 		{
-		case MSG_SEND_DEBUGMSG: // receivbing address to a CString
+		case MSG_SEND_DEBUGMSG_1: // receivbing address to a CString
 		{
-			const CString* pMsg = (CString*)lParam;
+			CString* szMsg1 = (CString*)lParam;
+			CString szMsg2(*szMsg1);
+			delete szMsg1;
+
 			// now pass this to the status window
-			m_dlgStatus.AppendDebugMessage(*pMsg);
+			m_dlgStatus.AppendDebugMessage(szMsg2);
 			break;
 		}
-		case MSG_ERROR_MSG1: // receivbing address to a CString
-		case MSG_ERROR_MSG2: // receivbing address to a CString
+		case MSG_ERROR_MSG_1: // receivbing address to a CString
+		case MSG_ERROR_MSG_2: // receivbing address to a CString
 		{
-			const char* str = (char*)lParam;
-			int action = (int)(wParam == MSG_ERROR_MSG1) ? 0 : -1;
-			AppendErrorMessage(str, action);
+			int action = (int)(wParam == MSG_ERROR_MSG_1) ? 0 : -1;
+			const CString* szMsg1 = (CString*)lParam;
+			if (szMsg1 != NULL)
+			{
+				CString szMsg2 = *szMsg1;
+				delete szMsg1;
+				AppendErrorMessage(szMsg2, action);
+			}
+			else
+				AppendErrorMessage(NULL, action);
 			break;
 		}
 		case MSG_SETBITMAPS: // enable the various controlds
