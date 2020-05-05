@@ -91,14 +91,16 @@ public:
 	CArray<double, double> m_work_buffer2;
 	CArray<double, double> m_hitBuffer;
 
-	CIIR_Filter m_filter;
+	CIIR_Filter		m_filter;
 
 	Measurement		m_measure1;
 	LASER_MEASURES	m_measure2;
 	Profile			m_profile;
-	int		m_nLaserPower;
-	int		m_nCameraShutter;
-	CWnd* m_pParent;
-	UINT  m_nMsg;
+	int				m_nLaserPower;
+	int				m_nCameraShutter;
+	CWnd*			m_pParent;
+	UINT			m_nMsg;
+	BOOL			m_bFW_Gap;
+	BOOL			m_bFW_Weld;
 };
 

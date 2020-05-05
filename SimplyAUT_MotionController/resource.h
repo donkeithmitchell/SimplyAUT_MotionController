@@ -227,7 +227,10 @@
 #define IDC_STATICPID_P7                1139
 #define IDC_CHECK_SIMULATION            1140
 #define IDC_EDIT_SIMULATION             1141
+#define IDC_CHECK_FW_GAP                1141
 #define IDC_STATIC_PID_RMS_P            1142
+#define IDC_CHECK2                      1142
+#define IDC_CHECK_FW_WELD               1142
 #define IDC_STATIC_PID_RMS_I            1143
 #define IDC_STATIC_PID_RMS_D            1144
 #define IDC_BUTTON_CALC_PD              1145
@@ -240,7 +243,6 @@
 #define IDC_STATICPID_P8                1152
 #define IDC_EDIT_NAV_START_SPEED        1153
 #define IDC_EDIT_NAV_START_DIST         1154
-#define IDC_EDIT_NAV_START_DIST2        1155
 #define IDC_EDIT_NAV_GAP_PREDICT        1155
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
@@ -253,7 +255,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         32775
-#define _APS_NEXT_CONTROL_VALUE         1141
+#define _APS_NEXT_CONTROL_VALUE         1142
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

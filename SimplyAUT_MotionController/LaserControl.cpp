@@ -21,6 +21,8 @@ CLaserControl::CLaserControl()
 	m_nCameraShutter = 0;
     m_pParent = NULL;
     m_nMsg = 0;
+	m_bFW_Gap = FALSE;
+	m_bFW_Weld = FALSE;
 
 	memset(&m_measure1, 0x0, sizeof(m_measure1));
 
@@ -750,11 +752,11 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	m_filter.IIR_HighCut(m_hitBuffer.GetData(), 100, 12.50);
 
 	// get both the maximumk and the minimum and the average
-	int dir, maxInd = CalculateMaximumIndex(m_hitBuffer.GetData(), SENSOR_WIDTH, dir);
+	int cap_dir, maxInd = CalculateMaximumIndex(m_hitBuffer.GetData(), SENSOR_WIDTH, cap_dir);
 
 	// the threshold will vary left to right if there ids upside/down side height varience
-	int i1 = CalculateWeldEdge(m_hitBuffer.GetData(), 0, maxInd, dir);
-	int i2 = CalculateWeldEdge(m_hitBuffer.GetData(), maxInd, SENSOR_WIDTH, dir);
+	int i1 = CalculateWeldEdge(m_hitBuffer.GetData(), 0, maxInd, cap_dir);
+	int i2 = CalculateWeldEdge(m_hitBuffer.GetData(), maxInd, SENSOR_WIDTH, cap_dir);
 
 	// how many samples are +/- 5 mm
 	// if use too many the 2nd order polynomial fit may be unstable
@@ -792,9 +794,15 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 	centre = max(centre, 0.0);
 	centre = min(centre, (double)SENSOR_WIDTH - 1.0);
 
-	// now differentiate the coeff to dind the location of the maximum
-	m_measure2.weld_cap_pix2.x = centre;
-	m_measure2.weld_cap_pix2.y = coeff[2] * m_measure2.weld_cap_pix2.x * m_measure2.weld_cap_pix2.x + coeff[1] * m_measure2.weld_cap_pix2.x + coeff[0];
+	if ( (m_bFW_Gap && cap_dir == -1) || (m_bFW_Weld && cap_dir == 1) )
+		m_measure2.weld_cap_pix2 = m_measure2.weld_cap_pix1;
+	else
+	{
+		// now differentiate the coeff to dind the location of the maximum
+		m_measure2.weld_cap_pix2.x = centre;
+		m_measure2.weld_cap_pix2.y = coeff[2] * m_measure2.weld_cap_pix2.x * m_measure2.weld_cap_pix2.x + coeff[1] * m_measure2.weld_cap_pix2.x + coeff[0];
+	}
+
 	m_measure2.weld_left_pix = i1;
 	m_measure2.weld_right_pix = i2;
 

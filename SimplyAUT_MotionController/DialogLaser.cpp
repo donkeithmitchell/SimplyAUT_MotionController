@@ -59,6 +59,8 @@ void CDialogLaser::Serialize(CArchive& ar)
 		ar << m_bAutoLaser;
 		ar << m_LaserPower;
 		ar << m_CameraShutter;
+		ar << m_laserControl.m_bFW_Gap;
+		ar << m_laserControl.m_bFW_Weld;
 		ar << mask;
 	}
 	else
@@ -70,6 +72,8 @@ void CDialogLaser::Serialize(CArchive& ar)
 			ar >> m_bAutoLaser;
 			ar >> m_LaserPower;
 			ar >> m_CameraShutter;
+			ar >> m_laserControl.m_bFW_Gap;
+			ar >> m_laserControl.m_bFW_Weld;
 			ar >> mask;
 		}
 		catch (CArchiveException * e1)
@@ -109,6 +113,8 @@ void CDialogLaser::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_SHUTTER_EDIT, m_CameraShutter);
 	DDX_Check(pDX, IDC_CHECK_SHIFT_TO_CENTRE, m_bShiftToCentre);
 	DDX_Check(pDX, IDC_CHECK_SHOW_RAW_DATA, m_bShowRawData);
+	DDX_Check(pDX, IDC_CHECK_FW_GAP, m_laserControl.m_bFW_Gap);
+	DDX_Check(pDX, IDC_CHECK_FW_WELD, m_laserControl.m_bFW_Weld);
 }
 
 
@@ -125,8 +131,10 @@ BEGIN_MESSAGE_MAP(CDialogLaser, CDialogEx)
 	ON_BN_CLICKED(IDC_ROI_BUTTON, OnRoiButton)
 	ON_MESSAGE(WM_USER_UPDATE_DIALOG, OnUserUpdateDialog)
 	ON_BN_CLICKED(IDC_BUTTON_ROI_RESET, &CDialogLaser::OnClickedButtonRoiReset)
-	ON_BN_CLICKED(IDC_CHECK_SHIFT_TO_CENTRE, &CDialogLaser::OnClickedCheckShiftToCentre)
-	ON_BN_CLICKED(IDC_CHECK_SHOW_RAW_DATA, &CDialogLaser::OnClickedCheckShowRawData)
+	ON_BN_CLICKED(IDC_CHECK_SHIFT_TO_CENTRE, &CDialogLaser::OnClickedCheck)
+	ON_BN_CLICKED(IDC_CHECK_SHOW_RAW_DATA, &CDialogLaser::OnClickedCheck)
+	ON_BN_CLICKED(IDC_CHECK_FW_GAP, &CDialogLaser::OnClickedCheck)
+	ON_BN_CLICKED(IDC_CHECK_FW_WELD, &CDialogLaser::OnClickedCheck)
 END_MESSAGE_MAP()
 
 
@@ -371,18 +379,12 @@ void CDialogLaser::OnClickedButtonRoiReset()
 	UpdateData(FALSE);
 }
 
-
-void CDialogLaser::OnClickedCheckShiftToCentre()
+void CDialogLaser::OnClickedCheck()
 {
 	// TODO: Add your control notification handler code here
 	if (m_bInit)
+	{
 		UpdateData(TRUE);
-}
-
-
-void CDialogLaser::OnClickedCheckShowRawData()
-{
-	// TODO: Add your control notification handler code here
-	if (m_bInit)
-		UpdateData(TRUE);
+		EnableControls();
+	}
 }
