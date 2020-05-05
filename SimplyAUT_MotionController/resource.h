@@ -239,8 +239,9 @@
 #define IDC_EDIT_NAV_MAX_TURN_LEN       1151
 #define IDC_STATICPID_P8                1152
 #define IDC_EDIT_NAV_START_SPEED        1153
-#define IDC_EDIT_NAV_MAX_TURN3          1154
 #define IDC_EDIT_NAV_START_DIST         1154
+#define IDC_EDIT_NAV_START_DIST2        1155
+#define IDC_EDIT_NAV_GAP_PREDICT        1155
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773

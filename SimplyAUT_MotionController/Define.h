@@ -26,7 +26,6 @@
 #define PROFILE_VALIDATE_LENGTH		20
 
 // used for navigation
-#define GAP_PREDICT					5.0 // while not used ast this timne, using the 2mnd order filkter, prdict the laser position 5 mm in the future
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres, do not want to re-allocate the memory too often
 #define GAP_FILTER_MIN__WIDTH		10 // mm (filter over last 10-50 mm, 2nd order, so can handle variations)
 #define GAP_FILTER_MAX__WIDTH		20 // 50 

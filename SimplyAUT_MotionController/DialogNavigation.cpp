@@ -257,6 +257,10 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 	if (m_bCheck)
 		DDV_MinMaxDouble(pDX, m_pid.start_dist, MIN_START_DIST, MAX_START_DIST);
 
+	DDX_Text(pDX, IDC_EDIT_NAV_GAP_PREDICT, m_pid.gap_predict);
+	if (m_bCheck)
+		DDV_MinMaxInt(pDX, m_pid.gap_predict, -10, 10);
+
 	DDX_Check(pDX, IDC_CHECK_SIMULATION, m_pid.simulation);
 
 	if (!pDX->m_bSaveAndValidate)

@@ -10,7 +10,7 @@ struct NAVIGATION_PID
 	void Reset() {
 		memset(this, 0x0, sizeof(NAVIGATION_PID));
 		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length_ms = NAVIGATION_D_LEN;  pivot_percent = NAVIGATION_PIVOT;
-		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = DFLT_TURN_RATE1; max_turn_rate_pre = MAX_TURN_RATE1;
+		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = DFLT_TURN_RATE1; max_turn_rate_pre = MAX_TURN_RATE1; gap_predict = 0;
 		I_accumulate_ms = NAVIGATION_I_ACCUMULATE; max_turn_rate_len = DFLT_MAX_TURN_RATE_LEN; start_speed = DFLT_START_SPEED; start_dist = DFLT_START_DIST;
 	}
 
@@ -34,7 +34,8 @@ struct NAVIGATION_PID
 	int max_turn_rate_len;
 	int max_turn_rate_pre;
 	BOOL simulation;
-	int dummy4[8 - 7];
+	int gap_predict;
+//	int dummy4[8 - 8];
 };
 
 struct FILTER_RESULTS
@@ -138,7 +139,8 @@ private:
 	double m_fMotorAccel;
 	double m_fWeldOffset;
 	BOOL	m_bScanning;
-	int m_nStartPos;
+	int		m_nStartPos;
+	double	m_nInitPos;
 	int m_nEndPos;
 	CWnd* m_pParent;
 	UINT m_nMsg;

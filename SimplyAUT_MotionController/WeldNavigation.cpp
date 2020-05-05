@@ -53,6 +53,7 @@ CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, N
 	m_fMotorAccel = FLT_MAX;
 	m_nEndPos = 0;
 	m_nStartPos = 0;
+	m_nInitPos = 0;
 	m_fWeldOffset = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -405,7 +406,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 		ret.vel_raw = 1000.0 * 2 * coeff[2] * pos2 + coeff[1]; // differentiated
 
 		// predict the future
-		double pos = pos2 + GAP_PREDICT*(double)direction;
+		double pos = pos2 + m_pid.gap_predict*(double)direction;
 		ret.gap_predict = coeff[2] * pos * pos + coeff[1] * pos + coeff[0];
 		ret.pos_predict = pos;
 	}
@@ -419,7 +420,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 		ret.vel_raw = 1000.0 * coeff[1]; // differentiated
 
 		// predict the future
-		double pos = pos2 + GAP_PREDICT * (double)direction;
+		double pos = pos2 + m_pid.gap_predict * (double)direction;
 		ret.gap_predict = coeff[1] * pos + coeff[0];
 		ret.pos_predict = pos;
 	}
@@ -824,8 +825,10 @@ static void InterpolateVector(const CArray<double,double>& X, const CArray<doubl
 	{
 		// get the 1st and last value within 10 mm of (pos), these may be before start or afgter end
 		int i1, i2;
-		for (i1 = 0; i1 < nSize && X[i1] < (double)pos-10.0; ++i1);
-		for (i2 = nSize - 1; i2 >= 0 && i2 > pos+10L; --i2); 
+		for (i1 = 0; i1 < nSize && X[i1] < (double)pos - 10.0; ++i1); i1--;
+		for (i2 = nSize - 1; i2 >= 0 && X[i2] > (double)pos + 10.0; --i2); i2++;
+		i1 = max(i1, 0);
+		i2 = min(i2, nSize - 1);
 
 		// want at least 3 values so can use 2nd order model
 		// first add earlier values, and if that is not enough add later ones
@@ -1185,6 +1188,7 @@ void CWeldNavigation::StartNavigation(int nSteer, int start_mm, int end_mm, doub
 		m_fMotorAccel = motor_accel;
 		m_fWeldOffset = offset;
 		m_nStartPos = start_mm;
+		m_nInitPos = 0;
 		m_nEndPos = end_mm;
 		m_p_error = 0;
 		m_d_error = 0;
@@ -1352,7 +1356,7 @@ double CWeldNavigation::CalculateTurnRate(double steering, double pos)const
 
 	// for the 1st 100 mm use the maximum, then use user selected maximum
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	double max_rate = (fabs(pos - m_nStartPos) < m_pid.max_turn_rate_len) ? m_pid.max_turn_rate_pre /100.0 : m_pid.max_turn_rate / 100.0;
+	double max_rate = (fabs(pos - m_nInitPos) < m_pid.max_turn_rate_len) ? m_pid.max_turn_rate_pre /100.0 : m_pid.max_turn_rate / 100.0;
 
 	// limit the turn rate to 0.7
 	// too much as the slippage required will be extreme
@@ -1420,8 +1424,7 @@ double CWeldNavigation::GetPIDSteering()
 	// i.e. takeds time to start a turn, must look further doewn the road
 	// 911
 	double this_pos = pos0.measures.measure_pos_mm;
-	double this_gap = pos0.gap_filt;
-//	double this_gap = pos0.gap_predict;
+	double this_gap = (m_pid.gap_predict == 0) ? pos0.gap_filt : pos0.gap_predict;
 	if (this_pos == FLT_MAX || this_gap == FLT_MAX)
 		return 0;
 
@@ -1659,7 +1662,7 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
 	double base_speed = (direction == 1) ? m_fMotorSpeed : m_fMotorSpeed / 2.0;
 
-	double init_pos = GetLastNotedPosition(0).measures.measure_pos_mm;
+	m_nInitPos = GetLastNotedPosition(0).measures.measure_pos_mm;
 	double accel_time = base_speed / m_fMotorAccel;
 	double accel_dist = accel_time * base_speed / 2.0;
 
@@ -1668,7 +1671,7 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 	// a jog is a turn first towartds the centrte, then back to the original direction
 	double last_pos = FLT_MAX;
 	BOOL bStop = FALSE;
-	BOOL bStart = init_pos != FLT_MAX;
+//	BOOL bStart = m_nInitPos != FLT_MAX;
 
 	// the motor speed may have been set to more than 20.0 initially
 	// will ramp up the speed for 100 mm, to help it settle faster
@@ -1689,8 +1692,8 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		if( this_pos == FLT_MAX )
 			continue;
 
-		if (bStart && fabs(this_pos - init_pos) > accel_dist)
-			bStart = FALSE;
+//		if (bStart && fabs(this_pos - m_nInitPos) > accel_dist)
+//			bStart = FALSE;
 
 		// have programmed the motors to travel further than desired
 		// thus issue a stop in this case
@@ -1721,10 +1724,10 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		}
 		else if (base_speed <= m_pid.start_speed)
 			fMotorSpeed = base_speed;
-		else if (m_pid.start_dist > 0 && fabs(this_pos - m_nStartPos) < m_pid.start_dist)
+		else if (m_pid.start_dist > 0 && fabs(this_pos - m_nInitPos) < m_pid.start_dist)
 			fMotorSpeed = m_pid.start_speed;
-		else if (fabs(this_pos - m_nStartPos) < 2 * m_pid.start_dist)
-			fMotorSpeed = m_pid.start_speed + (base_speed - m_pid.start_speed) * fabs(this_pos - m_nStartPos) / m_pid.start_dist;
+		else if (fabs(this_pos - m_nInitPos) < 2 * m_pid.start_dist)
+			fMotorSpeed = m_pid.start_speed + (base_speed - m_pid.start_speed) * fabs(this_pos - m_nInitPos) / m_pid.start_dist;
 		else
 			fMotorSpeed = base_speed;
 
