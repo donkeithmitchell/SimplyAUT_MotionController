@@ -79,7 +79,7 @@ void CLaserControl::EnableControls()
 {
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
+        m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS_1);
     }
 }
 

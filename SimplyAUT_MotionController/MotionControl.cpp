@@ -48,7 +48,7 @@ void CMotionControl::SendDebugMessage(const CString& msg)
         CString* szMsg = new CString;
         *szMsg = msg;
 
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG_1, (WPARAM)szMsg);
+        m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SEND_DEBUGMSG_1, (WPARAM)szMsg);
     }
 #endif
 }
@@ -73,7 +73,7 @@ void CMotionControl::EnableControls()
 {
     if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
     {
-        m_pParent->SendMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
+        m_pParent->PostMessage(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS_1);
     }
 }
 

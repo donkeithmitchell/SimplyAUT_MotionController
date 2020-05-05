@@ -326,7 +326,7 @@ LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM 
 				AppendErrorMessage(NULL, action);
 			break;
 		}
-		case MSG_SETBITMAPS: // enable the various controlds
+		case MSG_SETBITMAPS_1: // enable the various controlds
 		{
 			SetTitle();
 			m_dlgConnect.EnableControls();

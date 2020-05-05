@@ -169,7 +169,7 @@ void CDialogConnect::OnClickedButtonConnect()
 
 	// request the parent to enable all controls 
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
+		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS_1);
 }
 
 // if have errors connecting, they will be posted in the error static

@@ -218,7 +218,7 @@ void CDialogMag::OnTimer(UINT nIDEvent)
 				if (bMagOn != sLastMagOn && m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
 				{
 					sLastMagOn = bMagOn;
-					m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
+					m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS_1);
 				}
 			}
 			break;

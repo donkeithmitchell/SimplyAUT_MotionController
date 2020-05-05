@@ -1882,7 +1882,7 @@ BOOL CDialogGirthWeld::CalibrateCircumference()
 
 	// this will cause the calibration graph to be hid, and the laser profile to be shown
 	m_nCalibratingRGB = CALIBRATE_RGB_NOT;
-	SendMessage(WM_SIZE);
+	PostMessage(WM_SIZE);
 
 	// at this point the scanner will be on the start line
 	// turn on navigation at full speed and seek the start line again
@@ -1929,7 +1929,7 @@ BOOL CDialogGirthWeld::CalibrateCircumference()
 
 			// checfk every 10 ms for the start line
 			SetTimer(TIMER_NOTE_CALIBRATION, 10, NULL);
-			SendMessage(WM_SIZE); // force to show the calibrate window VS laser profile
+			PostMessage(WM_SIZE); // force to show the calibrate window VS laser profile
 		}
 
 		// are now 1/2 the seek distance past 360 deg, so assume have completed a full scan and stop the motors
@@ -1998,7 +1998,7 @@ BOOL CDialogGirthWeld::SeekStartLine()
 	// start noting the RGB data VS position every 10 ms
 	m_nCalibratingRGB = CALIBRATE_RGB_SCANNING;
 	SetTimer(TIMER_NOTE_CALIBRATION, 10, NULL);
-	SendMessage(WM_SIZE); // replace the laser window with the calibration window with m_nCalibratingRGB set
+	PostMessage(WM_SIZE); // replace the laser window with the calibration window with m_nCalibratingRGB set
 
 	// noite the rtequested motor speed, and use 1/4 of that for navigation
 	int start_pos = 0;
@@ -2112,7 +2112,7 @@ UINT CDialogGirthWeld::ThreadAbortScan()
 	WaitForMotorsToStop();
 	StartNavigation(0x0, 0, 0, 0);
 	InformRecordingSW(-1); // indicate that aborted
-	SendMessage(WM_SIZE); // replace the laser window with the calibration window
+	PostMessage(WM_SIZE); // replace the laser window with the calibration window
 	PostMessage(WM_USER_ABORT_FINISHED);
 	return 0L;
 }
@@ -2140,7 +2140,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 		WaitForMotorsToStop();
 		StartNavigation(0x0, 0,0, 0);
 		InformRecordingSW(-1); // indicate that aborted
-		SendMessage(WM_SIZE); // replace the laser window with the calibration window
+		PostMessage(WM_SIZE); // replace the laser window with the calibration window
 		PostMessage(WM_USER_SCAN_FINISHED);
 		return 0L;
 	}
@@ -2150,7 +2150,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 	{
 		BOOL bCalibrate = CalibrateCircumference();
 		m_nCalibratingRGB = CALIBRATE_RGB_NOT;
-		SendMessage(WM_SIZE); // replace the laser window with the calibration window
+		PostMessage(WM_SIZE); // replace the laser window with the calibration window
 		PostMessage(WM_USER_SCAN_FINISHED);
 		return 0L;
 	}
@@ -2221,7 +2221,7 @@ UINT CDialogGirthWeld::ThreadRunScan()
 
 			// =replace the calibration graph with the laser profile
 			m_nCalibratingRGB = CALIBRATE_RGB_NOT;
-			SendMessage(WM_SIZE);
+			PostMessage(WM_SIZE);
 
 			KillTimer(TIMER_NOTE_CALIBRATION);
 			
@@ -2585,7 +2585,7 @@ LRESULT CDialogGirthWeld::OnUserFinished(CWinThread** ppThread)
 		m_nGalilState = m_nGaililStateBackup;
 
 	if (m_pParent && m_nMsg && IsWindow(m_pParent->m_hWnd) && m_pParent->IsKindOf(RUNTIME_CLASS(CSimplyAUTMotionControllerDlg)))
-		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS);
+		m_pParent->PostMessageA(m_nMsg, CSimplyAUTMotionControllerDlg::MSG_SETBITMAPS_1);
 
 	SetButtonBitmaps();
 	return 0L;
