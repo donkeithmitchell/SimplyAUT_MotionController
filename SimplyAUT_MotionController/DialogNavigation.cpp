@@ -249,6 +249,14 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 	if (m_bCheck)
 		DDV_MinMaxInt(pDX, m_pid.Phz, -360, 360);
 
+	DDX_Text(pDX, IDC_EDIT_NAV_START_SPEED, m_pid.start_speed);
+	if (m_bCheck)
+		DDV_MinMaxDouble(pDX, m_pid.start_speed, MIN_MOTOR_SPEED, MAX_MOTOR_SPEED);
+
+	DDX_Text(pDX, IDC_EDIT_NAV_START_DIST, m_pid.start_dist);
+	if (m_bCheck)
+		DDV_MinMaxDouble(pDX, m_pid.start_dist, MIN_START_DIST, MAX_START_DIST);
+
 	DDX_Check(pDX, IDC_CHECK_SIMULATION, m_pid.simulation);
 
 	if (!pDX->m_bSaveAndValidate)

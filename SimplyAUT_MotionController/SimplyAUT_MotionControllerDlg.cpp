@@ -251,6 +251,8 @@ void CSimplyAUTMotionControllerDlg::OnCancel()
 
 void CSimplyAUTMotionControllerDlg::SetTitle()
 {
+	m_dlgConnect.UpdateData(TRUE);
+
 	CString text;
 	GetWindowTextA(text);
 	int ind = text.Find(" - ");
@@ -459,6 +461,8 @@ void CSimplyAUTMotionControllerDlg::OnSize(UINT nFlag, int cx, int cy)
 
 void CSimplyAUTMotionControllerDlg::OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pResult)
 {
+	SetTitle();
+
 	// TODO: Add your control notification handler code here
 	if (CheckVisibleTab())
 		OnSelchangeTab2();

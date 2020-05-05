@@ -71,8 +71,12 @@
 #define MIN_SCAN_OVERLAP			0.0 // no requirement for overlap
 #define MAX_SCAN_OVERLAP			250.0 //
 #define DFLT_SCAN_OVERLAP			50.0
-#define MIN_MOTOR_SPEED				1.0 // mm/S cannot be zero
+#define MIN_MOTOR_SPEED				10.0 // mm/S cannot be zero
 #define MAX_MOTOR_SPEED				100.0 // mm/S cannot be too fast
+#define DFLT_START_SPEED			20.0
+#define MIN_START_DIST				0.0
+#define MAX_START_DIST				200.0
+#define DFLT_START_DIST				100.0
 #define DFLT_MOTOR_SPEED			50.0
 #define MIN_MOTOR_ACCEL				5.0	// mm/S/S, do not want to accelerate too slow
 #define MAX_MOTOR_ACCEL				100.0	// mm/S/S, too fast and may damage motors or wheels

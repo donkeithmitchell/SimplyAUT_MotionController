@@ -236,9 +236,11 @@
 #define IDC_SPIN_PHZ                    1148
 #define IDC_BUTTON_SIMULATE             1149
 #define IDC_EDIT_NAV_MAX_TURN_100       1150
-#define IDC_EDIT_NAV_MAX_TURN_101       1151
 #define IDC_EDIT_NAV_MAX_TURN_LEN       1151
 #define IDC_STATICPID_P8                1152
+#define IDC_EDIT_NAV_START_SPEED        1153
+#define IDC_EDIT_NAV_MAX_TURN3          1154
+#define IDC_EDIT_NAV_START_DIST         1154
 #define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773

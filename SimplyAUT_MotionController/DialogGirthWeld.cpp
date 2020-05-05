@@ -1528,13 +1528,16 @@ void CDialogGirthWeld::OnClickedButtonGoHome()
 				// start the navigation at 1/2 speed
 				StartNavigation(0x3, start_pos, 0, m_fMotorScanSpeed / 2);
 			}
+			m_pThreadScan = ::AfxMyBeginThread(::ThreadGoToHome, (LPVOID)this);
 		}
 		// if aborting a GoHome previous request, stop mnavigation now
 		else
+		{
 			StartNavigation(0x0, 0, 0, 0);
+			m_pThreadAbort = ::AfxMyBeginThread(::ThreadAbortScan, (LPVOID)this);
+		}
 
 		// driving and stopping take time, so sue a thread
-		m_pThreadScan = ::AfxMyBeginThread(::ThreadGoToHome, (LPVOID)this);
 	}
 }
 
@@ -1712,11 +1715,11 @@ BOOL CDialogGirthWeld::WaitForMotorsToStop()
 	// even though have always passed wait for motors to start prior to this
 	// this is likely due to looking at the polled flag indicating if running or not
 	// the motors will never run for less than 500 ms regardless
-	Sleep(1000);
+//	Sleep(1000);
 
 	// check 5 times to see if stopped
 	// seem to get erroneous return of motors stopped wqhen not
-	for (int i = 0; i < 5; ++i)
+//	for (int i = 0; i < 5; ++i)
 	{
 		while (AreMotorsRunning())
 			Sleep(10);
@@ -2554,16 +2557,19 @@ LRESULT CDialogGirthWeld::OnUserFinished(CWinThread** ppThread)
 	// not sure if TerminteThread() will actually do so
 	// this ability must be included when the thread was created
 	// regardless, a dangerous move 
-	int ret = ::WaitForSingleObject((*ppThread)->m_hThread, 1000);
-	if (ret != WAIT_OBJECT_0 )
+	if (*ppThread != NULL)
 	{
-		SendErrorMessage("Thread Timed Out");
-	}
+		int ret = ::WaitForSingleObject((*ppThread)->m_hThread, 1000);
+		if (ret != WAIT_OBJECT_0)
+		{
+			SendErrorMessage("Thread Timed Out");
+		}
 
-	// if paused and going to resume a scan
-	// then do not want to cal the following
-	delete *ppThread;
-	*ppThread = NULL;
+		// if paused and going to resume a scan
+		// then do not want to cal the following
+		delete* ppThread;
+		*ppThread = NULL;
+	}
 
 	if (!m_bPaused)
 	{

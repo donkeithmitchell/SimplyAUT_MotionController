@@ -229,45 +229,63 @@ int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count
 		return count;
 
 	// count-1 is the most recently added value
-	double diff = fabs(Y[0] - Y[1]) / fabs(X[0] - X[1]);
-
-	// if the difference is > 1.0 mm per mm
-	// remvoed the most recently added value [0]
-	// as all others are filtered values, assume they are OK
-	if (diff > MAX_GAP_CHANGE_PER_MM)
+	// check all values to see if they are outliers
+	// do not assauyme that previously accepted values are strill valid
+	int removed = 0;
+	for (int i = 0; i < count - 1 && removed < 3; ++i)
 	{
-		Y[0] = Y[1];
-		return count;
+		double diff = fabs(Y[i] - Y[i + 1]) / fabs(X[i] - X[i + 1]);
+
+		// if the difference is > 1.0 mm per mm
+		if (diff > MAX_GAP_CHANGE_PER_MM)
+		{
+			// which is furthest from avg, [i] or [i+1]
+			polyfit(X, Y, count, 0, coeff);
+			double avg = coeff[0];
+			if( fabs(Y[i] - avg) > fabs(Y[i+1]-avg))
+				Y[i] = Y[i+1];
+			else
+				Y[i+1] = Y[i];
+
+			removed++;
+			continue;
+		}
+
+		// check if the SD of [0] is within 0.25
+		polyfit(X, Y, count, order, coeff);
+
+		// get the RMS variation from the above model for all values
+		double sum2 = 0;
+		for (int j = 0; j < count; ++j)
+		{
+			double y = ModelY(X[j], coeff, order);
+			double diff = y - Y[j];
+			sum2 += diff * diff;
+		}
+		double sd = sqrt(sum2 / count);
+		if (sd < 0.25)
+			continue;
+
+		// now get the SD without (i)
+		sum2 = 0;
+		for (int j = 0; j < count; ++j)
+		{
+			if (j != i)
+			{
+				double y = ModelY(X[j], coeff, order);
+				double diff = y - Y[j];
+				sum2 += diff * diff;
+			}
+		}
+		sd = sqrt(sum2 / (count - 1));
+
+		// removing the most recently added value must move the SD from > 0.25 to < 0.25
+		if (sd < 0.25)
+		{
+			Y[i] = Y[i + 1];
+			removed++;
+		}
 	}
-
-	// check if the SD of [0] is within 0.25
-	polyfit(X, Y, count, order, coeff);
-
-	// get the RMS variation from the above model with the most recently added value (0)
-	double sum2 = 0;
-	for (int i = 0; i < count; ++i)
-	{
-		double y = ModelY(X[i], coeff, order);
-		double diff = y - Y[i];
-		sum2 += diff * diff;
-	}
-	double sd = sqrt(sum2 / count);
-	if (sd < 0.25)
-		return count;
-
-	// now get the SD without the most rdecently added value
-	sum2 = 0;
-	for (int i = 1; i < count; ++i)
-	{
-		double y = ModelY(X[i], coeff, order);
-		double diff = y - Y[i];
-		sum2 += diff * diff;
-	}
-	sd = sqrt(sum2 / (count-1) );
-
-	// removing the most recently added value must move the SD from > 0.25 to < 0.25
-	if (sd < 0.25)
-		Y[0] = Y[1];
 
 	return count;
 }
@@ -291,7 +309,7 @@ BOOL CWeldNavigation::GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& bu
 	{
 		double val1 = FLT_MAX;
 		if (source & SOURCE_GAP)
-			val1 = (buff1[i].gap_filt == FLT_MAX) ? buff1[i].gap_raw : buff1[i].gap_filt;
+			val1 = buff1[i].gap_raw; //  (buff1[i].gap_filt == FLT_MAX) ? buff1[i].gap_raw : buff1[i].gap_filt;
 		else if (source & SOURCE_VEL)
 			val1 = (buff1[i].vel_filt == FLT_MAX) ? buff1[i].vel_raw : buff1[i].vel_filt;
 
@@ -353,8 +371,8 @@ BOOL CWeldNavigation::GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& bu
 	// check if have minimum length of data (10 mm) to get a filtered value
 	if (!(source & SOURCE_BY_TIME))
 	{
-		if ((count > 0) && (fabs(g_X[0] - g_X[count - 1]) < (double)nMinWidth))
-			return FALSE;
+//		if ((count > 0) && (fabs(g_X[0] - g_X[count - 1]) < (double)nMinWidth))
+//			return FALSE;
 
 		// outliers can corrupt the model
 		count = RemoveOutliers(g_X, g_Y, order, count, 2/*max_sd*/);
@@ -607,6 +625,7 @@ LASER_MEASURES CWeldNavigation::GetLaserSimulation()
 {
 	static clock_t last_read = INT_MAX;
 	static clock_t last_tim = INT_MAX;
+	static int lines = 0;
 
 	LASER_MEASURES ret;
 	CString path;
@@ -629,12 +648,14 @@ LASER_MEASURES CWeldNavigation::GetLaserSimulation()
 
 		last_read = INT_MAX;
 		last_tim = INT_MAX;
+		lines = 0;
 	}
 
 	const char* ptr = fgets(str, sizeof(str), m_fpSimulation);
 	if (ptr == NULL)
 		return ret;
 
+	lines++;
 	clock_t tim;
 	double pos, lf, rf, rr, lr, gap_raw;
 	int ret2 = sscanf_s(str, "%lf\t%d\t%lf\t%lf\t%lf\t%lf\t%lf",
@@ -648,18 +669,13 @@ LASER_MEASURES CWeldNavigation::GetLaserSimulation()
 	{
 		int dt2 = this_read - last_read; // ms since the last read
 		int dt1 = abs(last_tim - tim);
-		if (dt2 - dt1 > 0)
-			Sleep((dt2 - dt1));
+		if (dt1 - dt2 > 0)
+			Sleep((dt1 - dt2));
 	}
 
 	ret.measure_pos_mm = pos;
 	ret.weld_cap_mm.x = gap_raw;
 	ret.measure_tim_ms = tim;
-
-	if (tim >= 3800)
-	{
-		int xx = 1;
-	}
 
 	last_tim = tim;
 	last_read = this_read;
@@ -1641,9 +1657,11 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 {
 	// note if driving backwards
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	double init_pos = GetLastNotedPosition(0).measures.measure_pos_mm;	
-	double accel_time = m_fMotorSpeed / m_fMotorAccel;
-	double accel_dist = accel_time * m_fMotorSpeed / 2.0;
+	double base_speed = (direction == 1) ? m_fMotorSpeed : m_fMotorSpeed / 2.0;
+
+	double init_pos = GetLastNotedPosition(0).measures.measure_pos_mm;
+	double accel_time = base_speed / m_fMotorAccel;
+	double accel_dist = accel_time * base_speed / 2.0;
 
 	// if the gap is to one side or the other by more than about 0.1 mm
 	// jog the crawler to the centre, and then check again\
@@ -1651,6 +1669,13 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 	double last_pos = FLT_MAX;
 	BOOL bStop = FALSE;
 	BOOL bStart = init_pos != FLT_MAX;
+
+	// the motor speed may have been set to more than 20.0 initially
+	// will ramp up the speed for 100 mm, to help it settle faster
+
+	double fMotorSpeed = min(base_speed, 20.0);
+	double speed1[] = { fMotorSpeed, fMotorSpeed, fMotorSpeed, fMotorSpeed }; // LF, RF, RR, LR
+	SetMotorSpeed(speed1);
 
 	while (m_bSteerMotors)
 	{
@@ -1673,11 +1698,10 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		if (direction * this_pos >= ((double)direction * (double)m_nEndPos))
 		{
 			// once the mootors are asked to stop, use the actual average mfotor speed as the referene
-			// not m_fMotorSpeed
+			// not base_speed
 			SetMotorDeceleration(2 * m_fMotorAccel);
-			StopMotors(TRUE);
-			bStop = TRUE;
-			break; // stop navigating now
+			StopMotors(FALSE); // dont wait for the motors to stop, just request it
+			bStop = TRUE; // use the deceleration spped to navigate with, not the desired speed
 		}
 
 		// has it travelled at least a mm from the last check
@@ -1686,8 +1710,24 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 
 		// until deceleration, must use the default speed, else it will drift
 		// during decelerqation, use the average as the defrault
-//		double fMotorSpeed = (bStop || bStart) ? GetAvgMotorSpeed() : m_fMotorSpeed;
-		double fMotorSpeed = (bStop ) ? GetAvgMotorSpeed() : m_fMotorSpeed;
+//		double fMotorSpeed = (bStop || bStart) ? GetAvgMotorSpeed() : base_speed;
+		double fMotorSpeed = base_speed;
+		if (bStop)
+		{
+			// have rtequested a stop, check if have actually stopped
+			fMotorSpeed = GetAvgMotorSpeed();
+			if ((int)fMotorSpeed < 1) // may ber infentesimaLLY small
+				break;
+		}
+		else if (base_speed <= m_pid.start_speed)
+			fMotorSpeed = base_speed;
+		else if (m_pid.start_dist > 0 && fabs(this_pos - m_nStartPos) < m_pid.start_dist)
+			fMotorSpeed = m_pid.start_speed;
+		else if (fabs(this_pos - m_nStartPos) < 2 * m_pid.start_dist)
+			fMotorSpeed = m_pid.start_speed + (base_speed - m_pid.start_speed) * fabs(this_pos - m_nStartPos) / m_pid.start_dist;
+		else
+			fMotorSpeed = base_speed;
+
 		last_pos = this_pos;
 		double turn_rate = pos0.manoeuvre1.x;
 		int dir = (turn_rate > 0) ? 1 : -1;
@@ -1721,7 +1761,7 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 
 		SetMotorSpeed(speed1);
 
-		int turn_time = (int)(1000 * m_pid.turn_dist / m_fMotorSpeed + 0.5);
+		int turn_time = (int)(1000 * m_pid.turn_dist / base_speed + 0.5);
 		Sleep(turn_time);
 	}
 	return 0;

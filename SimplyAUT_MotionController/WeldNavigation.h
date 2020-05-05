@@ -11,17 +11,19 @@ struct NAVIGATION_PID
 		memset(this, 0x0, sizeof(NAVIGATION_PID));
 		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length_ms = NAVIGATION_D_LEN;  pivot_percent = NAVIGATION_PIVOT;
 		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = DFLT_TURN_RATE1; max_turn_rate_pre = MAX_TURN_RATE1;
-		I_accumulate_ms = NAVIGATION_I_ACCUMULATE; max_turn_rate_len = DFLT_MAX_TURN_RATE_LEN;
+		I_accumulate_ms = NAVIGATION_I_ACCUMULATE; max_turn_rate_len = DFLT_MAX_TURN_RATE_LEN; start_speed = DFLT_START_SPEED; start_dist = DFLT_START_DIST;
 	}
 
 	char simulation_file[_MAX_FNAME];
+	double PID_rms[4];
 	double Kp;
 	double Ki;
 	double Kd;
 	double turn_dist;
 	double Tu_srate;
-	double PID_rms[4];
-	double dummy8[16 - 9];
+	double start_speed;
+	double start_dist;
+	double dummy8[16 - 11];
 	int Tu;
 	int Phz;
 	int nav_type;
