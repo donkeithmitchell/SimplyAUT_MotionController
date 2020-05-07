@@ -221,7 +221,7 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 		DDV_MinMaxInt(pDX, m_pid.D_length_ms, 100, 2500);
 	DDX_Text(pDX, IDC_EDIT_NAV_P_LEN, m_pid.P_length_mm);
 	if (m_bCheck)
-		DDV_MinMaxInt(pDX, m_pid.P_length_mm, 100, 2500);
+		DDV_MinMaxInt(pDX, m_pid.P_length_mm, 5, 100);
 	DDX_Text(pDX, IDC_EDIT_NAV_PIVOT, m_pid.pivot_percent);
 	if (m_bCheck)
 		DDV_MinMaxInt(pDX, m_pid.pivot_percent, 10, 95);
