@@ -12,6 +12,7 @@ struct NAVIGATION_PID
 		Kp = NAVIGATION_P; Ki = NAVIGATION_I; Kd = NAVIGATION_D; D_length_ms = NAVIGATION_D_LEN;  pivot_percent = NAVIGATION_PIVOT;
 		turn_dist = NAVIGATION_TURN_DIST; max_turn_rate = DFLT_TURN_RATE1; max_turn_rate_pre = MAX_TURN_RATE1; gap_predict = 0;
 		I_accumulate_ms = NAVIGATION_I_ACCUMULATE; max_turn_rate_len = DFLT_MAX_TURN_RATE_LEN; start_speed = DFLT_START_SPEED; start_dist = DFLT_START_DIST;
+		Tu = NAVIGATION_DFLT_Tu; P_length_mm = GAP_FILTER_DFLT_WIDTH;
 	}
 
 	char simulation_file[_MAX_FNAME];
@@ -26,8 +27,8 @@ struct NAVIGATION_PID
 	double dummy8[16 - 11];
 	int Tu;
 	int Phz;
-	int nav_type;
 	int D_length_ms; 
+	int P_length_mm;
 	int I_accumulate_ms;
 	int pivot_percent;
 	int max_turn_rate;
@@ -35,7 +36,7 @@ struct NAVIGATION_PID
 	int max_turn_rate_pre;
 	BOOL simulation;
 	int gap_predict;
-//	int dummy4[8 - 8];
+	int dummy4[16 - 8];
 };
 
 struct FILTER_RESULTS

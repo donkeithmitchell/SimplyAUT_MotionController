@@ -64,7 +64,6 @@ protected:
 	afx_msg void OnButtonCalcCrit() { OnButtonCalcPID(PID_CRIT); }
 	afx_msg void OnButtonCalcEnable() { OnButtonCalcPID(PID_CALIB); }
 	
-	afx_msg void OnClickNavType();
 	afx_msg void OnClickSimulate();
 	afx_msg void OnEditChangePID();
 	afx_msg void OnButtonSimulation();

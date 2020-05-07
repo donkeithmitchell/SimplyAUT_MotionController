@@ -13,7 +13,7 @@
 
 static double PI = 4 * atan(1.0);
 static double g_X[GAP_BUFFER_LEN], g_Y[GAP_BUFFER_LEN];
-enum { SOURCE_GAP = 0x1, SOURCE_VEL=0x4, SOURCE_BY_TIME=0x8 };
+enum { SOURCE_GAP_FILT = 0x1, SOURCE_GAP_RAW=0x2, SOURCE_VEL=0x4, SOURCE_BY_TIME=0x8 };
 
 #ifdef _DEBUG_TIMING_
 static clock_t g_NoteNextLaserPositionTime = 0;
@@ -81,13 +81,6 @@ void CWeldNavigation::Init(CWnd* pWnd, UINT nMsg)
 	m_pParent = pWnd;
 	m_nMsg = nMsg;
 }
-/*
-static double HammingWindow(double dist, double nWidth)
-{
-	double Wk = 0.54 - 0.46 * cos(PI * (nWidth-dist) / nWidth);
-	return Wk;
-}
-*/
 
 // using the coefficients and given order calculate 'y'
 // y = A x^2 + B x + C
@@ -309,8 +302,10 @@ BOOL CWeldNavigation::GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& bu
 	for (int i = nSize-1; i >= 0 && count < GAP_BUFFER_LEN; --i)
 	{
 		double val1 = FLT_MAX;
-		if (source & SOURCE_GAP)
+		if (source & SOURCE_GAP_RAW)
 			val1 = buff1[i].gap_raw; //  (buff1[i].gap_filt == FLT_MAX) ? buff1[i].gap_raw : buff1[i].gap_filt;
+		else if (source & SOURCE_GAP_FILT)
+			val1 = buff1[i].gap_filt;
 		else if (source & SOURCE_VEL)
 			val1 = (buff1[i].vel_filt == FLT_MAX) ? buff1[i].vel_raw : buff1[i].vel_filt;
 
@@ -370,7 +365,7 @@ BOOL CWeldNavigation::GetGapCoefficients(const CArray<LASER_POS, LASER_POS >& bu
 
 
 	// check if have minimum length of data (10 mm) to get a filtered value
-	if (!(source & SOURCE_BY_TIME))
+	if (!(source & SOURCE_BY_TIME) && !(source & SOURCE_GAP_FILT) )
 	{
 //		if ((count > 0) && (fabs(g_X[0] - g_X[count - 1]) < (double)nMinWidth))
 //			return FALSE;
@@ -398,7 +393,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 	// filter the last 50 mm
 	// 2nd order, so can handle changes in the offset distance
 	// using 1st order only, causes more delay in the filtering
-	if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 2/*order*/, SOURCE_GAP/*source*/, GAP_FILTER_MIN__WIDTH, GAP_FILTER_MAX__WIDTH))
+	if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 2/*order*/, SOURCE_GAP_RAW/*source*/, m_pid.P_length_mm/2, m_pid.P_length_mm))
 	{
 		int nSize = (int)buff1.GetSize();
 		double pos2 = buff1[nSize - 1].measures.measure_pos_mm;
@@ -412,7 +407,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 	}
 
 	// if can't get coefficitns, then try for an average value over the minimum width
-	else if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 1/*order*/, SOURCE_GAP/*source*/, GAP_FILTER_MIN__WIDTH, GAP_FILTER_MIN__WIDTH))
+	else if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 1/*order*/, SOURCE_GAP_RAW/*source*/, m_pid.P_length_mm/2, m_pid.P_length_mm))
 	{
 		int nSize = (int)buff1.GetSize();
 		double pos2 = buff1[nSize - 1].measures.measure_pos_mm;
@@ -427,7 +422,7 @@ FILTER_RESULTS CWeldNavigation::LowPassFilterGap(const CArray<LASER_POS, LASER_P
 
 	// this just retuns the average, allow to be only 5 mm 
 	// if can't get coefficitns, then try for an average value over the minimum width
-	else if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 0/*order*/, SOURCE_GAP/*source*/, GAP_FILTER_MIN__WIDTH/2, GAP_FILTER_MIN__WIDTH/2))
+	else if (GetGapCoefficients(buff1, last_manoeuvre_pos, direction, coeff, 0/*order*/, SOURCE_GAP_RAW/*source*/, m_pid.P_length_mm/2, m_pid.P_length_mm))
 	{
 		int nSize = (int)buff1.GetSize();
 		double pos2 = buff1[nSize - 1].measures.measure_pos_mm;
@@ -465,7 +460,7 @@ double CWeldNavigation::LowPassFilterDiff(const CArray<LASER_POS, LASER_POS >& b
 	// now get the slope over the last 5 to 10 mm
 	// this is used for the (D) in the PID navigation
 	// this is much mopre stable than using the difference in the previous 2 samples (which may not be eactly 1 mm apart)
-	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 2/*order*/, SOURCE_GAP | SOURCE_BY_TIME/*source*/, m_pid.D_length_ms, m_pid.D_length_ms))
+	if (GetGapCoefficients(buff1, FLT_MAX, direction, coeff, 2/*order*/, SOURCE_GAP_FILT | SOURCE_BY_TIME/*source*/, m_pid.D_length_ms, m_pid.D_length_ms))
 	{
 		int nSize = (int)buff1.GetSize();
 		double pos2 = buff1[nSize - 1].measures.measure_tim_ms / 1000.0;
@@ -1084,6 +1079,16 @@ BOOL CWeldNavigation::WriteScanFile()
 }
 
 #ifdef _DEBUG_TIMING_
+static void WindowFFTData(CArray<double, double>& real)
+{
+	int nSize = (int)real.GetSize();
+	for (int i = 0; i < nSize; ++i)
+	{
+		double Wk = ::HammingWindow(i, nSize);
+		real[i] *= Wk;
+	}
+}
+
 void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, CArray<double, double>& out)
 {
 	int nSize = (int)Y.GetSize();
@@ -1104,8 +1109,12 @@ void CWeldNavigation::CalculatePID_Navigation(const CArray<double, double>& Y, C
 	for (int i = 0; i < nSize; ++i)
 		real[i] -= avg;
 
-	m_fft_data.Copy(Y);
+	// window prior to the FFT to prevent edge effects
+	WindowFFTData(real);
 	::Fft_transform(real.GetData(), imag.GetData(), nN2);
+
+	// copy the raw data to a buffer so can show in the navigation dialog
+	m_fft_data.Copy(Y);
 
 	// get the maximum value (1st half only)
 	double maxVal = 0;
@@ -1337,7 +1346,7 @@ static CDoublePoint GetTurnRateAndPivotPoint(double gap, BOOL bInTolerance, int 
 UINT CWeldNavigation::ThreadSteerMotors()
 {
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	if (direction == -1 || m_pid.nav_type == 1)
+	if (direction == -1)
 		ThreadSteerMotors_try3();
 	else
 		ThreadSteerMotors_PID();

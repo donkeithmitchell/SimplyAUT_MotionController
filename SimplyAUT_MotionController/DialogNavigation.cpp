@@ -170,8 +170,6 @@ BEGIN_MESSAGE_MAP(CDialogNavigation, CWnd)
 	ON_BN_CLICKED(IDC_BUTTON_CALC_ENABLE, &CDialogNavigation::OnButtonCalcEnable)
 
 	ON_BN_CLICKED(IDC_CHECK_SIMULATION, &CDialogNavigation::OnButtonSimulation)
-	ON_BN_CLICKED(IDC_RADIO1, &CDialogNavigation::OnClickNavType)
-	ON_BN_CLICKED(IDC_RADIO2, &CDialogNavigation::OnClickNavType)
 	ON_BN_CLICKED(IDC_BUTTON_SIMULATE, &CDialogNavigation::OnClickSimulate)
 
 //	ON_EN_CHANGE(IDC_EDIT_NAV_P, &CDialogNavigation::OnEditChangePID)
@@ -185,7 +183,7 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 {
 	CString text;
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Radio(pDX, IDC_RADIO1, m_pid.nav_type);
+
 	DDX_Control(pDX, IDC_SPIN_TU, m_spinTu);
 	DDX_Control(pDX, IDC_SPIN_PHZ, m_spinPhz);
 	if (!pDX->m_bSaveAndValidate)
@@ -221,6 +219,9 @@ void CDialogNavigation::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_NAV_D_LEN, m_pid.D_length_ms);
 	if (m_bCheck)
 		DDV_MinMaxInt(pDX, m_pid.D_length_ms, 100, 2500);
+	DDX_Text(pDX, IDC_EDIT_NAV_P_LEN, m_pid.P_length_mm);
+	if (m_bCheck)
+		DDV_MinMaxInt(pDX, m_pid.P_length_mm, 100, 2500);
 	DDX_Text(pDX, IDC_EDIT_NAV_PIVOT, m_pid.pivot_percent);
 	if (m_bCheck)
 		DDV_MinMaxInt(pDX, m_pid.pivot_percent, 10, 95);
@@ -333,14 +334,11 @@ BOOL CDialogNavigation::OnInitDialog()
 
 void CDialogNavigation::EnableControls()
 {
-	GetDlgItem(IDC_EDIT_NAV_P)->EnableWindow(m_pid.nav_type == 0);
-	GetDlgItem(IDC_EDIT_NAV_I)->EnableWindow(m_pid.nav_type == 0);
-	GetDlgItem(IDC_EDIT_NAV_D)->EnableWindow(m_pid.nav_type == 0);
-	GetDlgItem(IDC_EDIT_NAV_PIVOT)->EnableWindow(m_pid.nav_type == 0);
-	GetDlgItem(IDC_EDIT_NAV_DELAY)->EnableWindow(m_pid.nav_type == 0);
-	GetDlgItem(IDC_BUTTON_CALC_ENABLE)->EnableWindow(m_pid.nav_type == 0);
-	GetDlgItem(IDC_BUTTON_CALC_PI)->EnableWindow(m_pid.nav_type == 0 && m_pid.Tu > 0);
-	GetDlgItem(IDC_BUTTON_CALC_PID2)->EnableWindow(m_pid.nav_type == 0 && m_pid.Tu > 0);
+	GetDlgItem(IDC_BUTTON_CALC_PI)->EnableWindow(m_pid.Tu > 0);
+	GetDlgItem(IDC_BUTTON_CALC_PID2)->EnableWindow(m_pid.Tu > 0);
+	GetDlgItem(IDC_BUTTON_CALC_PD)->EnableWindow(m_pid.Tu > 0);
+	GetDlgItem(IDC_BUTTON_CALC_NO_OVERSHOOT)->EnableWindow(m_pid.Tu > 0);
+	
 	GetDlgItem(IDC_EDIT_SIMULATION)->EnableWindow(m_pid.simulation);
 	GetDlgItem(IDC_BUTTON_SIMULATE)->EnableWindow(m_pid.simulation);
 
@@ -372,10 +370,11 @@ void	CDialogNavigation::Serialize(CArchive& ar)
 {
 	const int MASK = 0xCDCDCDCD;
 	int mask = MASK;
+	int dummy4 = 0;
 	if (ar.IsStoring())
 	{
 		UpdateData(TRUE);
-		ar << m_pid.nav_type;
+		ar << dummy4;
 		ar << m_pid.Kp;
 		ar << m_pid.Ki;
 		ar << m_pid.Kd;
@@ -391,7 +390,7 @@ void	CDialogNavigation::Serialize(CArchive& ar)
 #ifdef _DEBUG_TIMING_
 		try
 		{
-			ar >> m_pid.nav_type;
+			ar >> dummy4;
 			ar >> m_pid.Kp;
 			ar >> m_pid.Ki;
 			ar >> m_pid.Kd;
@@ -428,50 +427,47 @@ void CDialogNavigation::OnButtonCalcPID(int mask)
 {
 	UpdateData(TRUE);
 
-	if (m_pid.Tu > 0)
+	double Ku = NAVIGATION_P_OSCILLATE;
+	double Tu = m_pid.Tu / 1000.0;
+	switch (mask)
 	{
-		double Ku = NAVIGATION_P_OSCILLATE;
-		double Tu = m_pid.Tu / 1000.0;
-		switch (mask)
-		{
-		case PID_CRIT: // crtitical damping
-			m_pid.Kp = Ku / 5.0;
-			m_pid.Ki = 2.0 / 5.0 * Ku / Tu;
-			m_pid.Kd = Ku * Tu / 15.0;
-			break;
-		case PID_P: // P
-			m_pid.Kp = Ku * 0.5;
-			m_pid.Ki = 0;
-			m_pid.Kd = 0.0;
-			break;
-		case PID_PI: // PI
-			m_pid.Kp = Ku * 0.45;
-			m_pid.Ki = 0.54 * Ku / Tu;
-			m_pid.Kd = 0.0;
-			break;
-		case PID_PD: // PD
-			m_pid.Kp = Ku * 0.80;
-			m_pid.Ki = 0.0;
-			m_pid.Kd = 1.0 * Ku * Tu / 10.0;
-			break;
-		case PID_PID: // PID
-			m_pid.Kp = Ku * 0.60;
-			m_pid.Ki = 1.20 * Ku / Tu;
-			m_pid.Kd = 3.0 * Ku * Tu / 40.0;
-			break;
-		case PID_CALIB:
-			m_pid.Kp = Ku;
-			m_pid.Ki = 0.0;
-			m_pid.Kd = 0.0;
-			m_pid.max_turn_rate = MAX_TURN_RATE1;
-			m_pid.max_turn_rate_pre = MAX_TURN_RATE1;
-			m_pid.max_turn_rate_len = 0;
-			break;
-		}
-	
-		m_pid.I_accumulate_ms = (int)(m_pid.Tu / 2.0 + 0.5);
-		m_pid.D_length_ms = (int)(m_pid.Tu / 4.0 + 0.5);
+	case PID_CRIT: // crtitical damping
+		m_pid.Kp = Ku / 5.0;
+		m_pid.Ki = (Tu > 0) ? 2.0 / 5.0 * Ku / Tu : 0;
+		m_pid.Kd = Ku * Tu / 15.0;
+		break;
+	case PID_P: // P
+		m_pid.Kp = Ku * 0.5;
+		m_pid.Ki = 0;
+		m_pid.Kd = 0.0;
+		break;
+	case PID_PI: // PI
+		m_pid.Kp = Ku * 0.45;
+		m_pid.Ki = (Tu > 0) ? 0.54 * Ku / Tu : 0;
+		m_pid.Kd = 0.0;
+		break;
+	case PID_PD: // PD
+		m_pid.Kp = Ku * 0.80;
+		m_pid.Ki = 0.0;
+		m_pid.Kd = 1.0 * Ku * Tu / 10.0;
+		break;
+	case PID_PID: // PID
+		m_pid.Kp = Ku * 0.60;
+		m_pid.Ki = (Tu > 0) ? 1.20 * Ku / Tu : 0;
+		m_pid.Kd = 3.0 * Ku * Tu / 40.0;
+		break;
+	case PID_CALIB:
+		m_pid.Kp = Ku;
+		m_pid.Ki = 0.0;
+		m_pid.Kd = 0.0;
+		m_pid.max_turn_rate = MAX_TURN_RATE1;
+		m_pid.max_turn_rate_pre = MAX_TURN_RATE1;
+		m_pid.max_turn_rate_len = 0;
+		break;
 	}
+	
+	m_pid.I_accumulate_ms = (int)(m_pid.Tu / 2.0 + 0.5);
+		m_pid.D_length_ms = (int)(m_pid.Tu / 4.0 + 0.5);
 	UpdateData(FALSE);
 }
 
@@ -505,12 +501,6 @@ void CDialogNavigation::OnClickSimulate()
 	CString szFile = dlg.GetFileName();
 	::_splitpath_s(szFile, NULL, 0, NULL, 0, m_pid.simulation_file, sizeof(m_pid.simulation_file), NULL, 0);
 	UpdateData(FALSE);
-}
-
-void CDialogNavigation::OnClickNavType()
-{
-	UpdateData(TRUE);
-	EnableControls();
 }
 
 void CDialogNavigation::OnSize(UINT nFlag, int cx, int cy)

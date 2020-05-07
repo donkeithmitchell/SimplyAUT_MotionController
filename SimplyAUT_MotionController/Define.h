@@ -27,8 +27,7 @@
 
 // used for navigation
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres, do not want to re-allocate the memory too often
-#define GAP_FILTER_MIN__WIDTH		10 // mm (filter over last 10-50 mm, 2nd order, so can handle variations)
-#define GAP_FILTER_MAX__WIDTH		20 // 50 
+#define GAP_FILTER_DFLT_WIDTH		20 // 50 
 #define VEL_FILTER_MIN_WIDTH		10 // only used in _DEBUG as velocity not used at this time for navighation
 #define VEL_FILTER_MAX_WIDTH		50
 #define GAP_BUFFER_LEN              200 // samples used in the 2nd order polynomiazl to model the gap at less than 1 sample per mm and 50 mm max, this is lots
@@ -49,6 +48,7 @@
 #define NAVIGATION_I_ACCUMULATE		750
 #define NAVIGATION_PIVOT			50
 #define NAVIGATION_TURN_DIST		2.5 // mm
+#define NAVIGATION_DFLT_Tu			1500
 
 #define CRAWLER_WIDTH				26.0 // mm // the wheels are measured to be this distance apart outer 'O' ring gasker to gasket
 #define CRAWLER_LENGTH				23.2 // mm // dsistance wheel centre to centre if fully articulated

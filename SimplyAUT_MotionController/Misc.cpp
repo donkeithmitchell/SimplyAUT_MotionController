@@ -323,6 +323,13 @@ CWinThread* AfxMyBeginThread(AFX_THREADPROC pfnThreadProc, LPVOID pParam,
 
     return pThread;
 }
+double HammingWindow(double dist, double nWidth)
+{
+    double Wk = 0.54 - 0.46 * cos(PI * (nWidth-dist) / nWidth);
+    return Wk;
+}
+
+
 
 /*
 static complex8 conj(const complex8& x)
