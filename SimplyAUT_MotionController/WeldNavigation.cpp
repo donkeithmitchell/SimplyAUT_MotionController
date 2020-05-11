@@ -53,7 +53,7 @@ CWeldNavigation::CWeldNavigation(CMotionControl& motion, CLaserControl& laser, N
 	m_fMotorAccel = FLT_MAX;
 	m_nEndPos = 0;
 	m_nStartPos = 0;
-	m_nInitPos = 0;
+	m_nInitPos = FLT_MAX;
 	m_fWeldOffset = 0;
 	m_pParent = NULL;
 	m_nMsg = 0;
@@ -1197,7 +1197,7 @@ void CWeldNavigation::StartNavigation(int nSteer, int start_mm, int end_mm, doub
 		m_fMotorAccel = motor_accel;
 		m_fWeldOffset = offset;
 		m_nStartPos = start_mm;
-		m_nInitPos = 0;
+		m_nInitPos = FLT_MAX;
 		m_nEndPos = end_mm;
 		m_p_error = 0;
 		m_d_error = 0;
@@ -1365,7 +1365,7 @@ double CWeldNavigation::CalculateTurnRate(double steering, double pos)const
 
 	// for the 1st 100 mm use the maximum, then use user selected maximum
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
-	double max_rate = (fabs(pos - m_nInitPos) < m_pid.max_turn_rate_len) ? m_pid.max_turn_rate_pre /100.0 : m_pid.max_turn_rate / 100.0;
+	double max_rate = (m_nInitPos == FLT_MAX || fabs(pos - m_nInitPos) < m_pid.max_turn_rate_len) ? m_pid.max_turn_rate_pre /100.0 : m_pid.max_turn_rate / 100.0;
 
 	// limit the turn rate to 0.7
 	// too much as the slippage required will be extreme
@@ -1667,11 +1667,11 @@ UINT CWeldNavigation::ThreadSteerMotors_try3()
 // 4. repeat
 UINT CWeldNavigation::ThreadSteerMotors_PID()
 {
+	CString str;
 	// note if driving backwards
 	int direction = (m_nEndPos > m_nStartPos) ? 1 : -1;
 	double base_speed = (direction == 1) ? m_fMotorSpeed : m_fMotorSpeed / 2.0;
 
-	m_nInitPos = GetLastNotedPosition(0).measures.measure_pos_mm;
 	double accel_time = base_speed / m_fMotorAccel;
 	double accel_dist = accel_time * base_speed / 2.0;
 
@@ -1680,7 +1680,6 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 	// a jog is a turn first towartds the centrte, then back to the original direction
 	double last_pos = FLT_MAX;
 	BOOL bStop = FALSE;
-//	BOOL bStart = m_nInitPos != FLT_MAX;
 
 	// the motor speed may have been set to more than 20.0 initially
 	// will ramp up the speed for 100 mm, to help it settle faster
@@ -1701,8 +1700,8 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		if( this_pos == FLT_MAX )
 			continue;
 
-//		if (bStart && fabs(this_pos - m_nInitPos) > accel_dist)
-//			bStart = FALSE;
+		if (m_nInitPos == FLT_MAX)
+			m_nInitPos = this_pos;
 
 		// have programmed the motors to travel further than desired
 		// thus issue a stop in this case
@@ -1724,6 +1723,8 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		// during decelerqation, use the average as the defrault
 //		double fMotorSpeed = (bStop || bStart) ? GetAvgMotorSpeed() : base_speed;
 		double fMotorSpeed = base_speed;
+		double start_speed = min(m_pid.start_speed, base_speed);
+
 		if (bStop)
 		{
 			// have rtequested a stop, check if have actually stopped
@@ -1731,12 +1732,12 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 			if ((int)fMotorSpeed < 1) // may ber infentesimaLLY small
 				break;
 		}
-		else if (base_speed <= m_pid.start_speed)
+		else if (m_nInitPos != FLT_MAX && base_speed <= start_speed)
 			fMotorSpeed = base_speed;
-		else if (m_pid.start_dist > 0 && fabs(this_pos - m_nInitPos) < m_pid.start_dist)
-			fMotorSpeed = m_pid.start_speed;
+		else if (m_nInitPos == FLT_MAX || m_pid.start_dist > 0 && fabs(this_pos - m_nInitPos) < m_pid.start_dist)
+			fMotorSpeed = start_speed;
 		else if (fabs(this_pos - m_nInitPos) < 2 * m_pid.start_dist)
-			fMotorSpeed = m_pid.start_speed + (base_speed - m_pid.start_speed) * fabs(this_pos - m_nInitPos) / m_pid.start_dist;
+			fMotorSpeed = start_speed + (base_speed - start_speed) * fabs(this_pos - m_pid.start_dist) / m_pid.start_dist;
 		else
 			fMotorSpeed = base_speed;
 
@@ -1771,6 +1772,8 @@ UINT CWeldNavigation::ThreadSteerMotors_PID()
 		double speedRight = fMotorSpeed + dir*diff;
 //		double speed1[] = { speedLeft, speedRight, speedRight, speedLeft }; // LF, RF, RR, LR
 
+//		str.Format("Turn Rate: %.2f, speed: %.1f", turn_rate, fMotorSpeed);
+//		SendDebugMessage(str);
 		SetMotorSpeed(speed1);
 
 		int turn_time = (int)(1000 * m_pid.turn_dist / base_speed + 0.5);
