@@ -27,18 +27,19 @@
 
 // used for navigation
 #define NAVIGATION_GROW_BY			2048 // at 1 per mm, this would be 2 metres, do not want to re-allocate the memory too often
-#define GAP_FILTER_DFLT_WIDTH		20 // 50 
+#define GAP_FILTER_DFLT_WIDTH		50 
 #define VEL_FILTER_MIN_WIDTH		10 // only used in _DEBUG as velocity not used at this time for navighation
 #define VEL_FILTER_MAX_WIDTH		50
 #define GAP_BUFFER_LEN              200 // samples used in the 2nd order polynomiazl to model the gap at less than 1 sample per mm and 50 mm max, this is lots
 #define DIVE_STRAIGHT_DIST			50 // in the non-PID navigation, drive stright this far before checking the weld cap gap again
-#define MAX_GAP_CHANGE_PER_MM		1.0 // assume that the laser weld cap gap cannot change faster than 0.5 mm/mm, can only failt max of twice before taking new value regardless
+#define MAX_GAP_CHANGE_PER_MM		0.25 // 1.0 // assume that the laser weld cap gap cannot change faster than 0.5 mm/mm, can only failt max of twice before taking new value regardless
+#define MAX_GAP_SD					0.25
 #define MIN_GAP_TOLERANCE			0.1  // do nothing if offset below this
 #define MAX_GAP_TOLERANCE			0.5  // try to keep offset within this
 
 #define MIN_TURN_RATE1               99 // the unit turns by varying L/R wheel speeds
 #define MAX_TURN_RATE1               70 // the greater the variance, the greater the slip, the slower, the long it takes to navigate
-#define DFLT_TURN_RATE1				 85 // will use 70 for 1st 100 mm, then what user selects (this 
+#define DFLT_TURN_RATE1				 95 // will use 70 for 1st 100 mm, then what user selects (this 
 #define DFLT_MAX_TURN_RATE_LEN		200
 #define NAVIGATION_P_OSCILLATE		2.0
 #define NAVIGATION_P				0.9	// default constants for PID navigation

@@ -231,7 +231,10 @@
 #define IDC_STATIC_PID_RMS_P            1142
 #define IDC_CHECK_FW_WELD               1142
 #define IDC_STATIC_PID_RMS_I            1143
+#define IDC_CHECK_FORCE_GAP             1143
 #define IDC_STATIC_PID_RMS_D            1144
+#define IDC_CHECK_FW_WELD2              1144
+#define IDC_CHECK_FORCE_WELD            1144
 #define IDC_BUTTON_CALC_PD              1145
 #define IDC_BUTTON_CALC_NO_OVERSHOOT    1146
 #define IDC_EDIT_NAV_PHZ                1147
@@ -243,7 +246,6 @@
 #define IDC_EDIT_NAV_START_SPEED        1153
 #define IDC_EDIT_NAV_START_DIST         1154
 #define IDC_EDIT_NAV_GAP_PREDICT        1155
-#define IDC_EDIT_NAV_I_ACCUM2           1156
 #define IDC_EDIT_NAV_P_LEN              1156
 #define IDC_STATICPID_P9                1157
 #define ID_POPUP_SETLOCATION            32771

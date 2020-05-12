@@ -61,6 +61,8 @@ void CDialogLaser::Serialize(CArchive& ar)
 		ar << m_CameraShutter;
 		ar << m_laserControl.m_bFW_Gap;
 		ar << m_laserControl.m_bFW_Weld;
+		ar << m_laserControl.m_bForceGap;
+		ar << m_laserControl.m_bForceWeld;
 		ar << mask;
 	}
 	else
@@ -74,6 +76,8 @@ void CDialogLaser::Serialize(CArchive& ar)
 			ar >> m_CameraShutter;
 			ar >> m_laserControl.m_bFW_Gap;
 			ar >> m_laserControl.m_bFW_Weld;
+			ar >> m_laserControl.m_bForceGap;
+			ar >> m_laserControl.m_bForceWeld;
 			ar >> mask;
 		}
 		catch (CArchiveException * e1)
@@ -115,6 +119,8 @@ void CDialogLaser::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_SHOW_RAW_DATA, m_bShowRawData);
 	DDX_Check(pDX, IDC_CHECK_FW_GAP, m_laserControl.m_bFW_Gap);
 	DDX_Check(pDX, IDC_CHECK_FW_WELD, m_laserControl.m_bFW_Weld);
+	DDX_Check(pDX, IDC_CHECK_FORCE_GAP, m_laserControl.m_bForceGap);
+	DDX_Check(pDX, IDC_CHECK_FORCE_WELD, m_laserControl.m_bForceWeld);
 }
 
 
@@ -135,6 +141,8 @@ BEGIN_MESSAGE_MAP(CDialogLaser, CDialogEx)
 	ON_BN_CLICKED(IDC_CHECK_SHOW_RAW_DATA, &CDialogLaser::OnClickedCheck)
 	ON_BN_CLICKED(IDC_CHECK_FW_GAP, &CDialogLaser::OnClickedCheck)
 	ON_BN_CLICKED(IDC_CHECK_FW_WELD, &CDialogLaser::OnClickedCheck)
+	ON_BN_CLICKED(IDC_CHECK_FORCE_GAP, &CDialogLaser::OnClickedCheck)
+	ON_BN_CLICKED(IDC_CHECK_FORCE_WELD, &CDialogLaser::OnClickedCheck)
 END_MESSAGE_MAP()
 
 
@@ -384,7 +392,17 @@ void CDialogLaser::OnClickedCheck()
 	// TODO: Add your control notification handler code here
 	if (m_bInit)
 	{
+		BOOL bForceGap = m_laserControl.m_bForceGap;
+		BOOL bForceWeld = m_laserControl.m_bForceWeld;
 		UpdateData(TRUE);
+		if (m_laserControl.m_bForceGap && m_laserControl.m_bForceWeld)
+		{
+			if (m_laserControl.m_bForceGap != bForceGap)
+				m_laserControl.m_bForceWeld = FALSE;
+			else
+				m_laserControl.m_bForceGap = FALSE;
+			UpdateData(FALSE);
+		}
 		EnableControls();
 	}
 }

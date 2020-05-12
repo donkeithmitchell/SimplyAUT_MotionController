@@ -23,6 +23,9 @@ CLaserControl::CLaserControl()
     m_nMsg = 0;
 	m_bFW_Gap = FALSE;
 	m_bFW_Weld = FALSE;
+	m_bForceGap = FALSE;
+	m_bForceWeld = FALSE;
+
 
 	memset(&m_measure1, 0x0, sizeof(m_measure1));
 
@@ -643,52 +646,146 @@ static int CalculateWeldEdge(const double hitBuffer[], int i1, int i2, int dir1)
 	return ind;
 }
 
+struct MIN_MAX_VALUES
+{
+	double sd;
+	double pos;
+	int ind;
+	int dir;
+};
+
+static int SortMaxPoints(const void* e1, const void* e2)
+{
+	const MIN_MAX_VALUES* i1 = (MIN_MAX_VALUES*)e1;
+	const MIN_MAX_VALUES* i2 = (MIN_MAX_VALUES*)e2;
+	if (i1->pos > i2->pos)
+		return -1;
+	else if (i1->pos < i2->pos)
+		return 1;
+	else
+		return 0;
+}
+static int SortSDPoints(const void* e1, const void* e2)
+{
+	const MIN_MAX_VALUES* i1 = (MIN_MAX_VALUES*)e1;
+	const MIN_MAX_VALUES* i2 = (MIN_MAX_VALUES*)e2;
+	if (i1->sd > i2->sd)
+		return -1;
+	else if (i1->sd < i2->sd)
+		return 1;
+	else
+		return 0;
+}
+
+static int SortMinPoints(const void* e1, const void* e2)
+{
+	const MIN_MAX_VALUES* i1 = (MIN_MAX_VALUES*)e1;
+	const MIN_MAX_VALUES* i2 = (MIN_MAX_VALUES*)e2;
+	if (i1->pos > i2->pos)
+		return 1;
+	else if (i1->pos < i2->pos)
+		return -1;
+	else
+		return 0;
+}
+
 // dir: 1 the peak is a maximum, -1: the peak is a minimum
 // this will return either the maximum or minimum
 // whcihever has the most energy under it
-static int CalculateMaximumIndex(const double hitBuffer[], int nSamp, int& rDir)
+int CLaserControl::CalculateMaximumIndex(const double hitBuffer[], int nSamp, int& rDir)
 {
-	int maxInd = -1;
-	int minInd = -1;
-	double sum1 = 0;
+#define WIDTH 50
+	// get a list of local min and max
+	// also note the energy under the point at +/- 10 samples
+	CArray<MIN_MAX_VALUES, MIN_MAX_VALUES> minMaxInd;
+	minMaxInd.SetSize(nSamp);
+	int cnt = 0;
 
-	// find the maximum and minimum samples
-	// calcualte the average
-	for (int i = 0; i < nSamp; ++i)
+	// only select peaks and troughs about 5 mm apart
+	double hw, sw1, sw2;
+	ConvPixelToMm(0, 5, sw2, hw);
+	ConvPixelToMm(SENSOR_WIDTH, 5, sw1, hw);
+	double scale = fabs((double)SENSOR_WIDTH / (sw2 - sw1)); // pixels / mm
+
+
+	// get all the local min and max points
+	int iLastPeak = -1;
+	for (int i = 1; i < nSamp - 1; ++i)
 	{
-		if (minInd == -1 || hitBuffer[i] < hitBuffer[minInd])
-			minInd = i;
+		int dir = 0;
+		if (hitBuffer[i] < hitBuffer[i - 1] && hitBuffer[i] < hitBuffer[i + 1])
+			dir = -1;
+		else if (hitBuffer[i] > hitBuffer[i - 1] && hitBuffer[i] > hitBuffer[i + 1])
+			dir = 1;
 
-		// only conser about the previous maximum
-		if (maxInd == -1 || hitBuffer[i] > hitBuffer[maxInd])
-			maxInd = i;
+		if (dir == 0)
+			continue;
 
-		sum1 += hitBuffer[i];
-	}
-	double avgPos = sum1 / nSamp;
+	//	if (iLastPeak != -1 && abs(iLastPeak - i) < (int)(5 * scale + 0.5))
+	//		continue;
 
-	// which has more energy under it, the minimum (0) or the maximum (1)
-	// energy is sum of (value-avg)^2
-	double S[2];
-	int ind[2] = { minInd, maxInd };
-
-	for (int i = 0; i < 2; ++i)
-	{
-		double sum2 = 0;
-		int cnt2 = 0;
-		for (int j = max(ind[i] - 10, 0); j <= min(ind[i] + 10, nSamp - 1); ++j)
+		iLastPeak = i;
 		{
-			sum2 += pow(hitBuffer[j] - avgPos, 2.0);
-			cnt2++;
+			minMaxInd[cnt].ind = i;
+			minMaxInd[cnt].dir = dir;
+			minMaxInd[cnt].pos = hitBuffer[i];
+
+			// get the -10 average
+			double sum1 = 0;
+			double sum2 = 0;
+			int cnt1 = 0;
+			int cnt2 = 0;
+			for (int j = max(i - WIDTH, 0); j <= i; ++j)
+			{
+				sum1 += hitBuffer[j];
+				cnt1++;
+			}
+			double avgPos = cnt1 ? sum1 / cnt1 : 0;
+			for (int j = max(i - WIDTH, 0); j <= i; ++j)
+			{
+				sum2 += pow(hitBuffer[j] - avgPos, 2.0);
+				cnt2++;
+			}
+
+			// get the +10 average
+			sum1 = 0;
+			cnt1 = 0;
+			for (int j = i; j <= min(i + WIDTH, nSamp - 1); ++j)
+			{
+				sum1 += hitBuffer[j];
+				cnt1++;
+			}
+			avgPos = cnt1 ? sum1 / cnt1 : 0;
+			for (int j = i; j <= min(i + WIDTH, nSamp - 1); ++j)
+			{
+				sum2 += pow(hitBuffer[j] - avgPos, 2.0);
+				cnt2++;
+			}
+			minMaxInd[cnt].sd = cnt2 ? sum2 / cnt2 : 0;
+			cnt++;
 		}
-		S[i] = cnt2 ? sum2 / cnt2 : 0;
 	}
 
-	// now note if looking for a minimum or a maximum
-	rDir = (S[0] > S[1]) ? -1 : 1;
-	maxInd = (S[0] > S[1]) ? ind[0] : ind[1];
+	// sort to get the top 4 maximum hits
+	qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMaxPoints);
+	qsort(minMaxInd.GetData(), cnt/2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
+	MIN_MAX_VALUES maxVal = minMaxInd[0];
 
-	return maxInd;
+	// sort by minimum
+	qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMinPoints);
+	qsort(minMaxInd.GetData(), cnt/2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
+	MIN_MAX_VALUES minVal = minMaxInd[0];
+
+	if ( m_bForceWeld || (maxVal.sd > minVal.sd && !m_bForceGap) )
+	{
+		rDir = 1;
+		return maxVal.ind;
+	}
+	else
+	{
+		rDir = -1;
+		return minVal.ind;
+	}
 }
 
 // while the firmware appears to do a reasonable job of finding the measures for a gap
@@ -760,15 +857,22 @@ int CLaserControl::CalcLaserMeasures(double pos_avg, const double velocity4[4], 
 
 	// how many samples are +/- 5 mm
 	// if use too many the 2nd order polynomial fit may be unstable
+	double cap_width = (cap_dir == 1) ? 5 : 2.5;
+
 	double hw, sw1, sw2;
 	ConvPixelToMm(i2, 5, sw2, hw);
 	ConvPixelToMm(i1, 5, sw1, hw);
 	double scale = ((double)i2 - (double)i1) / (sw2 - sw1); // pixels / mm
 
 	// ideally only want to use about +/- 5 mm
-	int i11 = max((int)(maxInd - 5.0 * scale + 0.5), 0);
-	int i22 = min((int)(maxInd + 5.0 * scale + 0.5), SENSOR_WIDTH - 1);
+	int i11 = max((int)(maxInd - cap_width * scale + 0.5), 0);
+	int i22 = min((int)(maxInd + cap_width * scale + 0.5), SENSOR_WIDTH - 1);
 
+	// centre maxInd between i1 -> i2
+	if (i11 - maxInd > maxInd - i11)
+		i22 = 2 * maxInd - i11;
+	else if (i22 - maxInd < maxInd - i11)
+		i11 = 2 * maxInd - i22;
 
 	// now put these values into a double vector and gtet the 2nd order polynomial parameters for
 	int j = 0;

@@ -210,6 +210,18 @@ int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count
 }
 */
 
+static int SortDiff(const void* e1, const void* e2)
+{
+	const CDoublePoint* p1 = (CDoublePoint*)e1;
+	const CDoublePoint* p2 = (CDoublePoint*)e2;
+	if (p1->y < p2->y)
+		return 1;
+	else if (p1->y > p2->y)
+		return -1;
+	else
+		return 0;
+}
+
 // all but the most recent value is a filktered value
 // thus, assume that only need to check the most recently added value to see if it isn outlier
 int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count, int max_sd)
@@ -219,66 +231,68 @@ int CWeldNavigation::RemoveOutliers(double X[], double Y[], int order, int count
 	// if too few data data samples then not possible to say which are the outliers
 	// i.e. tyhe first value could be bogus,
 	// don't want to then to try to fit all subsequent values to it
-	if (count < 5)
+	if (count < 3)
 		return count;
 
-	// count-1 is the most recently added value
-	// check all values to see if they are outliers
-	// do not assauyme that previously accepted values are strill valid
-	int removed = 0;
-	for (int i = 0; i < count - 1 && removed < 3; ++i)
+	// get a list of all the mm/mm slopes between the samples
+	CArray<CDoublePoint, CDoublePoint> diff;
+	diff.SetSize(count-1);
+	for (int i = 1; i < count; ++i)
 	{
-		double diff = fabs(Y[i] - Y[i + 1]) / fabs(X[i] - X[i + 1]);
+		diff[i-1].x = (double)i;
+		diff[i-1].y = fabs(Y[i] - Y[i - 1]) / fabs(X[i] - X[i - 1]);
+	}
 
-		// if the difference is > 1.0 mm per mm
-		if (diff > MAX_GAP_CHANGE_PER_MM)
-		{
-			// which is furthest from avg, [i] or [i+1]
-			polyfit(X, Y, count, 0, coeff);
-			double avg = coeff[0];
-			if( fabs(Y[i] - avg) > fabs(Y[i+1]-avg))
-				Y[i] = Y[i+1];
-			else
-				Y[i+1] = Y[i];
+	// sort the slopes, and remove the worst case values
+	qsort(diff.GetData(), diff.GetSize(), sizeof(CDoublePoint), ::SortDiff);
 
-			removed++;
-			continue;
-		}
+	int replaced = 0;
+	for(int i=0; i < min(diff.GetSize(),3) && diff[i].y > MAX_GAP_CHANGE_PER_MM; ++i)
+	{
+		int ind = (int)(diff[i].x + 0.5);
 
-		// check if the SD of [0] is within 0.25
+		// get the average as is with any values replaced to date
+		polyfit(X, Y, count, 0, coeff);
+		double avg = coeff[0];
+
+		// which is further from the average (ind) or (ind-1)
+		double diff1 = fabs(Y[ind - 1] - avg);
+		double diff2 = fabs(Y[ind] - avg);
+
+		if (diff1 > diff2)
+			Y[ind-1] = Y[ind];
+		else
+			Y[ind] = Y[ind-1];
+
+		replaced++;
+	}
+
+	// get the diff of each point from the model
+	diff.SetSize(count);
+
+	while (replaced < 3)
+	{
 		polyfit(X, Y, count, order, coeff);
-
-		// get the RMS variation from the above model for all values
 		double sum2 = 0;
-		for (int j = 0; j < count; ++j)
+		for (int j = 0; j < count-1; ++j)
 		{
 			double y = ModelY(X[j], coeff, order);
-			double diff = y - Y[j];
-			sum2 += diff * diff;
-		}
-		double sd = sqrt(sum2 / count);
-		if (sd < 0.25)
-			continue;
+			diff[j].x = (double)j;
+			diff[j].y = y - Y[j];
 
-		// now get the SD without (i)
-		sum2 = 0;
-		for (int j = 0; j < count; ++j)
-		{
-			if (j != i)
-			{
-				double y = ModelY(X[j], coeff, order);
-				double diff = y - Y[j];
-				sum2 += diff * diff;
-			}
+			sum2 += pow(diff[j].y, 2.0);
 		}
-		sd = sqrt(sum2 / (count - 1));
+		// check if the SD varies enough to care
+		double sd1 = sqrt(sum2 / count);
+		if (sd1 < MAX_GAP_SD)
+			return count;
 
-		// removing the most recently added value must move the SD from > 0.25 to < 0.25
-		if (sd < 0.25)
-		{
-			Y[i] = Y[i + 1];
-			removed++;
-		}
+		// replace the values with the largest variation from the model
+		qsort(diff.GetData(), diff.GetSize(), sizeof(CDoublePoint), ::SortDiff);
+		// replace Y[ind] with Y[ind+1]
+		int ind = (int)(diff[0].x + 0.5);
+		Y[ind] = Y[ind + 1];
+		replaced++;
 	}
 
 	return count;

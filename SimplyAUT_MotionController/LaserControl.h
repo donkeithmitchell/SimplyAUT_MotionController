@@ -84,6 +84,7 @@ public:
 	LASER_MEASURES GetLaserMeasures2();
 	void GetLaserHits(MT_Hits_Pos hits[], double hitBuffer[], int nSize);
 	void SetLaserMeasures2(const LASER_MEASURES& meas);
+	int	 CalculateMaximumIndex(const double hitBuffer[], int nSamp, int& rDir);
 
 	CArray<double, double> m_polyX;
 	CArray<double, double> m_polyY;
@@ -102,5 +103,7 @@ public:
 	UINT			m_nMsg;
 	BOOL			m_bFW_Gap;
 	BOOL			m_bFW_Weld;
+	BOOL			m_bForceGap;
+	BOOL			m_bForceWeld;
 };
 
