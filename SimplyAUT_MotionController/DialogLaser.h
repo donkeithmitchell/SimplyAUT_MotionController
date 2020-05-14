@@ -21,6 +21,7 @@ public:
 	BOOL CheckVisibleTab() { return TRUE; }
 	void	Serialize(CArchive& ar);
 	void    ResetParameters();
+	void    UpdateMenu(CMenu*);
 
 	UINT  m_nMsg;
 	CWnd* m_pParent;

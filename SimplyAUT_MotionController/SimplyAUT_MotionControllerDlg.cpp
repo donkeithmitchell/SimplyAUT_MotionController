@@ -6,6 +6,8 @@
 #include "framework.h"
 #include "SimplyAUT_MotionController.h"
 #include "SimplyAUT_MotionControllerDlg.h"
+#include "DialogNewProject.h"
+#include "DirectoryDialog.h"
 #include "afxdialogex.h"
 #include "resource.h"
 
@@ -99,10 +101,21 @@ BEGIN_MESSAGE_MAP(CSimplyAUTMotionControllerDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_SIZE()
+	ON_WM_TIMER()
+
+	ON_BN_CLICKED(IDC_BUTTON_RESET_STATUS, &CSimplyAUTMotionControllerDlg::OnClickedButtonResetStatus)
 	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB1, &CSimplyAUTMotionControllerDlg::OnSelchangeTab1)
 	ON_MESSAGE(WM_DEGUG_MSG, OnUserDebugMessage)
-	ON_WM_TIMER()
-	ON_BN_CLICKED(IDC_BUTTON_RESET_STATUS, &CSimplyAUTMotionControllerDlg::OnClickedButtonResetStatus)
+
+	ON_COMMAND_RANGE(ID_FILE_OPEN, ID_FILE_OPEN, OnMenu)
+	ON_COMMAND_RANGE(ID_FILE_NEW, ID_FILE_NEW, OnMenu)
+	ON_COMMAND_RANGE(ID_FILE_EXIT, ID_FILE_EXIT, OnMenu)
+
+	ON_COMMAND_RANGE(ID_POPUP_TOGGLELASER, ID_POPUP_TOGGLELASER, OnMenu)
+	ON_COMMAND_RANGE(ID_POPUP_CENTREWELD, ID_POPUP_CENTREWELD, OnMenu)
+	ON_COMMAND_RANGE(ID_POPUP_PLAYOFFSETSOUND, ID_POPUP_PLAYOFFSETSOUND, OnMenu)
+	ON_COMMAND_RANGE(ID_LASER_FORCE_CAP, ID_LASER_FORCE_CAP, OnMenu)
+	ON_COMMAND_RANGE(ID_LASER_FORCE_GAP, ID_LASER_FORCE_GAP, OnMenu)
 END_MESSAGE_MAP()
 
 
@@ -131,6 +144,11 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 			pSysMenu->AppendMenu(MF_STRING, IDM_ABOUTBOX, strAboutMenu);
 		}
 	}
+
+	VERIFY(m_menu.LoadMenuA(IDR_MENU1));
+	SetMenu(&m_menu);
+	SetTimer(TIMER_MENU, 100, NULL);
+
 
 	// Set the icon for this dialog.  The framework does this automatically
 	//  when the application's main window is not a dialog
@@ -176,6 +194,45 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
+void CSimplyAUTMotionControllerDlg::OnMenu(UINT nID)
+{
+	switch (nID)
+	{
+	case ID_FILE_OPEN:
+		OnOpenFile();
+		break;
+	case ID_FILE_NEW:
+		OnNewFile();
+		break;
+	case ID_FILE_EXIT:
+		OnCancel();
+		break;
+
+	case ID_LASER_FORCE_CAP:
+		m_laserControl.m_bForceWeld = !m_laserControl.m_bForceWeld;
+		if (m_laserControl.m_bForceWeld && m_laserControl.m_bForceGap)
+			m_laserControl.m_bForceGap = FALSE;
+#ifdef _DEBUG_TIMING_
+		m_dlgLaser.UpdateData(FALSE);
+#endif
+		break;
+	case ID_LASER_FORCE_GAP:
+		m_laserControl.m_bForceGap = !m_laserControl.m_bForceGap;
+		if (m_laserControl.m_bForceWeld && m_laserControl.m_bForceGap)
+			m_laserControl.m_bForceWeld = FALSE;
+#ifdef _DEBUG_TIMING_
+		m_dlgLaser.UpdateData(FALSE);
+#endif
+		break;
+
+	case ID_POPUP_TOGGLELASER:
+	case ID_POPUP_CENTREWELD:
+	case ID_POPUP_PLAYOFFSETSOUND:
+		m_dlgGirthWeld.PopupMenu(nID);
+		break;
+	}
+}
+
 void CSimplyAUTMotionControllerDlg::OnDestroy()
 {
 	CDialogEx::OnDestroy();
@@ -200,7 +257,98 @@ void CSimplyAUTMotionControllerDlg::OnTimer(UINT_PTR nIDEvent)
 		if( m_magControl.IsConnected() )
 			m_magControl.GetMagStatus();
 		break;
+	case TIMER_MENU:
+	{
+		CMenu* pMenu0 = m_menu.GetSubMenu(0);
+		UpdateFileMenu(pMenu0);
+
+		CMenu* pMenu1 = m_menu.GetSubMenu(1);
+		m_dlgGirthWeld.UpdateMenu(pMenu1);
+		m_dlgLaser.UpdateMenu(pMenu1);
+
+		break;
 	}
+	}
+}
+
+void CSimplyAUTMotionControllerDlg::OnNewFile()
+{
+	char my_documents[MAX_PATH];
+	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result != S_OK)
+		return;
+
+	CDialogNewProject dlg(m_szProject);
+	if (dlg.DoModal() != IDOK)
+		return;
+
+	char fname[_MAX_FNAME];
+	::_splitpath_s(dlg.m_szProject, NULL, 0, NULL, 0, fname, sizeof(fname), NULL, 0);
+
+	CString path;
+	path.Format("%s\\SimplyAUTFiles\\%s", my_documents, fname);
+	DWORD attrib = GetFileAttributes(path);
+	if (attrib != INVALID_FILE_ATTRIBUTES)
+	{
+		CString text;
+		text.Format("Project (%s) already exists", fname);
+		AfxMessageBox(text);
+		return;
+	}
+
+	if (!::CreateDirectory(path, NULL))
+	{
+		CString text;
+		text.Format("Unable to create Folder (%s)", fname);
+		AfxMessageBox(text);
+		return;
+	}
+
+
+	m_szProject = _T(fname);
+	UpdateData(FALSE);
+	m_dlgConnect.UpdateData(FALSE);
+}
+
+void CSimplyAUTMotionControllerDlg::OnOpenFile()
+{
+	char my_documents[MAX_PATH];
+	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result != S_OK)
+		return;
+
+	// get a list of the existing files
+	char buffer[_MAX_PATH];
+	sprintf_s(buffer, sizeof(buffer), "%s\\SimplyAUTFiles\\", my_documents);
+
+	CDirectoryDialog dlg1;
+	CString szPath = dlg1.GetDirectory(this, buffer, "Select Existing Data File Directory");
+	if (szPath.GetLength() == 0)
+		return;
+
+	char fname[_MAX_FNAME];
+	::_splitpath_s(szPath, NULL, 0, NULL, 0, fname, sizeof(fname), NULL, 0);
+	m_szProject = _T(fname);
+
+	UpdateData(FALSE);
+	m_dlgConnect.UpdateData(FALSE);
+}
+
+void CSimplyAUTMotionControllerDlg::UpdateFileMenu(CMenu* pMenu)
+{
+	MENUITEMINFO mii;
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;
+
+	mii.fState = MFS_DEFAULT;
+	mii.fState = MFS_UNCHECKED;
+	if (m_motionControl.AreMotorsRunning() || m_galil_state != GALIL_IDLE)
+		mii.fState |= MFS_DISABLED;
+
+	pMenu->SetMenuItemInfoA(ID_FILE_OPEN, &mii, FALSE);
+	pMenu->SetMenuItemInfoA(ID_FILE_NEW, &mii, FALSE);
+	pMenu->SetMenuItemInfoA(ID_FILE_EXIT, &mii, FALSE);
+
 }
 
 void CSimplyAUTMotionControllerDlg::Serialize(BOOL bSave)

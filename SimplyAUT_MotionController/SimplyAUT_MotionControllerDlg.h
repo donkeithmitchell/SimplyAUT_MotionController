@@ -43,9 +43,12 @@ public:
 	void Serialize(BOOL bSave);
 	void Serialize(CArchive& ar);
 	void SetTitle();
+	void UpdateFileMenu(CMenu* pMenu);
+	void OnOpenFile();
+	void OnNewFile();
 
 	enum { WM_DEGUG_MSG = WM_USER + 1 };
-	enum{ TIMER_GET_MAG_STATUS =1 };
+	enum{ TIMER_GET_MAG_STATUS =1, TIMER_MENU };
 
 // Implementation
 protected:
@@ -70,6 +73,7 @@ protected:
 	BOOL	m_bCheck;
 	int		m_nSel;
 	CString m_szProject;
+	CMenu	m_menu;
 
 
 	// Generated message map functions
@@ -82,6 +86,7 @@ protected:
 	afx_msg LRESULT OnUserDebugMessage(WPARAM, LPARAM);
 	afx_msg void OnSelchangeTab1(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnDestroy();
+	afx_msg void OnMenu(UINT nID);
 	DECLARE_MESSAGE_MAP()
 public:
 	CTabCtrl m_tabControl;

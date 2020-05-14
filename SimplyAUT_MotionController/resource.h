@@ -13,11 +13,11 @@
 #define IDB_BITMAP_DISCONNECT           132
 #define IDD_DIALOG_STATUS               132
 #define IDB_BITMAP_CONNECT              133
-#define IDR_MENU_POPUP                  133
 #define IDD_DIALOG_STATUS1              133
 #define IDD_DIALOG_LASER                133
 #define IDB_BITMAP_PAUSE                134
 #define IDD_DIALOG_MAG                  134
+#define IDR_MENU1                       134
 #define IDB_BITMAP_GO_HORZ              135
 #define IDB_BITMAP_GO_RIGHT             135
 #define IDD_DIALOG_FILES                135
@@ -25,6 +25,7 @@
 #define IDB_BITMAP_GO_DOWN              136
 #define IDD_DIALOG_NAVIGATION           136
 #define IDB_BITMAP_STOP                 137
+#define IDD_DIALOG_NEW_FILE             137
 #define IDB_BITMAP_LASER_OK             138
 #define IDB_BITMAP_LASER_LOADING        139
 #define IDB_BITMAP_LASER_HOT            140
@@ -230,10 +231,10 @@
 #define IDC_CHECK_FW_GAP                1141
 #define IDC_STATIC_PID_RMS_P            1142
 #define IDC_CHECK_FW_WELD               1142
+#define IDC_STATIC_PROJECT              1142
 #define IDC_STATIC_PID_RMS_I            1143
 #define IDC_CHECK_FORCE_GAP             1143
 #define IDC_STATIC_PID_RMS_D            1144
-#define IDC_CHECK_FW_WELD2              1144
 #define IDC_CHECK_FORCE_WELD            1144
 #define IDC_BUTTON_CALC_PD              1145
 #define IDC_BUTTON_CALC_NO_OVERSHOOT    1146
@@ -248,18 +249,25 @@
 #define IDC_EDIT_NAV_GAP_PREDICT        1155
 #define IDC_EDIT_NAV_P_LEN              1156
 #define IDC_STATICPID_P9                1157
-#define ID_POPUP_SETLOCATION            32771
 #define ID_POPUP_TOGGLELASER            32772
 #define ID_POPUP_CENTREWELD             32773
 #define ID_POPUP_PLAYOFFSETSOUND        32774
+#define ID_FILE_OPEN32775               32775
+#define ID_FILE_NEW32776                32776
+#define ID_FILE_EXIT                    32777
+#define ID_LASER_NAVIGATYEWELDCAP       32778
+#define ID_LASER_NAVIGATEGAP            32779
+#define ID_LASER_NAVIGATEWELDCAP        32780
+#define ID_LASER_FORCE_GAP              32781
+#define ID_LASER_FORCE_CAP              32782
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        134
-#define _APS_NEXT_COMMAND_VALUE         32775
-#define _APS_NEXT_CONTROL_VALUE         1142
+#define _APS_NEXT_RESOURCE_VALUE        139
+#define _APS_NEXT_COMMAND_VALUE         32783
+#define _APS_NEXT_CONTROL_VALUE         1143
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

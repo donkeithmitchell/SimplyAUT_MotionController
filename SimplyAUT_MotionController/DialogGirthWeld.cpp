@@ -444,6 +444,17 @@ void CDialogGirthWeld::ResetParameters()
 	m_fPredriveDistance = 0;
 }
 
+void CDialogGirthWeld::PopupMenu(UINT nID)
+{
+	m_wndLaser.PopupMenu(nID);
+}
+
+void CDialogGirthWeld::UpdateMenu(CMenu* pMenu)
+{
+	m_wndLaser.UpdateMenu(pMenu);
+}
+
+
 
 // this will be called approximately every mm
 // so add the next location on each call to a buffer

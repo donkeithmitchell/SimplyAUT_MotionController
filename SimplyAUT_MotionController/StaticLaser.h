@@ -49,7 +49,9 @@ public:
 	double GetAverageRGBValue();
 	void   ResetLaserOffsetList() {	m_critLaserPos1.Lock();  m_laserPos1.SetSize(0); m_critLaserPos1.Unlock(); 	}
 	void   PlayOffsetSound();
-	UINT   PlaySoundThread();
+	UINT   PlaySoundThread(); 
+	void   PopupMenu(UINT nID);
+	void   UpdateMenu(CMenu* pMenu);
 
 	enum{TIMER_GET_MEASUREMENT=0, TIMER_GET_TEMPERATURE, TIMER_PLAYSOUND};
 	enum{ WM_USER_PLAY_FINISHEFD  = WM_USER+1};

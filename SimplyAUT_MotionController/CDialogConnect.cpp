@@ -45,16 +45,17 @@ void CDialogConnect::Init(CWnd* pParent, UINT nMsg)
 	m_nMsg = nMsg;
 }
 
-void CDialogConnect::ValidateProjectName(CDataExchange* pDX, CString szProject)
+BOOL CDialogConnect::ValidateProjectName(CDataExchange* pDX, CString szProject)
 {
-	if (pDX->m_bSaveAndValidate)
+	if (pDX == NULL || pDX->m_bSaveAndValidate)
 	{
 		szProject.TrimLeft();
 		szProject.TrimRight();
 		if (szProject.GetLength() == 0 || szProject.CompareNoCase("Not Set") == 0)
 		{
 			AfxMessageBox("No Project Set");
-			pDX->Fail();
+			if( pDX ) pDX->Fail();
+			return FALSE;
 		}
 		char my_documents[MAX_PATH];
 		HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
@@ -71,11 +72,13 @@ void CDialogConnect::ValidateProjectName(CDataExchange* pDX, CString szProject)
 					CString text;
 					text.Format("Unable to create Folder (%s)", szProject);
 					AfxMessageBox(text);
-					pDX->Fail();
+					if( pDX ) pDX->Fail();
+					return FALSE;
 				}
 			}
 		}
 	}
+	return TRUE;
 }
 
 
@@ -89,7 +92,7 @@ void CDialogConnect::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON_MAG, m_buttonMAG);
 	DDX_Control(pDX, IDC_BUTTON_GALIL, m_buttonGalil);
 	DDX_Text(pDX, IDC_EDIT_MAG_PORT, m_szPort);
-	DDX_Text(pDX, IDC_EDIT_PROJECT, m_szProject);
+	DDX_Text(pDX, IDC_STATIC_PROJECT, m_szProject);
 	ValidateProjectName(pDX, m_szProject);
 
 	if (pDX->m_bSaveAndValidate)

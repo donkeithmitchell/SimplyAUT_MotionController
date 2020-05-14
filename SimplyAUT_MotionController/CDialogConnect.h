@@ -19,12 +19,12 @@ public:
 	BOOL	CheckVisibleTab();
 	void	Serialize(CArchive& ar);
 	void	EnableControls();
+	BOOL	ValidateProjectName(CDataExchange* pDX, CString szProject);
 
 protected:
 	void	SetButtonBitmaps();
 	void    ResetParameters();
 	void	SendErrorMessage(const char* msg);
-	void	ValidateProjectName(CDataExchange* pDX, CString szProject);
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME

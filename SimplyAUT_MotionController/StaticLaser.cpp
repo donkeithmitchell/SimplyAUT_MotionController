@@ -805,39 +805,43 @@ void CStaticLaser::OnLButtonDown(UINT nFlags, CPoint pt)
 void CStaticLaser::OnRButtonDown(UINT nFlags, CPoint pt)
 {
 	CWnd::OnRButtonDown(nFlags, pt);
-	CMenu menu;
-	menu.LoadMenuA(IDR_MENU_POPUP);
-
-	CMenu* pPopup = menu.GetSubMenu(0);
-	ASSERT(pPopup);
-
-	MENUITEMINFO mii;
-	mii.cbSize = sizeof(MENUITEMINFO);
-	mii.fMask = MIIM_STATE;
-
-	mii.fState = MFS_DEFAULT;	
-	mii.fType |= MFT_RADIOCHECK;
-	mii.fState = m_laserControl.IsLaserOn() ? MFS_CHECKED : MFS_UNCHECKED;
-	if (m_motionControl.AreMotorsRunning())
-		mii.fState |= MFS_DISABLED;
-	pPopup->SetMenuItemInfoA(ID_POPUP_TOGGLELASER, &mii, FALSE);
-
-	mii.fState = m_bCentreWeld ? MFS_CHECKED : MFS_UNCHECKED;
-	pPopup->SetMenuItemInfoA(ID_POPUP_CENTREWELD, &mii, FALSE);
-
-	// onl;y use the sound if magnetds noit on and the laser is onb
-	mii.fState = m_bPlayOffsetSound ? MFS_CHECKED : MFS_UNCHECKED;
-	pPopup->SetMenuItemInfoA(ID_POPUP_PLAYOFFSETSOUND, &mii, FALSE);
-
-	m_ptMouse = pt;
-	ClientToScreen(&pt);
-	pPopup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, this);
 }
 
 void CStaticLaser::OnLButtonDblClk(UINT nFlags, CPoint pt)
 {
 	CWnd::OnLButtonDblClk(nFlags, pt);
-	OnMenu(ID_POPUP_TOGGLELASER);
+	if (!m_motionControl.IsConnected() || m_motionControl.AreMotorsRunning())
+		MessageBeep(MB_ICONASTERISK);
+	else
+		OnMenu(ID_POPUP_TOGGLELASER);
+}
+
+void CStaticLaser::PopupMenu(UINT nID)
+{
+	OnMenu(nID);
+}
+
+void CStaticLaser::UpdateMenu(CMenu* pMenu)
+{
+	ASSERT(pMenu);
+
+	MENUITEMINFO mii;
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;
+
+	mii.fState = MFS_DEFAULT;
+	mii.fType |= MFT_RADIOCHECK;
+	mii.fState = m_laserControl.IsLaserOn() ? MFS_CHECKED : MFS_UNCHECKED;
+	if (!m_motionControl.IsConnected() || m_motionControl.AreMotorsRunning())
+		mii.fState |= MFS_DISABLED;
+	pMenu->SetMenuItemInfoA(ID_POPUP_TOGGLELASER, &mii, FALSE);
+
+	mii.fState = m_bCentreWeld ? MFS_CHECKED : MFS_UNCHECKED;
+	pMenu->SetMenuItemInfoA(ID_POPUP_CENTREWELD, &mii, FALSE);
+
+	// onl;y use the sound if magnetds noit on and the laser is onb
+	mii.fState = m_bPlayOffsetSound ? MFS_CHECKED : MFS_UNCHECKED;
+	pMenu->SetMenuItemInfoA(ID_POPUP_PLAYOFFSETSOUND, &mii, FALSE);
 }
 
 void CStaticLaser::OnMenu(UINT nID)

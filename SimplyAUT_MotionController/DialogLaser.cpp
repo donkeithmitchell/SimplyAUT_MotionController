@@ -6,6 +6,7 @@
 #include "DialogLaser.h"
 #include "laserControl.h"
 #include "LaserProfile.h"
+#include "MotionControl.h"
 #include "SLS_Comms.h"
 #include "afxdialogex.h"
 
@@ -35,6 +36,26 @@ CDialogLaser::CDialogLaser(CMotionControl& motion, CLaserControl& laser, CWnd* p
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
+}
+
+void CDialogLaser::UpdateMenu(CMenu* pMenu)
+{
+	ASSERT(pMenu);
+
+	MENUITEMINFO mii;
+	mii.cbSize = sizeof(MENUITEMINFO);
+	mii.fMask = MIIM_STATE;
+
+	mii.fState = MFS_DEFAULT;
+	mii.fType |= MFT_RADIOCHECK;
+	if (m_motionControl.AreMotorsRunning())
+		mii.fState |= MFS_DISABLED;
+
+	mii.fState = m_laserControl.m_bForceWeld ? MFS_CHECKED : MFS_UNCHECKED;
+	pMenu->SetMenuItemInfoA(ID_LASER_FORCE_CAP, &mii, FALSE);
+
+	mii.fState = m_laserControl.m_bForceGap ? MFS_CHECKED : MFS_UNCHECKED;
+	pMenu->SetMenuItemInfoA(ID_LASER_FORCE_GAP, &mii, FALSE);
 }
 
 void CDialogLaser::ResetParameters()

@@ -84,6 +84,8 @@ public:
 	void	EnableMagSwitchControl(BOOL bEnableMAG);
 	LRESULT OnUserFinished(CWinThread**);
 	void    WaitForNavigationToStop();
+	void	PopupMenu(UINT nID);
+	void    UpdateMenu(CMenu*);
 
 	enum { WM_USER_SCAN_FINISHED= WM_USER+1, WM_USER_ABORT_FINISHED, WM_USER_STATIC, WM_WELD_NAVIGATION, WM_MOTION_CONTROL, WM_MAG_STOP_SEEK, WM_ARE_MOTORS_RUNNING
 	};
