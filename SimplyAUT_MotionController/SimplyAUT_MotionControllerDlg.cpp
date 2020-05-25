@@ -188,7 +188,10 @@ BOOL CSimplyAUTMotionControllerDlg::OnInitDialog()
 	StartReadMagStatus(TRUE);
 	OnSelchangeTab2();
 
-	Serialize(FALSE);
+	// read the project name as well as the info
+	Serialize1(FALSE);
+	Serialize2(FALSE);
+	SetTitle();
 
 	::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL); // 911
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -278,6 +281,10 @@ void CSimplyAUTMotionControllerDlg::OnNewFile()
 	if (result != S_OK)
 		return;
 
+	// save the existing info
+	// no need to save the project name
+	Serialize2(TRUE);
+
 	CDialogNewProject dlg(m_szProject);
 	if (dlg.DoModal() != IDOK)
 		return;
@@ -306,8 +313,12 @@ void CSimplyAUTMotionControllerDlg::OnNewFile()
 
 
 	m_szProject = _T(fname);
+
+	// will leave all project settings as are
 	UpdateData(FALSE);
 	m_dlgConnect.UpdateData(FALSE);
+
+	SetTitle();
 }
 
 void CSimplyAUTMotionControllerDlg::OnOpenFile()
@@ -317,7 +328,9 @@ void CSimplyAUTMotionControllerDlg::OnOpenFile()
 	if (result != S_OK)
 		return;
 
-	// get a list of the existing files
+	// save the existing project info
+	Serialize2(TRUE); // no need to sdave the projrect name
+
 	char buffer[_MAX_PATH];
 	sprintf_s(buffer, sizeof(buffer), "%s\\SimplyAUTFiles\\", my_documents);
 
@@ -329,9 +342,15 @@ void CSimplyAUTMotionControllerDlg::OnOpenFile()
 	char fname[_MAX_FNAME];
 	::_splitpath_s(szPath, NULL, 0, NULL, 0, fname, sizeof(fname), NULL, 0);
 	m_szProject = _T(fname);
-
 	UpdateData(FALSE);
 	m_dlgConnect.UpdateData(FALSE);
+
+	// now read the info from this project
+	Serialize2(FALSE); // don't read the existing project name
+	UpdateData(FALSE);
+	m_dlgConnect.UpdateData(FALSE);
+
+	SetTitle();
 }
 
 void CSimplyAUTMotionControllerDlg::UpdateFileMenu(CMenu* pMenu)
@@ -351,30 +370,107 @@ void CSimplyAUTMotionControllerDlg::UpdateFileMenu(CMenu* pMenu)
 
 }
 
-void CSimplyAUTMotionControllerDlg::Serialize(BOOL bSave)
+void CSimplyAUTMotionControllerDlg::Serialize1(BOOL bSave)
 {
 	TCHAR szBuff[512];
-	CFile file1;
 
 	char my_documents[MAX_PATH];
 	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
 	if (result != S_OK)
 		return;
 
-	// get a list of the existing files
 	CString path;
-	path.Format("%s\\SimplyAUTFiles\\Serialize.txt", my_documents);
+	path.Format("%s\\SimplyAUTFiles", my_documents);
+	DWORD attrib = GetFileAttributes(path);
+	if (attrib == INVALID_FILE_ATTRIBUTES)
+		::CreateDirectory(path, NULL);
 
-	if (bSave && PathFileExists(path) )
+	path.Format("%s\\SimplyAUTFiles\\Serialize.txt", my_documents);
+	if (bSave && PathFileExists(path))
 		SetFileAttributesA(path, FILE_ATTRIBUTE_NORMAL);
 
+
+	// save and read the project name from the root directory
+	CFile file1;
 	if (file1.Open(path, bSave ? CFile::modeCreate | CFile::modeWrite : CFile::modeRead))
 	{
 		CArchive ar(&file1, (bSave ? CArchive::store : CArchive::load), 512, szBuff);
-		Serialize(ar);
+		Serialize1(ar);
 	}
-	SetFileAttributesA(path, FILE_ATTRIBUTE_HIDDEN| FILE_ATTRIBUTE_READONLY);
+	SetFileAttributesA(path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY);
 }
+
+void CSimplyAUTMotionControllerDlg::Serialize2(BOOL bSave)
+{
+	TCHAR szBuff[512];
+
+	char my_documents[MAX_PATH];
+	HRESULT result = ::SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result != S_OK)
+		return;
+
+	// now read and write the remainder from the sub-project directory
+	if (m_szProject.Compare("Not Set") != 0)
+	{
+		CString path;
+		path.Format("%s\\SimplyAUTFiles\\%s", my_documents, m_szProject);
+		DWORD attrib = GetFileAttributes(path);
+		if (attrib == INVALID_FILE_ATTRIBUTES)
+			::CreateDirectory(path, NULL);
+
+		path.Format("%s\\SimplyAUTFiles\\%s\\Serialize.txt", my_documents, m_szProject);
+		if (bSave && PathFileExists(path))
+			SetFileAttributesA(path, FILE_ATTRIBUTE_NORMAL);
+
+		CFile file2;
+		if (file2.Open(path, bSave ? CFile::modeCreate | CFile::modeWrite : CFile::modeRead))
+		{
+			CArchive ar(&file2, (bSave ? CArchive::store : CArchive::load), 512, szBuff);
+			Serialize2(ar);
+		}
+		SetFileAttributesA(path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY);
+	}
+}
+
+void CSimplyAUTMotionControllerDlg::Serialize1(CArchive& ar)
+{
+	UpdateData(TRUE);
+	if (ar.IsStoring())
+	{
+		try
+		{
+			ar << m_szProject;
+		}
+		catch (CArchiveException * e1)
+		{
+			e1->Delete();
+		}
+	}
+	else
+	{
+		try
+		{
+			ar >> m_szProject;
+		}
+		catch (CArchiveException * e1)
+		{
+			e1->Delete();
+			m_szProject = _T("Not Set");
+		}
+	}
+}
+void CSimplyAUTMotionControllerDlg::Serialize2(CArchive& ar)
+{
+	m_dlgConnect.Serialize(ar);
+	m_dlgGirthWeld.Serialize(ar);
+#ifdef _DEBUG_TIMING_
+	m_dlgMag.Serialize(ar);
+	m_dlgLaser.Serialize(ar);
+	m_dlgNavigation.Serialize(ar);
+#endif
+	UpdateData(FALSE);
+	}
+
 
 void CSimplyAUTMotionControllerDlg::OnOK()
 {
@@ -392,7 +488,9 @@ void CSimplyAUTMotionControllerDlg::OnCancel()
 		// check that the steering thread is still not active
 		m_dlgGirthWeld.WaitForNavigationToStop();
 
-		Serialize(TRUE);
+		// save the project name as well as the info
+		Serialize1(TRUE); 
+		Serialize2(TRUE);
 		EndDialog(IDCANCEL);
 	}
 }
@@ -411,41 +509,6 @@ void CSimplyAUTMotionControllerDlg::SetTitle()
 	SetWindowTextA(text);
 }
 
-void CSimplyAUTMotionControllerDlg::Serialize(CArchive& ar)
-{
-	UpdateData(TRUE);
-	if (ar.IsStoring())
-	{
-		try
-		{
-			ar << m_szProject;
-		}
-		catch (CArchiveException* e1)
-		{
-			e1->Delete();
-		}
-	}
-	else
-	{
-		try
-		{
-			ar >> m_szProject;
-		}
-		catch (CArchiveException* e1)
-		{
-			e1->Delete();
-			m_szProject = _T("Not Set");
-		}
-	}
-	m_dlgConnect.Serialize(ar);
-	m_dlgGirthWeld.Serialize(ar);
-#ifdef _DEBUG_TIMING_
-	m_dlgMag.Serialize(ar);
-	m_dlgLaser.Serialize(ar);
-	m_dlgNavigation.Serialize(ar);
-#endif
-	UpdateData(FALSE);
-}
 LRESULT CSimplyAUTMotionControllerDlg::OnUserDebugMessage(WPARAM wParam, LPARAM lParam)
 {
 	if (m_bInit)

@@ -1399,7 +1399,7 @@ void CDialogGirthWeld::StartNavigation(int nSteer, int start_pos, int end_pos, d
 			fSpeed = m_fMotorScanSpeed;
 
 		// pass this request to the navigation object
-		m_weldNavigation.StartNavigation(nSteer, start_pos, end_pos, fSpeed, m_fMotorScanAccel, GetLeftRightOffset(), m_bScanning);
+		m_weldNavigation.StartNavigation(nSteer, m_bAborted, start_pos, end_pos, fSpeed, m_fMotorScanAccel, GetLeftRightOffset(), m_bScanning);
 
 		// these values are used to draw the lasser offset below the laser profile
 		m_wndLaser.ResetLaserOffsetList();
@@ -1410,7 +1410,7 @@ void CDialogGirthWeld::StartNavigation(int nSteer, int start_pos, int end_pos, d
 	else
 	{
 		// end any existing therads
-		m_weldNavigation.StartNavigation(0x0, 0,0,0,0,0,0);
+		m_weldNavigation.StartNavigation(0x0, m_bAborted, 0,0,0,0,0,0);
 #ifdef _DEBUG_TIMING_
 		CString text;
 		text.Format("CalcLaserMeasures: %.1f (%d)", g_GetLaserProfileCount ? (double)g_GetLaserProfileTime / g_GetLaserProfileCount : 0, g_GetLaserProfileTime);

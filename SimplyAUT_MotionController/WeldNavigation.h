@@ -43,9 +43,9 @@ struct FILTER_RESULTS
 {
 	FILTER_RESULTS() { memset(this, 0x0, sizeof(FILTER_RESULTS)); }
 
-	double gap_filt;
+	double gap_filt1;
 	double vel_raw;
-	double gap_predict;
+	double gap_predict1;
 	double pos_predict;
 	double dummy8[8 - 4];
 };
@@ -53,7 +53,7 @@ struct FILTER_RESULTS
 struct LASER_POS
 {
 	LASER_POS() { Reset(); }
-	void Reset(){ memset(this, 0x0, sizeof(LASER_POS)); gap_raw = gap_filt = vel_raw = vel_filt = FLT_MAX; }
+	void Reset(){ memset(this, 0x0, sizeof(LASER_POS)); gap_raw = gap_filt1 = vel_raw = vel_filt = FLT_MAX; }
 
 	LASER_MEASURES measures;
 	CDoublePoint manoeuvre1;
@@ -61,11 +61,11 @@ struct LASER_POS
 	double  pid_error[3];
 	double  pid_steering;
 	double  gap_raw;	// distance to the weld (mm)
-	double  gap_filt;	// distance to the weld (mm)
+	double  gap_filt1;	// distance to the weld (mm)
 	double  vel_raw;
 	double  vel_filt;
 	double  last_manoeuvre_pos;
-	double  gap_predict;
+	double  gap_predict1;
 	double  pos_predict;
 	double  diff_slope;
 	double dummy8[16 - 12];
@@ -94,7 +94,7 @@ public:
 	void	Init(CWnd*, UINT);
 	BOOL	NoteNextLaserPosition();
 	LASER_POS GetLastNotedPosition(int ago_mm);
-	void    StartNavigation(int nSteer, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
+	void    StartNavigation(int nSteer, BOOL bAborted, int start_pos, int end_pos, double speed, double accel, double offset, BOOL bScanning);
 	UINT    ThreadSteerMotors();
 	UINT    ThreadNoteLaser();
 	void    GetCopyOfOffsetList(CArray<LASER_POS, LASER_POS>&);

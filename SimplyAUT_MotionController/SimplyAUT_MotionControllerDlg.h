@@ -40,8 +40,10 @@ public:
 	BOOL CheckVisibleTab();
 	void AppendErrorMessage(const char* szMsg, int=0);
 	void StartReadMagStatus(BOOL);
-	void Serialize(BOOL bSave);
-	void Serialize(CArchive& ar);
+	void Serialize1(BOOL bSave);
+	void Serialize2(BOOL bSave);
+	void Serialize1(CArchive& ar);
+	void Serialize2(CArchive& ar);
 	void SetTitle();
 	void UpdateFileMenu(CMenu* pMenu);
 	void OnOpenFile();

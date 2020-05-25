@@ -713,9 +713,9 @@ int CLaserControl::CalculateMaximumIndex(const double hitBuffer[], int nSamp, in
 	for (int i = 1; i < nSamp - 1; ++i)
 	{
 		int dir = 0;
-		if (hitBuffer[i] < hitBuffer[i - 1] && hitBuffer[i] < hitBuffer[i + 1])
+		if (!m_bForceWeld && (hitBuffer[i] < hitBuffer[i - 1] && hitBuffer[i] < hitBuffer[i + 1]) )
 			dir = -1;
-		else if (hitBuffer[i] > hitBuffer[i - 1] && hitBuffer[i] > hitBuffer[i + 1])
+		else if (!m_bForceGap && (hitBuffer[i] > hitBuffer[i - 1] && hitBuffer[i] > hitBuffer[i + 1]) )
 			dir = 1;
 
 		if (dir == 0)
@@ -766,17 +766,37 @@ int CLaserControl::CalculateMaximumIndex(const double hitBuffer[], int nSamp, in
 		}
 	}
 
-	// sort to get the top 4 maximum hits
-	qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMaxPoints);
-	qsort(minMaxInd.GetData(), cnt/2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
-	MIN_MAX_VALUES maxVal = minMaxInd[0];
+	// sorting by SD does not work well for a weld cap
+	// thus just get the maximum value
+	MIN_MAX_VALUES maxVal;
+	if (!m_bForceGap)
+	{
+		// sort to get the top 4 maximum hits
+		qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMaxPoints);
+//		qsort(minMaxInd.GetData(), cnt / 2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
+		maxVal = minMaxInd[0];
+	}
 
 	// sort by minimum
-	qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMinPoints);
-	qsort(minMaxInd.GetData(), cnt/2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
-	MIN_MAX_VALUES minVal = minMaxInd[0];
+	MIN_MAX_VALUES minVal;
+	if (!m_bForceWeld)
+	{
+		qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMinPoints);
+		qsort(minMaxInd.GetData(), cnt / 2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
+		minVal = minMaxInd[0];
+	}
 
-	if ( m_bForceWeld || (maxVal.sd > minVal.sd && !m_bForceGap) )
+	if (m_bForceWeld)
+	{
+		rDir = 1;
+		return maxVal.ind;
+	}
+	else if (m_bForceGap)
+	{
+		rDir = -1;
+		return minVal.ind;
+	}
+	else if (maxVal.sd > minVal.sd && !m_bForceGap)
 	{
 		rDir = 1;
 		return maxVal.ind;

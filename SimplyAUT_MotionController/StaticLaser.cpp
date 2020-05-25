@@ -443,8 +443,8 @@ void CStaticLaser::DrawLaserOffset(CDC* pDC)
 	LASER_POS lastPos = m_weldNavigation.GetLastNotedPosition(0);
 
 	m_critLaserPos1.Lock();
-	if (lastPos.gap_filt != FLT_MAX)
-		m_laserPos1.Add(CDoublePoint(lastPos.measures.measure_pos_mm, lastPos.gap_filt));
+	if (lastPos.gap_filt1 != FLT_MAX)
+		m_laserPos1.Add(CDoublePoint(lastPos.measures.measure_pos_mm, lastPos.gap_filt1));
 
 	if (m_laserPos1.GetSize() == 0)
 	{
