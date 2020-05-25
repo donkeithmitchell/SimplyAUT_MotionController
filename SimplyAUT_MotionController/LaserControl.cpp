@@ -782,7 +782,7 @@ int CLaserControl::CalculateMaximumIndex(const double hitBuffer[], int nSamp, in
 	if (!m_bForceWeld)
 	{
 		qsort(minMaxInd.GetData(), cnt, sizeof(MIN_MAX_VALUES), ::SortMinPoints);
-		qsort(minMaxInd.GetData(), cnt / 2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
+//		qsort(minMaxInd.GetData(), cnt / 2, sizeof(MIN_MAX_VALUES), ::SortSDPoints);
 		minVal = minMaxInd[0];
 	}
 
